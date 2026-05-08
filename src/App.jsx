@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Header } from "./components/Header";
 import { Sidebar } from "./components/Sidebar";
 import { Footer } from "./components/Footer";
@@ -6,630 +6,410 @@ import { DocumentsPage } from "./components/DocumentsPage";
 
 function App() {
   const [currentPage, setCurrentPage] = useState("dashboard");
+  const [theme, setTheme] = useState(() => {
+    const storedTheme = window.localStorage.getItem("app-theme");
+
+    if (storedTheme === "light" || storedTheme === "dark") {
+      return storedTheme;
+    }
+
+    return window.matchMedia("(prefers-color-scheme: dark)").matches
+      ? "dark"
+      : "light";
+  });
+
+  useEffect(() => {
+    document.documentElement.setAttribute("data-bs-theme", theme);
+    window.localStorage.setItem("app-theme", theme);
+  }, [theme]);
+
+  const handleToggleSidebar = (e) => {
+    const togglerBtn = e?.currentTarget;
+    togglerBtn?.classList?.toggle("active");
+
+    if (window.innerWidth >= 1191) {
+      const currentValue =
+        document.documentElement.getAttribute("data-app-sidebar");
+      const nextValue = currentValue === "full" ? "mini" : "full";
+      document.documentElement.setAttribute("data-app-sidebar", nextValue);
+      return;
+    }
+
+    document.querySelectorAll(".app-menubar").forEach((menubar) => {
+      menubar.classList.toggle("open");
+    });
+  };
+
+  const handleToggleTheme = (e) => {
+    e?.preventDefault?.();
+    setTheme((currentTheme) => (currentTheme === "dark" ? "light" : "dark"));
+  };
 
   return (
     <div className="page-layout">
       {/* 1. Các thành phần cố định */}
-      <Header />
-      <Sidebar onNavigate={setCurrentPage} currentPage={currentPage} />
+      <Header
+        onToggleSidebar={handleToggleSidebar}
+        onToggleTheme={handleToggleTheme}
+      />
+      <Sidebar
+        onNavigate={setCurrentPage}
+        currentPage={currentPage}
+        onToggleSidebar={handleToggleSidebar}
+      />
 
       {/* 2. Phần Main Content bạn vừa gửi */}
       <main className="app-wrapper">
-
-      {currentPage === "documents" ? (
-        <DocumentsPage />
-      ) : (
-      <div className="container-fluid">
-
-        <div className="app-page-head d-flex flex-wrap gap-3 align-items-center justify-content-between">
-          <div className="clearfix">
-            <h1 className="app-page-title mb-0">Dashboard</h1>
-            <nav aria-label="breadcrumb">
-              <ol className="breadcrumb mb-0">
-                <li className="breadcrumb-item">
-                  <a href="index-2.html" className="text-body">
-                    <i className="fi fi-rr-home"></i>Home
-                  </a>
-                </li>
-                <li className="breadcrumb-item active" aria-current="page">Dashboard</li>
-              </ol>
-            </nav>
-          </div>
-          <button type="button" className="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addPropertyModal">
-            <i className="fi fi-rr-plus me-2"></i>Add Property
-          </button>
-        </div>
-
-        <div className="row">
-
-          <div className="col-xxl-6">
-            <div className="card gradient-primary welcome-bx overflow-hidden border-0">
-              <div className="card-body pb-0">
-                <div className="row">
-                  <div className="col-lg-5 col-md-5">
-                    <div className="d-flex align-items-center mb-1">
-                      <img src="/assets/images/icons/hand.svg" alt="" className="img-fluid me-2" />
-                      <h3 className="mb-0 text-white">Hello, Robert Brown</h3>
-                    </div>
-                    <p className="mb-4">Track all property performance, availability, pricing trends, and occupancy easily</p>
-                    <div className="rounded-2 p-3 bg-body mb-2">
-                      <div className="d-flex align-items-center">
-                        <div className="clearfix me-auto">
-                          <h6>Total Properties</h6>
-                          <h2 className="mb-0 fw-bold d-flex align-items-center">1,245 <span className="badge bg-success-subtle text-success rounded-pill ms-1">+8%</span>
-                          </h2>
-                        </div>
-                        <div className="avatar avatar-md rounded-2 bg-primary-subtle text-primary">
-                          <i className="fi fi-rr-apartment"></i>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="rounded-2 p-3 bg-body">
-                      <div className="d-flex align-items-center">
-                        <div className="clearfix me-auto">
-                          <h6>Sold Properties</h6>
-                          <h2 className="mb-0 fw-bold d-flex align-items-center">1,324 <span className="badge bg-success-subtle text-success rounded-pill ms-1">+2.3%</span>
-                          </h2>
-                        </div>
-                        <div className="avatar avatar-md rounded-2 bg-secondary-subtle text-secondary">
-                          <i className="fi fi-rr-mortgage"></i>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="col-lg-7 col-md-6">
-                    <img src="/assets/images/house.png" alt="" className="img-fluid house" />
-                  </div>
-                </div>
+        {currentPage === "documents" ? (
+          <DocumentsPage />
+        ) : (
+          <div className="container-fluid">
+            {/* --- HEADER: CHÀO MỪNG & HÀNH ĐỘNG --- */}
+            <div className="app-page-head d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+              <div>
+                <h3 className="fw-bold mb-0">Hệ Thống Quản Trị Toàn Diện</h3>
+                <p className="text-muted mb-0">
+                  Chào mừng trở lại! Hôm nay có 5 nhiệm vụ mới cần xử lý.
+                </p>
+              </div>
+              <div className="d-flex gap-2">
+                <button
+                  type="button"
+                  className="btn btn-primary shadow-sm px-4 py-2"
+                  data-bs-toggle="modal"
+                  data-bs-target="#addPropertyModal"
+                  style={{ borderRadius: "8px", fontWeight: "600" }}
+                >
+                  <i className="fi fi-rr-add me-2"></i>Tạo nhiệm vụ
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-outline-secondary shadow-sm px-2 py-2"
+                  data-bs-toggle="modal"
+                  data-bs-target="#addAgentModal"
+                  style={{ borderRadius: "8px", fontWeight: "600" }}
+                >
+                  <i className="fi fi-rr-phone-call me-2"></i>Hotline chuyên gia
+                </button>
               </div>
             </div>
-          </div>
 
-          <div className="col-xxl-6">
             <div className="row">
-
-              <div className="col-xxl-6 col-md-6">
-                <div className="card">
-                  <div className="card-header border-0 pb-0 d-flex justify-content-between align-items-center">
-                    <h6 className="card-title mb-0">Total Client</h6>
-                    <a href="all-agents.html" className="btn btn-sm btn-outline-primary">See Details</a>
-                  </div>
-                  <div className="card-body d-flex align-items-end justify-content-between pb-0 pt-1">
-                    <div className="d-flex align-items-center mb-3">
-                      <div className="avatar avatar-md rounded-2 bg-primary-subtle text-primary me-2">
-                        <i className="fi fi-rr-apartment"></i>
+              {/* --- SECTION 1: CÁC CHỈ SỐ THỐNG KÊ (KPIs) --- */}
+              <div className="col-xxl-6">
+                <div className="row">
+                  <div className="col-xxl-6 col-md-6 mb-4">
+                    <div className="card h-100 border-0 shadow-sm">
+                      <div className="card-header border-0 pb-0 d-flex justify-content-between align-items-center bg-transparent">
+                        <h6 className="card-title mb-0 fw-bold">
+                          Tổng Nhân Sự
+                        </h6>
+                        <span className="badge bg-success-subtle text-success">
+                          +12%
+                        </span>
                       </div>
-                      <h2 className="fw-bold mb-0 me-2">1,175</h2>
-                      <span className="badge badge-sm bg-success-subtle text-success">+8%</span>
-                    </div>
-                    <div id="Card1Chart" className="mx-n2 my-n4"></div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="col-xxl-6 col-md-6">
-                <div className="card">
-                  <div className="card-header border-0 pb-0 d-flex justify-content-between align-items-center">
-                    <h6 className="card-title mb-0">Total Leads</h6>
-                    <a href="property-list.html" className="btn btn-sm btn-outline-secondary">See Details</a>
-                  </div>
-                  <div className="card-body d-flex align-items-end justify-content-between pb-0 pt-1">
-                    <div className="d-flex align-items-center mb-3">
-                      <div className="avatar avatar-md rounded-2 bg-secondary-subtle text-secondary me-2">
-                        <i className="fi fi-rr-mortgage"></i>
+                      <div className="card-body d-flex align-items-center justify-content-between pt-1">
+                        <div className="d-flex align-items-center">
+                          <div className="avatar avatar-md rounded-2 bg-primary-subtle text-primary me-3">
+                            <i className="fi fi-rr-users-alt fs-4"></i>
+                          </div>
+                          <h2 className="fw-bold mb-0">1,250</h2>
+                        </div>
+                        <div id="Card1Chart" className="mx-n2"></div>
                       </div>
-                      <h2 className="fw-bold mb-0 me-2">1,024</h2>
-                      <span className="badge badge-sm bg-success-subtle text-success">+5%</span>
-                    </div>
-                    <div id="Card2Chart" className="mx-n2 my-n2"></div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="col-xxl-6 col-md-6">
-                <div className="card">
-                  <div className="card-header border-0 pb-0 d-flex justify-content-between align-items-center">
-                    <h6 className="card-title mb-0">Active Agents</h6>
-                    <a href="all-agents.html" className="btn btn-sm btn-outline-primary">See Details</a>
-                  </div>
-                  <div className="card-body d-flex align-items-end justify-content-between pb-0">
-                    <div className="d-flex align-items-center mb-3">
-                      <div className="avatar avatar-md rounded-2 bg-success-subtle text-success me-2">
-                        <i className="fi fi-rr-users-alt"></i>
-                      </div>
-                      <h2 className="fw-bold mb-0 me-2">757</h2>
-                      <span className="badge badge-sm bg-danger-subtle text-danger">-5%</span>
-                    </div>
-                    <div id="Card3Chart" className="mx-n2 my-n2"></div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="col-xxl-6 col-md-6">
-                <div className="card">
-                  <div className="card-header border-0 pb-0 d-flex justify-content-between align-items-center">
-                    <h6 className="card-title mb-0">New Clients</h6>
-                  </div>
-                  <div className="card-body d-flex align-items-end justify-content-between pb-0">
-                    <div className="d-flex align-items-center mb-3">
-                      <div className="avatar avatar-md rounded-2 bg-info-subtle text-info me-2">
-                        <i className="fi fi-rr-heart-partner-handshake"></i>
-                      </div>
-                      <h2 className="fw-bold mb-0 me-2">524</h2>
-                      <span className="badge badge-sm bg-danger-subtle text-danger">-2.1%</span>
                     </div>
                   </div>
-                </div>
-              </div>
 
-            </div>
-          </div>
-
-          <div className="col-xxl-6">
-            <div className="card">
-              <div className="card-header border-0 pb-0 d-flex align-items-center justify-content-between">
-                <h6 className="card-title mb-0">Property Sales</h6>
-                <div className="dropdown d-flex align-items-center gap-2">
-                  <button className="btn dropdown-toggle btn-white btn-shadow btn-sm" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                    Today
-                  </button>
-                  <ul className="dropdown-menu">
-                    <li>
-                      <a className="dropdown-item" href="#">Today</a>
-                    </li>
-                    <li>
-                      <a className="dropdown-item" href="#">Last Week</a>
-                    </li>
-                    <li>
-                      <a className="dropdown-item" href="#">Last Month</a>
-                    </li>
-                    <li>
-                      <a className="dropdown-item" href="#">Last Years</a>
-                    </li>
-                  </ul>
-                </div>
-              </div>
-              <div className="card-body pb-0 pt-2">
-                <div className="mb-2 d-flex align-items-center gap-2">
-                  <h2 className="mb-0 fw-bold">$345,783</h2>
-                  <span className="text-success">+12.34%</span>
-                </div>
-                <div id="PropertySalesChart" className="mb-n3"></div>
-              </div>
-            </div>
-          </div>
-
-          <div className="col-xxl-6">
-            <div className="card">
-              <div className="card-header border-0 pb-0 d-flex align-items-center justify-content-between">
-                <h6 className="card-title mb-0">Revenue Overview</h6>
-                <div className="dropdown d-flex align-items-center gap-2">
-                  <button className="btn dropdown-toggle btn-white btn-shadow btn-sm" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                    Today
-                  </button>
-                  <ul className="dropdown-menu">
-                    <li>
-                      <a className="dropdown-item" href="#">Today</a>
-                    </li>
-                    <li>
-                      <a className="dropdown-item" href="#">Last Week</a>
-                    </li>
-                    <li>
-                      <a className="dropdown-item" href="#">Last Month</a>
-                    </li>
-                    <li>
-                      <a className="dropdown-item" href="#">Last Years</a>
-                    </li>
-                  </ul>
-                </div>
-              </div>
-              <div className="card-body pb-0 pt-2">
-                <div className="mb-2 d-flex align-items-center gap-2">
-                  <h2 className="mb-0 fw-bold">$236,423</h2>
-                  <span className="text-danger">-10.34%</span>
-                </div>
-              </div>
-              <div className="px-2">
-                <div id="RevenueChart"></div>
-              </div>
-            </div>
-          </div>
-
-          <div className="col-xxl-8">
-            <div className="card">
-              <div className="card-header border-0 pb-0">
-                <h6 className="card-title mb-0">Most Sales Location</h6>
-              </div>
-              <div className="card-body">
-                <div className="row align-items-center justify-content-between">
-                  <div className="col-xxl-8 col-xl-7">
-                    <div id="jsVectorMap_Lines" className="jsvectormap"></div>
+                  <div className="col-xxl-6 col-md-6 mb-4">
+                    <div className="card h-100 border-0 shadow-sm">
+                      <div className="card-header border-0 pb-0 d-flex justify-content-between align-items-center bg-transparent">
+                        <h6 className="card-title mb-0 fw-bold">
+                          Dự Án Hoàn Thành
+                        </h6>
+                        <span className="badge bg-info-subtle text-info">
+                          85%
+                        </span>
+                      </div>
+                      <div className="card-body d-flex align-items-center justify-content-between pt-1">
+                        <div className="d-flex align-items-center">
+                          <div className="avatar avatar-md rounded-2 bg-secondary-subtle text-secondary me-3">
+                            <i className="fi fi-rr-rocket-lunch fs-4"></i>
+                          </div>
+                          <h2 className="fw-bold mb-0">48</h2>
+                        </div>
+                        <div id="Card2Chart" className="mx-n2"></div>
+                      </div>
+                    </div>
                   </div>
-                  <div className="col-xxl-3 col-xl-4">
-                    <ul className="list-group list-group-smooth list-group-space list-group-hover">
-                      <li className="list-group-item rounded px-3 py-2">
-                        <div className="d-flex align-items-center justify-content-between">
-                          <div className="clearfix">
-                            <h6 className="mb-0">Canada</h6>
-                            <p className="text-body small mb-0">500 Unit</p>
+
+                  <div className="col-xxl-6 col-md-6 mb-4">
+                    <div className="card h-100 border-0 shadow-sm">
+                      <div className="card-header border-0 pb-0 d-flex justify-content-between align-items-center bg-transparent">
+                        <h6 className="card-title mb-0 fw-bold">Đánh Giá TB</h6>
+                        <span className="text-warning small">
+                          <i className="fi fi-ss-star me-1"></i>4.9/5
+                        </span>
+                      </div>
+                      <div className="card-body d-flex align-items-center justify-content-between pt-1">
+                        <div className="d-flex align-items-center">
+                          <div className="avatar avatar-md rounded-2 bg-success-subtle text-success me-3">
+                            <i className="fi fi-rr-heart-arrow fs-4"></i>
                           </div>
-                          <div className="clearfix">
-                            <div id="Score1"></div>
-                          </div>
+                          <h2 className="fw-bold mb-0">98%</h2>
                         </div>
-                      </li>
-                      <li className="list-group-item rounded px-3 py-2">
-                        <div className="d-flex align-items-center justify-content-between">
-                          <div className="clearfix">
-                            <h6 className="mb-1">Brazil</h6>
-                            <p className="text-body mb-0">600 Unit</p>
-                          </div>
-                          <div className="clearfix">
-                            <div id="Score2"></div>
-                          </div>
+                        <div id="Card3Chart" className="mx-n2"></div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="col-xxl-6 col-md-6 mb-4">
+                    <div className="card h-100 border-0 shadow-sm">
+                      <div className="card-header border-0 pb-0 d-flex justify-content-between align-items-center bg-transparent">
+                        <h6 className="card-title mb-0 fw-bold">
+                          Thông Báo Mới
+                        </h6>
+                      </div>
+                      <div className="card-body d-flex align-items-center pt-1">
+                        <div className="avatar avatar-md rounded-2 bg-info-subtle text-info me-3">
+                          <i className="fi fi-rr-bell fs-4"></i>
                         </div>
-                      </li>
-                      <li className="list-group-item rounded px-3 py-2">
-                        <div className="d-flex align-items-center justify-content-between">
-                          <div className="clearfix">
-                            <h6 className="mb-1">China</h6>
-                            <p className="text-body mb-0">700 Unit</p>
-                          </div>
-                          <div className="clearfix">
-                            <div id="Score3"></div>
-                          </div>
-                        </div>
-                      </li>
-                      <li className="list-group-item rounded px-3 py-2">
-                        <div className="d-flex align-items-center justify-content-between">
-                          <div className="clearfix">
-                            <h6 className="mb-1">Japan</h6>
-                            <p className="text-body mb-0">450 Unit</p>
-                          </div>
-                          <div className="clearfix">
-                            <div id="Score4"></div>
-                          </div>
-                        </div>
-                      </li>
-                      <li className="list-group-item rounded px-3 py-2">
-                        <div className="d-flex align-items-center justify-content-between">
-                          <div className="clearfix">
-                            <h6 className="mb-1">Germany</h6>
-                            <p className="text-body mb-0">350 Unit</p>
-                          </div>
-                          <div className="clearfix">
-                            <div id="Score5"></div>
-                          </div>
-                        </div>
-                      </li>
-                    </ul>
+                        <h2 className="fw-bold mb-0">12</h2>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          </div>
 
-          <div className="col-xxl-4">
-            <div className="card overflow-hidden">
-              <div className="card-header border-0 d-flex align-items-center justify-content-between">
-                <h6 className="card-title mb-0">Customer Review</h6>
-                <div className="btn-group">
-                  <button className="btn btn-action-primary btn-sm btn-icon btn-outline-light dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                    <i className="fi fi-bs-menu-dots"></i>
-                  </button>
-                  <ul className="dropdown-menu dropdown-menu-end">
-                    <li>
-                      <a className="dropdown-item" href="#">Edit</a>
-                    </li>
-                    <li>
-                      <a className="dropdown-item" href="#">Delete</a>
-                    </li>
-                  </ul>
+              {/* --- SECTION 2: BIỂU ĐỒ TĂNG TRƯỞNG CHI TIẾT --- */}
+              <div className="col-xxl-6 mb-4">
+                <div className="card  border-0 shadow-sm">
+                  <div className="card-header border-0 pb-0 d-flex align-items-center justify-content-between bg-transparent">
+                    <h6 className="card-title mb-0 fw-bold">
+                      Hiệu Suất Phòng Ban (Quý 2)
+                    </h6>
+                    <div className="dropdown">
+                      <button
+                        className="btn btn-light btn-sm dropdown-toggle"
+                        data-bs-toggle="dropdown"
+                      >
+                        Hàng tuần
+                      </button>
+                      <ul className="dropdown-menu">
+                        <li>
+                          <a className="dropdown-item" href="#">
+                            Hàng tháng
+                          </a>
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
+                  <div className="card-body pt-2 pb-0">
+                    <div className="mb-3 d-flex align-items-center gap-2">
+                      <h2 className="mb-0 fw-bold text-primary">94.2%</h2>
+                      <span className="text-success small fw-medium">
+                        <i className="fi fi-rr-arrow-trend-up me-1"></i>+2.4%
+                      </span>
+                    </div>
+                    <div
+                      id="PropertySalesChart"
+                      style={{ height: "180px" }}
+                    ></div>
+                  </div>
                 </div>
               </div>
-              <div className="card-body gradient-layer pt-0" style={{ height: "325px" }} data-simplebar>
-                <div className="d-flex align-items-center border-bottom pb-3 mb-3">
-                  <div className="me-3">
-                    <img src="/assets/images/avatar/avatar1.webp" className="avatar avatar-xxl" alt="" />
+
+              {/* --- SECTION 3: BẢNG NHIỆM VỤ PHÒNG BAN --- */}
+              <div className="col-xxl-8 mb-4">
+                <div className="card border-0 shadow-sm">
+                  <div className="card-header border-0 py-3 bg-transparent">
+                    <h6 className="card-title mb-0 fw-bold">
+                      Trạng Thái Nhiệm Vụ Phòng Ban
+                    </h6>
                   </div>
-                  <div className="clearfix w-100">
-                    <h5 className="mb-1 fw-bold">Ethan Brown</h5>
-                    <p className="mb-2">Highly recommend this service! The team was professional throughout.</p>
-                    <div className="d-flex align-items-center justify-content-between">
-                      <div className="d-flex flex-wrap align-items-center gap-2">
-                        <span className="text-1xs">Rating: (4.6)</span>
-                        <div className="d-flex align-items-center gap-1">
-                          <i className="fi fi-ss-star text-warning"></i>
-                          <i className="fi fi-ss-star text-warning"></i>
-                          <i className="fi fi-ss-star text-warning"></i>
-                          <i className="fi fi-ss-star text-warning"></i>
-                          <i className="fi fi-ss-star"></i>
+                  <div className="card-body pt-0">
+                    <div className="table-responsive">
+                      <table className="table table-hover align-middle mb-0">
+                        <thead className="table-light">
+                          <tr>
+                            <th className="border-0">Phòng Ban</th>
+                            <th className="border-0 text-center">Tiến Độ</th>
+                            <th className="border-0">Thành Viên</th>
+                            <th className="border-0 text-end">Hạn Chót</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {[
+                            {
+                              name: "Kỹ Thuật",
+                              color: "primary",
+                              progress: 75,
+                              lead: "Liam Smith",
+                              date: "20 May",
+                            },
+                            {
+                              name: "Marketing",
+                              color: "success",
+                              progress: 40,
+                              lead: "Sophia Lee",
+                              date: "22 May",
+                            },
+                            {
+                              name: "Nhân Sự",
+                              color: "info",
+                              progress: 100,
+                              lead: "Ethan Brown",
+                              date: "Done",
+                            },
+                          ].map((item, index) => (
+                            <tr key={index}>
+                              <td>
+                                <div className="fw-bold text-dark">
+                                  {item.name}
+                                </div>
+                                <small className="text-muted">
+                                  Lead: {item.lead}
+                                </small>
+                              </td>
+                              <td style={{ width: "200px" }}>
+                                <div
+                                  className="progress"
+                                  style={{ height: "6px" }}
+                                >
+                                  <div
+                                    className={`progress-bar bg-${item.color}`}
+                                    style={{ width: `${item.progress}%` }}
+                                  ></div>
+                                </div>
+                              </td>
+                              <td>
+                                <div className="avatar-group d-flex">
+                                  <img
+                                    src={`/assets/images/avatar/avatar${index + 1}.webp`}
+                                    className="avatar avatar-xs rounded-circle border border-white"
+                                    alt=""
+                                  />
+                                </div>
+                              </td>
+                              <td className="text-end text-muted small">
+                                {item.date}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* --- SECTION 4: TIN TỨC & PHẢN HỒI (FIXED ERROR) --- */}
+              <div className="col-xxl-4 mb-4">
+                <div className="card h-100 border-0 shadow-sm overflow-hidden">
+                  <div className="card-header border-0 d-flex align-items-center justify-content-between bg-transparent">
+                    <h6 className="card-title mb-0 fw-bold">
+                      Thông Tin Sự Kiện
+                    </h6>
+                    <button className="btn btn-action-primary btn-sm btn-icon">
+                      <i className="fi fi-bs-menu-dots"></i>
+                    </button>
+                  </div>
+                  {/* Thêm div bao bọc để tránh lỗi removeChild của SimpleBar */}
+                  <div
+                    className="card-body pt-0"
+                    style={{ height: "380px" }}
+                    data-simplebar
+                  >
+                    <div className="simplebar-content-wrapper-fix">
+                      {/* Event 1 */}
+                      <div className="d-flex align-items-start border-bottom py-3">
+                        <div className="me-3">
+                          <div
+                            className="bg-primary-subtle text-primary p-2 rounded text-center"
+                            style={{ width: "50px" }}
+                          >
+                            <h5 className="mb-0 fw-bold">12</h5>
+                            <small>Th5</small>
+                          </div>
+                        </div>
+                        <div className="w-100">
+                          <h6 className="mb-1 fw-bold">Teambuilding Quý 2</h6>
+                          <p className="text-muted small mb-0">
+                            Địa điểm: Vũng Tàu - Thời gian: 3 ngày 2 đêm.
+                          </p>
                         </div>
                       </div>
-                      <p className="mb-0 text-2xs">10h ago</p>
-                    </div>
-                  </div>
-                </div>
-                <div className="d-flex align-items-center border-bottom pb-3 mb-3">
-                  <div className="me-3">
-                    <img src="/assets/images/avatar/avatar2.webp" className="avatar avatar-xxl" alt="" />
-                  </div>
-                  <div className="clearfix w-100">
-                    <h5 className="mb-1 fw-bold">Sophia Lee</h5>
-                    <p className="mb-2">Great experience! Everything was smooth and the staff handled.</p>
-                    <div className="d-flex align-items-center justify-content-between">
-                      <div className="d-flex flex-wrap align-items-center gap-2">
-                        <span className="text-1xs">Rating: (4.8)</span>
-                        <div className="d-flex align-items-center gap-1">
-                          <i className="fi fi-ss-star text-warning"></i>
-                          <i className="fi fi-ss-star text-warning"></i>
-                          <i className="fi fi-ss-star text-warning"></i>
-                          <i className="fi fi-ss-star text-warning"></i>
-                          <i className="fi fi-ss-star text-warning"></i>
+
+                      <div className="mt-4">
+                        <h6 className="fw-bold mb-3 small text-uppercase">
+                          Phản hồi gần đây
+                        </h6>
+                        <div className="d-flex align-items-center mb-3">
+                          <img
+                            src="/assets/images/avatar/avatar1.webp"
+                            className="avatar avatar-md rounded-circle me-3"
+                            alt=""
+                          />
+                          <div>
+                            <h6 className="mb-0 fw-bold small">Ethan Brown</h6>
+                            <p className="mb-0 text-muted extra-small">
+                              Cần hỗ trợ về phần mềm CRM mới.
+                            </p>
+                          </div>
+                        </div>
+                        <div className="d-flex align-items-center mb-3">
+                          <img
+                            src="/assets/images/avatar/avatar2.webp"
+                            className="avatar avatar-md rounded-circle me-3"
+                            alt=""
+                          />
+                          <div>
+                            <h6 className="mb-0 fw-bold small">Sophia Lee</h6>
+                            <p className="mb-0 text-muted extra-small">
+                              Báo cáo Marketing đã được gửi cho HR.
+                            </p>
+                          </div>
                         </div>
                       </div>
-                      <p className="mb-0 text-2xs">1d ago</p>
                     </div>
                   </div>
                 </div>
-                <div className="d-flex align-items-center border-bottom pb-3 mb-3">
-                  <div className="me-3">
-                    <img src="/assets/images/avatar/avatar3.webp" className="avatar avatar-xxl" alt="" />
-                  </div>
-                  <div className="clearfix w-100">
-                    <h5 className="mb-1 fw-bold">Liam Smith</h5>
-                    <p className="mb-2">Impressed with the quick service and helpful customer support team.</p>
-                    <div className="d-flex align-items-center justify-content-between">
-                      <div className="d-flex flex-wrap align-items-center gap-2">
-                        <span className="text-1xs">Rating: (4.7)</span>
-                        <div className="d-flex align-items-center gap-1">
-                          <i className="fi fi-ss-star text-warning"></i>
-                          <i className="fi fi-ss-star text-warning"></i>
-                          <i className="fi fi-ss-star text-warning"></i>
-                          <i className="fi fi-ss-star text-warning"></i>
-                          <i className="fi fi-ss-star"></i>
-                        </div>
-                      </div>
-                      <p className="mb-0 text-2xs">2d ago</p>
+              </div>
+            </div>
+
+            {/* --- SECTION 5: BANNER QUẢNG BÁ --- */}
+            <div className="row mb-4">
+              <div className="col-12">
+                <div
+                  className="card border-0 shadow-sm p-0 overflow-hidden"
+                  style={{ borderRadius: "15px" }}
+                >
+                  <div className="row g-0 align-items-center">
+                    <div className="col-md-8 p-4">
+                      <h4 className="fw-bold text-primary">
+                        Tối Ưu Hoá Hiệu Suất Với AI
+                      </h4>
+                      <p className="text-muted">
+                        Khám phá các công cụ mới giúp tự động hóa báo cáo và
+                        quản lý nhân sự hiệu quả hơn.
+                      </p>
+                      <button className="btn btn-primary btn-sm px-4">
+                        Tìm hiểu ngay
+                      </button>
                     </div>
-                  </div>
-                </div>
-                <div className="d-flex align-items-center border-bottom pb-3 mb-3">
-                  <div className="me-3">
-                    <img src="/assets/images/avatar/avatar2.webp" className="avatar avatar-xxl" alt="" />
-                  </div>
-                  <div className="clearfix w-100">
-                    <h5 className="mb-1 fw-bold">Sophia Lee</h5>
-                    <p className="mb-2">Great experience! Everything was smooth and the staff handled.</p>
-                    <div className="d-flex align-items-center justify-content-between">
-                      <div className="d-flex flex-wrap align-items-center gap-2">
-                        <span className="text-1xs">Rating: (4.8)</span>
-                        <div className="d-flex align-items-center gap-1">
-                          <i className="fi fi-ss-star text-warning"></i>
-                          <i className="fi fi-ss-star text-warning"></i>
-                          <i className="fi fi-ss-star text-warning"></i>
-                          <i className="fi fi-ss-star text-warning"></i>
-                          <i className="fi fi-ss-star text-warning"></i>
-                        </div>
-                      </div>
-                      <p className="mb-0 text-2xs">1d ago</p>
+                    <div className="col-md-4 text-end">
+                      <img
+                        src="/assets/images/banner-web-korean.jpg"
+                        className="img-fluid"
+                        style={{ maxHeight: "150px", objectFit: "cover" }}
+                      />
                     </div>
                   </div>
                 </div>
               </div>
             </div>
           </div>
-
-        </div>
-
-        <div className="d-flex flex-wrap align-items-center justify-content-between mt-4 mb-3">
-          <h5 className="mb-0">New Property Listings</h5>
-          <button type="button" className="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addPropertyModal">
-            Add New Property
-          </button>
-        </div>
-
-        <div className="row">
-
-          <div className="col-xxl-3 col-lg-6">
-            <div className="card card-body p-2">
-              <div className="rounded overflow-hidden mb-2">
-                <img src="/assets/images/properties/pic1.jpg" alt="" className="w-100" />
-              </div>
-              <div className="clearfix p-2">
-                <h5 className="mb-2 fw-bold">
-                  <a href="property-details.html" className="text-dark stretched-link">Luxury Penthouse</a>
-                </h5>
-                <p className="mb-3">Elegant penthouse with modern design and stunning city views.</p>
-                <div className="d-flex align-items-center gap-2 flex-wrap">
-                  <span className="badge badge-lg bg-gray bg-opacity-10 text-dark d-flex align-items-center">
-                    <i className="fi fi-rs-marker me-2"></i>Dubai, UAE
-                  </span>
-                  <span className="badge badge-lg bg-gray bg-opacity-10 text-dark d-flex align-items-center">
-                    <i className="fi fi-rs-sack-dollar me-2"></i>$1,200,000
-                  </span>
-                  <span className="badge badge-lg bg-gray bg-opacity-10 text-dark d-flex align-items-center">
-                    <i className="fi fi-sr-land-layers me-2"></i>2,350 sq.ft
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="col-xxl-3 col-lg-6">
-            <div className="card card-body p-2">
-              <div className="rounded overflow-hidden mb-2">
-                <img src="/assets/images/properties/pic2.jpg" alt="" className="w-100" />
-              </div>
-              <div className="clearfix p-2">
-                <h5 className="mb-2 fw-bold">
-                  <a href="property-details.html" className="text-dark stretched-link">Modern Family Home</a>
-                </h5>
-                <p className="mb-3">Spacious family home featuring a garden, garage, and cozy interiors.</p>
-                <div className="d-flex align-items-center gap-2 flex-wrap">
-                  <span className="badge badge-lg bg-gray bg-opacity-10 text-dark d-flex align-items-center">
-                    <i className="fi fi-rs-marker me-2"></i>Los Angeles, USA
-                  </span>
-                  <span className="badge badge-lg bg-gray bg-opacity-10 text-dark d-flex align-items-center">
-                    <i className="fi fi-rs-sack-dollar me-2"></i>$420,000
-                  </span>
-                  <span className="badge badge-lg bg-gray bg-opacity-10 text-dark d-flex align-items-center">
-                    <i className="fi fi-sr-land-layers me-2"></i>1,450 sq.ft
-                  </span>
-                  <span className="badge badge-lg bg-gray bg-opacity-10 text-dark d-flex align-items-center">
-                    <i className="fi fi-rr-bed-alt me-2"></i>3 / 2
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="col-xxl-3 col-lg-6">
-            <div className="card card-body p-2">
-              <div className="rounded overflow-hidden mb-2">
-                <img src="/assets/images/properties/pic3.jpg" alt="" className="w-100" />
-              </div>
-              <div className="clearfix p-2">
-                <h5 className="mb-2 fw-bold">
-                  <a href="property-details.html" className="text-dark stretched-link">Cozy Apartment</a>
-                </h5>
-                <p className="mb-3">Comfortable apartment ideal for couples, located near shopping and transport.</p>
-                <div className="d-flex align-items-center gap-2 flex-wrap">
-                  <span className="badge badge-lg bg-gray bg-opacity-10 text-dark d-flex align-items-center">
-                    <i className="fi fi-rs-marker me-2"></i>New York, USA
-                  </span>
-                  <span className="badge badge-lg bg-gray bg-opacity-10 text-dark d-flex align-items-center">
-                    <i className="fi fi-rs-sack-dollar me-2"></i>$250,000
-                  </span>
-                  <span className="badge badge-lg bg-gray bg-opacity-10 text-dark d-flex align-items-center">
-                    <i className="fi fi-sr-land-layers me-2"></i>980 sq.ft
-                  </span>
-                  <span className="badge badge-lg bg-gray bg-opacity-10 text-dark d-flex align-items-center">
-                    <i className="fi fi-rr-bed-alt me-2"></i>2 / 1
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="col-xxl-3 col-lg-6">
-            <div className="card card-body p-2">
-              <div className="rounded overflow-hidden mb-2">
-                <img src="/assets/images/properties/pic4.jpg" alt="" className="w-100" />
-              </div>
-              <div className="clearfix p-2">
-                <h5 className="mb-2 fw-bold">
-                  <a href="property-details.html" className="text-dark stretched-link">Seaside Villa</a>
-                </h5>
-                <p className="mb-3">Beautiful seaside villa with private pool and ocean view balcony.</p>
-                <div className="d-flex align-items-center gap-2 flex-wrap">
-                  <span className="badge badge-lg bg-gray bg-opacity-10 text-dark d-flex align-items-center">
-                    <i className="fi fi-rs-marker me-2"></i>Malibu, USA
-                  </span>
-                  <span className="badge badge-lg bg-gray bg-opacity-10 text-dark d-flex align-items-center">
-                    <i className="fi fi-rs-sack-dollar me-2"></i>$850,000
-                  </span>
-                  <span className="badge badge-lg bg-gray bg-opacity-10 text-dark d-flex align-items-center">
-                    <i className="fi fi-sr-land-layers me-2"></i>1,950 sq.ft
-                  </span>
-                  <span className="badge badge-lg bg-gray bg-opacity-10 text-dark d-flex align-items-center">
-                    <i className="fi fi-rr-bed-alt me-2"></i>3 / 2
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-        </div>
-
-        <div className="modal fade" id="addPropertyModal" tabIndex="-1" aria-labelledby="addPropertyModalLabel" aria-hidden="true">
-          <div className="modal-dialog modal-xl modal-dialog-centered">
-            <div className="modal-content">
-              <div className="modal-header">
-                <h5 className="modal-title" id="addPropertyModalLabel">Add New Property</h5>
-                <button type="button" className="btn-close" data-bs-dismiss="modal"></button>
-              </div>
-              <form>
-                <div className="modal-body">
-                  <div className="row g-3">
-                    <div className="col-md-6">
-                      <label className="form-label">Property Title</label>
-                      <input type="text" className="form-control" placeholder="e.g. Luxury Villa" required />
-                    </div>
-                    <div className="col-md-6">
-                      <label className="form-label">Property Type</label>
-                      <select className="form-select" required defaultValue="">
-                        <option value="" disabled>Select Type</option>
-                        <option>Apartment</option>
-                        <option>Villa</option>
-                        <option>House</option>
-                        <option>Office</option>
-                        <option>Shop</option>
-                        <option>Land</option>
-                      </select>
-                    </div>
-                    <div className="col-md-4">
-                      <label className="form-label">Price (₹)</label>
-                      <input type="number" className="form-control" placeholder="e.g. 5000000" required />
-                    </div>
-                    <div className="col-md-4">
-                      <label className="form-label">Status</label>
-                      <select className="form-select">
-                        <option>For Sale</option>
-                        <option>For Rent</option>
-                      </select>
-                    </div>
-                    <div className="col-md-4">
-                      <label className="form-label">Bedrooms</label>
-                      <input type="number" className="form-control" placeholder="e.g. 3" />
-                    </div>
-                    <div className="col-md-4">
-                      <label className="form-label">Bathrooms</label>
-                      <input type="number" className="form-control" placeholder="e.g. 2" />
-                    </div>
-                    <div className="col-md-4">
-                      <label className="form-label">Area (sq ft)</label>
-                      <input type="number" className="form-control" placeholder="e.g. 1200" />
-                    </div>
-                    <div className="col-md-4">
-                      <label className="form-label">Garage</label>
-                      <input type="number" className="form-control" placeholder="e.g. 1" />
-                    </div>
-                    <div className="col-md-6">
-                      <label className="form-label">City</label>
-                      <input type="text" className="form-control" placeholder="e.g. Dubai" />
-                    </div>
-                    <div className="col-md-6">
-                      <label className="form-label">Address</label>
-                      <input type="text" className="form-control" placeholder="Full address" />
-                    </div>
-                    <div className="col-md-6">
-                      <label className="form-label">Property Image</label>
-                      <input type="file" className="form-control" />
-                    </div>
-                    <div className="col-md-6">
-                      <label className="form-label">Gallery Images</label>
-                      <input type="file" className="form-control" multiple />
-                    </div>
-                    <div className="col-12">
-                      <label className="form-label">Description</label>
-                      <textarea className="form-control" rows="3" placeholder="Write property details..."></textarea>
-                    </div>
-                  </div>
-                </div>
-                <div className="modal-footer">
-                  <button type="button" className="btn btn-light" data-bs-dismiss="modal">Cancel</button>
-                  <button type="submit" className="btn btn-primary">Save Property</button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
-
-      </div>
-      )}
-
-    </main>
+        )}
+      </main>
 
       {/* 3. Footer dùng chung */}
       <Footer />

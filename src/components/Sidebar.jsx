@@ -1,100 +1,112 @@
-export const Sidebar = ({ onNavigate, currentPage }) => {
-    return (
-        <aside className="app-menubar" id="menubar">
-        <button className="app-toggler" type="button">
-          <i className="fi fi-br-angle-small-left"></i>
-        </button>
-        <div className="app-navbar-brand">
-          <a className="navbar-brand-logo" href="index-2.html">
-            <img
-              src="/assets/images/logo-HTO.png"
-              alt="UrbanHub Admin Dashboard"
-              width="40"
-              height="40"
-            />
-          </a>
-          <a className="navbar-brand-mini visible-light" href="index-2.html">
-            <img src="/assets/images/logo-text.svg" alt="UrbanHub Admin Dashboard" />
-          </a>
-          <a className="navbar-brand-mini visible-dark" href="index-2.html">
-            <img src="/assets/images/logo-text-white.svg" alt="UrbanHub Admin Dashboard" />
-          </a>
-        </div>
-        <nav className="app-navbar" data-simplebar>
-          <ul className="menubar">
-            <li className="menu-item menu-arrow">
-              <a
-                className={`menu-link ${currentPage === "dashboard" ? "active" : ""}`}
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  onNavigate?.("dashboard");
-                }}
-              >
-                <i className="icon-house"></i>
-                <span className="menu-label">Dashboard</span>
-              </a>
-              <ul className="menu-inner">
-                <li className="menu-item">
-                  <a
-                    className={`menu-link ${currentPage === "dashboard" ? "active" : ""}`}
-                    href="index-2.html"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      onNavigate?.("dashboard");
-                    }}
-                  >
-                    <span className="menu-label">Dashboard</span>
-                  </a>
-                </li>
-                <li className="menu-item">
-                  <a className="menu-link" href="index-3.html">
-                    <span className="menu-label">Agent Dashboard</span>
-                  </a>
-                </li>
-                <li className="menu-item">
-                  <a className="menu-link" href="index-4.html">
-                    <span className="menu-label">Analytics Dashboard</span>
-                  </a>
-                </li>
-                <li className="menu-item">
-                  <a className="menu-link" href="add-agent.html">
-                    <span className="menu-label">Add Agents</span>
-                  </a>
-                </li>
-                <li className="menu-item">
-                  <a className="menu-link" href="all-agents.html">
-                    <span className="menu-label">All Agents</span>
-                  </a>
-                </li>
-                <li className="menu-item">
-                  <a className="menu-link" href="agent-profile.html">
-                    <span className="menu-label">Agent Profile</span>
-                  </a>
-                </li>
-                <li className="menu-item">
-                  <a className="menu-link" href="add-property.html">
-                    <span className="menu-label">Add Property</span>
-                  </a>
-                </li>
-                <li className="menu-item">
-                  <a className="menu-link" href="property-list.html">
-                    <span className="menu-label">Property List</span>
-                  </a>
-                </li>
-                <li className="menu-item">
-                  <a className="menu-link" href="property-grid.html">
-                    <span className="menu-label">Property Grid</span>
-                  </a>
-                </li>
-                <li className="menu-item">
-                  <a className="menu-link" href="property-details.html">
-                    <span className="menu-label">Property Details</span>
-                  </a>
-                </li>
-              </ul>
-            </li>
-            {/* <li className="menu-item">
+export const Sidebar = ({ onNavigate, currentPage, onToggleSidebar }) => {
+  return (
+    <aside className="app-menubar" id="menubar">
+      <button className="app-toggler" type="button" onClick={onToggleSidebar}>
+        <i className="fi fi-br-angle-small-left"></i>
+      </button>
+      <div className="app-navbar-brand">
+        <a className="navbar-brand-logo" href="index-2.html">
+          <img
+            src="/assets/images/logo-HTO.png"
+            alt="UrbanHub Admin Dashboard"
+            width="40"
+            height="40"
+          />
+        </a>
+        
+        <a
+          className="navbar-brand-mini visible-light"
+          href="index-2.html"
+          style={{ textDecoration: "none" }}
+        >
+          <span
+            style={{
+              fontSize: "13px",
+              fontWeight: "bold",
+              color: "#003366",
+              display: "inline-block",
+              lineHeight: "20px",
+            }}
+          >
+            HT OCEAN GROUP
+          </span>
+        </a>
+      </div>
+      <nav className="app-navbar" data-simplebar>
+        <ul className="menubar">
+          <li className="menu-item menu-arrow">
+            <a
+              className={`menu-link ${currentPage === "dashboard" ? "active" : ""}`}
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                onNavigate?.("dashboard");
+              }}
+            >
+              <i className="icon-house"></i>
+              <span className="menu-label">Dashboard</span>
+            </a>
+            <ul className="menu-inner">
+              <li className="menu-item">
+                <a
+                  className={`menu-link ${currentPage === "dashboard" ? "active" : ""}`}
+                  href="index-2.html"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    onNavigate?.("dashboard");
+                  }}
+                >
+                  <span className="menu-label">Dashboard</span>
+                </a>
+              </li>
+              <li className="menu-item">
+                <a className="menu-link" href="index-3.html">
+                  <span className="menu-label">Agent Dashboard</span>
+                </a>
+              </li>
+              <li className="menu-item">
+                <a className="menu-link" href="index-4.html">
+                  <span className="menu-label">Analytics Dashboard</span>
+                </a>
+              </li>
+              <li className="menu-item">
+                <a className="menu-link" href="add-agent.html">
+                  <span className="menu-label">Add Agents</span>
+                </a>
+              </li>
+              <li className="menu-item">
+                <a className="menu-link" href="all-agents.html">
+                  <span className="menu-label">All Agents</span>
+                </a>
+              </li>
+              <li className="menu-item">
+                <a className="menu-link" href="agent-profile.html">
+                  <span className="menu-label">Agent Profile</span>
+                </a>
+              </li>
+              <li className="menu-item">
+                <a className="menu-link" href="add-property.html">
+                  <span className="menu-label">Add Property</span>
+                </a>
+              </li>
+              <li className="menu-item">
+                <a className="menu-link" href="property-list.html">
+                  <span className="menu-label">Property List</span>
+                </a>
+              </li>
+              <li className="menu-item">
+                <a className="menu-link" href="property-grid.html">
+                  <span className="menu-label">Property Grid</span>
+                </a>
+              </li>
+              <li className="menu-item">
+                <a className="menu-link" href="property-details.html">
+                  <span className="menu-label">Property Details</span>
+                </a>
+              </li>
+            </ul>
+          </li>
+          {/* <li className="menu-item">
               <a className="menu-link" href="chat.html">
                 <i className="icon-message-square-text"></i>
                 <span className="menu-label">Chat</span>
@@ -107,7 +119,7 @@ export const Sidebar = ({ onNavigate, currentPage }) => {
               </a>
             </li> */}
 
-            {/* <li className="menu-item menu-arrow">
+          {/* <li className="menu-item menu-arrow">
               <a
                 className="menu-link"
                 href="#"
@@ -135,7 +147,7 @@ export const Sidebar = ({ onNavigate, currentPage }) => {
               </ul>
             </li> */}
 
-            {/* <li className="menu-item menu-arrow">
+          {/* <li className="menu-item menu-arrow">
               <a className="menu-link" href="#" role="button">
                 <i className="icon-file"></i>
                 <span className="menu-label">Pages</span>
@@ -164,7 +176,7 @@ export const Sidebar = ({ onNavigate, currentPage }) => {
               </ul>
             </li>  */}
 
-            {/* <li className="menu-item menu-arrow">
+          {/* <li className="menu-item menu-arrow">
               <a className="menu-link" href="#" role="button">
                 <i className="icon-circle-user-round"></i>
                 <span className="menu-label">Authentication</span>
@@ -192,8 +204,8 @@ export const Sidebar = ({ onNavigate, currentPage }) => {
                 </li>
               </ul>
             </li> */}
-            
-            {/* <li className="menu-item menu-arrow">
+
+          {/* <li className="menu-item menu-arrow">
               <a className="menu-link" href="#" role="button">
                 <i className="icon-folder-open"></i>
                 <span className="menu-label">UI Components</span>
@@ -312,7 +324,7 @@ export const Sidebar = ({ onNavigate, currentPage }) => {
               </ul>
             </li> */}
 
-            {/* <li className="menu-item menu-arrow">
+          {/* <li className="menu-item menu-arrow">
               <a className="menu-link" href="#" role="button">
                 <i className="icon-star"></i>
                 <span className="menu-label">Icons</span>
@@ -336,60 +348,60 @@ export const Sidebar = ({ onNavigate, currentPage }) => {
               </ul>
             </li> */}
 
-            {/* Tài Liệu & Biểu Mẫu */}
-            <li className="menu-item menu-arrow">
-              <a
-                className={`menu-link ${currentPage === "documents" ? "active" : ""}`}
-                href="#"
-                role="button"
-                onClick={(e) => {
-                  e.preventDefault();
-                  onNavigate?.("documents");
-                }}
-              >
-                <i className="icon-file-text"></i>
-                <span className="menu-label">Tài Liệu & Biểu Mẫu</span>
-              </a>
-              <ul className="menu-inner">
-                <li className="menu-item">
-                  <a className="menu-link" href="forms/form-elements.html">
-                    <span className="menu-label">Form Elements</span>
-                  </a>
-                </li>
-                <li className="menu-item">
-                  <a className="menu-link" href="forms/form-floating.html">
-                    <span className="menu-label">Form floating</span>
-                  </a>
-                </li>
-                <li className="menu-item">
-                  <a className="menu-link" href="forms/form-input-group.html">
-                    <span className="menu-label">Form input group</span>
-                  </a>
-                </li>
-                <li className="menu-item">
-                  <a className="menu-link" href="forms/form-layout.html">
-                    <span className="menu-label">Form layout</span>
-                  </a>
-                </li>
-                <li className="menu-item">
-                  <a className="menu-link" href="forms/form-validation.html">
-                    <span className="menu-label">Form validation</span>
-                  </a>
-                </li>
-                <li className="menu-item">
-                  <a className="menu-link" href="forms/flatpickr.html">
-                    <span className="menu-label">Flatpickr</span>
-                  </a>
-                </li>
-                <li className="menu-item">
-                  <a className="menu-link" href="forms/tagify.html">
-                    <span className="menu-label">Tagify</span>
-                  </a>
-                </li>
-              </ul>
-            </li>
+          {/* Tài Liệu & Biểu Mẫu */}
+          <li className="menu-item menu-arrow">
+            <a
+              className={`menu-link ${currentPage === "documents" ? "active" : ""}`}
+              href="#"
+              role="button"
+              onClick={(e) => {
+                e.preventDefault();
+                onNavigate?.("documents");
+              }}
+            >
+              <i className="icon-file-text"></i>
+              <span className="menu-label">Tài Liệu & Biểu Mẫu</span>
+            </a>
+            <ul className="menu-inner">
+              <li className="menu-item">
+                <a className="menu-link" href="forms/form-elements.html">
+                  <span className="menu-label">Form Elements</span>
+                </a>
+              </li>
+              <li className="menu-item">
+                <a className="menu-link" href="forms/form-floating.html">
+                  <span className="menu-label">Form floating</span>
+                </a>
+              </li>
+              <li className="menu-item">
+                <a className="menu-link" href="forms/form-input-group.html">
+                  <span className="menu-label">Form input group</span>
+                </a>
+              </li>
+              <li className="menu-item">
+                <a className="menu-link" href="forms/form-layout.html">
+                  <span className="menu-label">Form layout</span>
+                </a>
+              </li>
+              <li className="menu-item">
+                <a className="menu-link" href="forms/form-validation.html">
+                  <span className="menu-label">Form validation</span>
+                </a>
+              </li>
+              <li className="menu-item">
+                <a className="menu-link" href="forms/flatpickr.html">
+                  <span className="menu-label">Flatpickr</span>
+                </a>
+              </li>
+              <li className="menu-item">
+                <a className="menu-link" href="forms/tagify.html">
+                  <span className="menu-label">Tagify</span>
+                </a>
+              </li>
+            </ul>
+          </li>
 
-            {/* <li className="menu-item menu-arrow">
+          {/* <li className="menu-item menu-arrow">
               <a className="menu-link" href="#" role="button">
                 <i className="icon-table-2"></i>
                 <span className="menu-label">Table</span>
@@ -480,14 +492,17 @@ export const Sidebar = ({ onNavigate, currentPage }) => {
                 </li>
               </ul>
             </li> */}
-          </ul>
-        </nav>
-        <div className="app-footer">
-          <a href="pages/faq.html" className="btn btn-outline-light btn-shadow btn-app-nav w-100">
-            <i className="fi fi-rs-interrogation text-primary"></i>
-            <span className="nav-text">Help and Support</span>
-          </a>
-        </div>
-      </aside>
-    );
-  };
+        </ul>
+      </nav>
+      <div className="app-footer">
+        <a
+          href="pages/faq.html"
+          className="btn btn-outline-light btn-shadow btn-app-nav w-100"
+        >
+          <i className="fi fi-rs-interrogation text-primary"></i>
+          <span className="nav-text">Help and Support</span>
+        </a>
+      </div>
+    </aside>
+  );
+};

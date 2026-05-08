@@ -14036,7 +14036,7 @@ strong {
   padding-left: 22px;
   padding-right: 22px;
   border-radius: var(--bs-border-radius-xl);
-  background: var(--custom-body-bg);
+  /* background: var(--custom-body-bg); */
   box-shadow: inset 0px 0px 30px rgba(13, 145, 156, 0.1);
 }
 @media (max-width: 1199.98px) {
@@ -16124,9 +16124,9 @@ html[data-bs-theme=dark] .text-bg-light {
   display: none;
 }
 
-[data-bs-theme=dark] .visible-light {
+/* [data-bs-theme=dark] .visible-light {
   display: none;
-}
+} */
 
 .theme-btn {
   display: inline-flex;
