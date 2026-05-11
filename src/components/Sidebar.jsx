@@ -1,11 +1,16 @@
+import { useState } from "react";
+
 export const Sidebar = ({ onNavigate, currentPage, onToggleSidebar }) => {
+  // State quản lý việc đóng/mở menu con
+  const [openMenu, setOpenMenu] = useState("");
+
   return (
     <aside className="app-menubar" id="menubar">
       <button className="app-toggler" type="button" onClick={onToggleSidebar}>
         <i className="fi fi-br-angle-small-left"></i>
       </button>
       <div className="app-navbar-brand">
-        <a className="navbar-brand-logo" href="index-2.html">
+        <a className="navbar-brand-logo" href="/index-2.html">
           <img
             src="/assets/images/logo-HTO.png"
             alt="UrbanHub Admin Dashboard"
@@ -16,7 +21,7 @@ export const Sidebar = ({ onNavigate, currentPage, onToggleSidebar }) => {
         
         <a
           className="navbar-brand-mini visible-light"
-          href="index-2.html"
+          href="/index-2.html"
           style={{ textDecoration: "none" }}
         >
           <span
@@ -34,7 +39,9 @@ export const Sidebar = ({ onNavigate, currentPage, onToggleSidebar }) => {
       </div>
       <nav className="app-navbar" data-simplebar>
         <ul className="menubar">
-          <li className="menu-item menu-arrow">
+          
+          {/* --- DASHBOARD --- */}
+          <li className="menu-item">
             <a
               className={`menu-link ${currentPage === "dashboard" ? "active" : ""}`}
               href="#"
@@ -50,7 +57,7 @@ export const Sidebar = ({ onNavigate, currentPage, onToggleSidebar }) => {
               <li className="menu-item">
                 <a
                   className={`menu-link ${currentPage === "dashboard" ? "active" : ""}`}
-                  href="index-2.html"
+                  href="/index-2.html"
                   onClick={(e) => {
                     e.preventDefault();
                     onNavigate?.("dashboard");
@@ -60,60 +67,62 @@ export const Sidebar = ({ onNavigate, currentPage, onToggleSidebar }) => {
                 </a>
               </li>
               <li className="menu-item">
-                <a className="menu-link" href="index-3.html">
+                <a className="menu-link" href="/index-3.html">
                   <span className="menu-label">Agent Dashboard</span>
                 </a>
               </li>
               <li className="menu-item">
-                <a className="menu-link" href="index-4.html">
+                <a className="menu-link" href="/index-4.html">
                   <span className="menu-label">Analytics Dashboard</span>
                 </a>
               </li>
               <li className="menu-item">
-                <a className="menu-link" href="add-agent.html">
+                <a className="menu-link" href="/add-agent.html">
                   <span className="menu-label">Add Agents</span>
                 </a>
               </li>
               <li className="menu-item">
-                <a className="menu-link" href="all-agents.html">
+                <a className="menu-link" href="/all-agents.html">
                   <span className="menu-label">All Agents</span>
                 </a>
               </li>
               <li className="menu-item">
-                <a className="menu-link" href="agent-profile.html">
+                <a className="menu-link" href="/agent-profile.html">
                   <span className="menu-label">Agent Profile</span>
                 </a>
               </li>
               <li className="menu-item">
-                <a className="menu-link" href="add-property.html">
+                <a className="menu-link" href="/add-property.html">
                   <span className="menu-label">Add Property</span>
                 </a>
               </li>
               <li className="menu-item">
-                <a className="menu-link" href="property-list.html">
+                <a className="menu-link" href="/property-list.html">
                   <span className="menu-label">Property List</span>
                 </a>
               </li>
               <li className="menu-item">
-                <a className="menu-link" href="property-grid.html">
+                <a className="menu-link" href="/property-grid.html">
                   <span className="menu-label">Property Grid</span>
                 </a>
               </li>
               <li className="menu-item">
-                <a className="menu-link" href="property-details.html">
+                <a className="menu-link" href="/property-details.html">
                   <span className="menu-label">Property Details</span>
                 </a>
               </li>
             </ul>
           </li>
+          
+          {/* --- CÁC ĐOẠN COMMENT ĐÃ ĐƯỢC GIỮ LẠI (VÀ THÊM DẤU / VÀO LINK ĐỂ CHỐNG LỖI) --- */}
           {/* <li className="menu-item">
-              <a className="menu-link" href="chat.html">
+              <a className="menu-link" href="/chat.html">
                 <i className="icon-message-square-text"></i>
                 <span className="menu-label">Chat</span>
               </a>
             </li>
             <li className="menu-item">
-              <a className="menu-link" href="calendar.html">
+              <a className="menu-link" href="/calendar.html">
                 <i className="icon-calendar-days"></i>
                 <span className="menu-label">Calendar</span>
               </a>
@@ -130,17 +139,17 @@ export const Sidebar = ({ onNavigate, currentPage, onToggleSidebar }) => {
               </a>
               <ul className="menu-inner">
                 <li className="menu-item">
-                  <a className="menu-link" href="email/inbox.html">
+                  <a className="menu-link" href="/email/inbox.html">
                     <span className="menu-label">Inbox</span>
                   </a>
                 </li>
                 <li className="menu-item">
-                  <a className="menu-link" href="email/compose.html">
+                  <a className="menu-link" href="/email/compose.html">
                     <span className="menu-label">Compose</span>
                   </a>
                 </li>
                 <li className="menu-item">
-                  <a className="menu-link" href="email/read-email.html">
+                  <a className="menu-link" href="/email/read-email.html">
                     <span className="menu-label">Read email</span>
                   </a>
                 </li>
@@ -154,22 +163,22 @@ export const Sidebar = ({ onNavigate, currentPage, onToggleSidebar }) => {
               </a>
               <ul className="menu-inner">
                 <li className="menu-item">
-                  <a className="menu-link" href="pages/pricing.html">
+                  <a className="menu-link" href="/pages/pricing.html">
                     <span className="menu-label">Pricing</span>
                   </a>
                 </li>
                 <li className="menu-item">
-                  <a className="menu-link" href="pages/faq.html">
+                  <a className="menu-link" href="/pages/faq.html">
                     <span className="menu-label">FAQ's</span>
                   </a>
                 </li>
                 <li className="menu-item">
-                  <a className="menu-link" href="pages/coming-soon.html">
+                  <a className="menu-link" href="/pages/coming-soon.html">
                     <span className="menu-label">Coming Soon</span>
                   </a>
                 </li>
                 <li className="menu-item">
-                  <a className="menu-link" href="pages/error-404.html">
+                  <a className="menu-link" href="/pages/error-404.html">
                     <span className="menu-label">Error 404</span>
                   </a>
                 </li>
@@ -183,22 +192,22 @@ export const Sidebar = ({ onNavigate, currentPage, onToggleSidebar }) => {
               </a>
               <ul className="menu-inner">
                 <li className="menu-item">
-                  <a className="menu-link" href="authentication/login.html">
+                  <a className="menu-link" href="/authentication/login.html">
                     <span className="menu-label">Login</span>
                   </a>
                 </li>
                 <li className="menu-item">
-                  <a className="menu-link" href="authentication/register.html">
+                  <a className="menu-link" href="/authentication/register.html">
                     <span className="menu-label">Register</span>
                   </a>
                 </li>
                 <li className="menu-item">
-                  <a className="menu-link" href="authentication/forgot-password.html">
+                  <a className="menu-link" href="/authentication/forgot-password.html">
                     <span className="menu-label">Forgot Password</span>
                   </a>
                 </li>
                 <li className="menu-item">
-                  <a className="menu-link" href="authentication/new-password.html">
+                  <a className="menu-link" href="/authentication/new-password.html">
                     <span className="menu-label">New Password</span>
                   </a>
                 </li>
@@ -212,112 +221,112 @@ export const Sidebar = ({ onNavigate, currentPage, onToggleSidebar }) => {
               </a>
               <ul className="menu-inner">
                 <li className="menu-item">
-                  <a className="menu-link" href="components/accordion.html">
+                  <a className="menu-link" href="/components/accordion.html">
                     <span className="menu-label">Accordion</span>
                   </a>
                 </li>
                 <li className="menu-item">
-                  <a className="menu-link" href="components/alerts.html">
+                  <a className="menu-link" href="/components/alerts.html">
                     <span className="menu-label">Alerts</span>
                   </a>
                 </li>
                 <li className="menu-item">
-                  <a className="menu-link" href="components/badge.html">
+                  <a className="menu-link" href="/components/badge.html">
                     <span className="menu-label">Badge</span>
                   </a>
                 </li>
                 <li className="menu-item">
-                  <a className="menu-link" href="components/breadcrumb.html">
+                  <a className="menu-link" href="/components/breadcrumb.html">
                     <span className="menu-label">Breadcrumb</span>
                   </a>
                 </li>
                 <li className="menu-item">
-                  <a className="menu-link" href="components/buttons.html">
+                  <a className="menu-link" href="/components/buttons.html">
                     <span className="menu-label">Buttons</span>
                   </a>
                 </li>
                 <li className="menu-item">
-                  <a className="menu-link" href="components/typography.html">
+                  <a className="menu-link" href="/components/typography.html">
                     <span className="menu-label">Typography</span>
                   </a>
                 </li>
                 <li className="menu-item">
-                  <a className="menu-link" href="components/button-group.html">
+                  <a className="menu-link" href="/components/button-group.html">
                     <span className="menu-label">Button Group</span>
                   </a>
                 </li>
                 <li className="menu-item">
-                  <a className="menu-link" href="components/card.html">
+                  <a className="menu-link" href="/components/card.html">
                     <span className="menu-label">Card</span>
                   </a>
                 </li>
                 <li className="menu-item">
-                  <a className="menu-link" href="components/collapse.html">
+                  <a className="menu-link" href="/components/collapse.html">
                     <span className="menu-label">Collapse</span>
                   </a>
                 </li>
                 <li className="menu-item">
-                  <a className="menu-link" href="components/carousel.html">
+                  <a className="menu-link" href="/components/carousel.html">
                     <span className="menu-label">Carousel</span>
                   </a>
                 </li>
                 <li className="menu-item">
-                  <a className="menu-link" href="components/dropdowns.html">
+                  <a className="menu-link" href="/components/dropdowns.html">
                     <span className="menu-label">Dropdowns</span>
                   </a>
                 </li>
                 <li className="menu-item">
-                  <a className="menu-link" href="components/modal.html">
+                  <a className="menu-link" href="/components/modal.html">
                     <span className="menu-label">Modal</span>
                   </a>
                 </li>
                 <li className="menu-item">
-                  <a className="menu-link" href="components/list-group.html">
+                  <a className="menu-link" href="/components/list-group.html">
                     <span className="menu-label">List Group</span>
                   </a>
                 </li>
                 <li className="menu-item">
-                  <a className="menu-link" href="components/tabs.html">
+                  <a className="menu-link" href="/components/tabs.html">
                     <span className="menu-label">Tabs</span>
                   </a>
                 </li>
                 <li className="menu-item">
-                  <a className="menu-link" href="components/offcanvas.html">
+                  <a className="menu-link" href="/components/offcanvas.html">
                     <span className="menu-label">Offcanvas</span>
                   </a>
                 </li>
                 <li className="menu-item">
-                  <a className="menu-link" href="components/pagination.html">
+                  <a className="menu-link" href="/components/pagination.html">
                     <span className="menu-label">Pagination</span>
                   </a>
                 </li>
                 <li className="menu-item">
-                  <a className="menu-link" href="components/popovers.html">
+                  <a className="menu-link" href="/components/popovers.html">
                     <span className="menu-label">Popovers</span>
                   </a>
                 </li>
                 <li className="menu-item">
-                  <a className="menu-link" href="components/progress.html">
+                  <a className="menu-link" href="/components/progress.html">
                     <span className="menu-label">Progress</span>
                   </a>
                 </li>
                 <li className="menu-item">
-                  <a className="menu-link" href="components/scrollspy.html">
+                  <a className="menu-link" href="/components/scrollspy.html">
                     <span className="menu-label">Scrollspy</span>
                   </a>
                 </li>
                 <li className="menu-item">
-                  <a className="menu-link" href="components/spinners.html">
+                  <a className="menu-link" href="/components/spinners.html">
                     <span className="menu-label">Spinners</span>
                   </a>
                 </li>
                 <li className="menu-item">
-                  <a className="menu-link" href="components/toasts.html">
+                  <a className="menu-link" href="/components/toasts.html">
                     <span className="menu-label">Toasts</span>
                   </a>
                 </li>
                 <li className="menu-item">
-                  <a className="menu-link" href="components/tooltips.html">
+                  <a className="menu-link" href="/components/tooltips.html">
                     <span className="menu-label">Tooltips</span>
                   </a>
                 </li>
@@ -331,76 +340,86 @@ export const Sidebar = ({ onNavigate, currentPage, onToggleSidebar }) => {
               </a>
               <ul className="menu-inner">
                 <li className="menu-item">
-                  <a className="menu-link" href="icons/flaticon.html">
+                  <a className="menu-link" href="/icons/flaticon.html">
                     <span className="menu-label">Flaticon</span>
                   </a>
                 </li>
                 <li className="menu-item">
-                  <a className="menu-link" href="icons/lucide.html">
+                  <a className="menu-link" href="/icons/lucide.html">
                     <span className="menu-label">Lucide</span>
                   </a>
                 </li>
                 <li className="menu-item">
-                  <a className="menu-link" href="icons/fontawesome.html">
+                  <a className="menu-link" href="/icons/fontawesome.html">
                     <span className="menu-label">Font Awesome</span>
                   </a>
                 </li>
               </ul>
             </li> */}
 
-          {/* Tài Liệu & Biểu Mẫu */}
-          <li className="menu-item menu-arrow">
+          {/* --- TÀI LIỆU & BIỂU MẪU --- */}
+          <li className="menu-item">
             <a
               className={`menu-link ${currentPage === "documents" ? "active" : ""}`}
               href="#"
               role="button"
+              style={{ display: "flex", alignItems: "center" }}
               onClick={(e) => {
                 e.preventDefault();
                 onNavigate?.("documents");
+                setOpenMenu(openMenu === "documents" ? "" : "documents");
               }}
             >
               <i className="icon-file-text"></i>
-              <span className="menu-label">Tài Liệu & Biểu Mẫu</span>
+              <span className="menu-label" style={{ flex: 1 }}>Tài Liệu & Biểu Mẫu</span>
+              <svg 
+                width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                style={{ transform: openMenu === "documents" ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.3s ease" }}
+              >
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
             </a>
-            <ul className="menu-inner">
+            
+            <ul className="menu-inner" style={{ display: openMenu === "documents" ? "block" : "none" }}>
               <li className="menu-item">
-                <a className="menu-link" href="forms/form-elements.html">
+                <a className="menu-link" href="/forms/form-elements.html">
                   <span className="menu-label">Form Elements</span>
                 </a>
               </li>
               <li className="menu-item">
-                <a className="menu-link" href="forms/form-floating.html">
+                <a className="menu-link" href="/forms/form-floating.html">
                   <span className="menu-label">Form floating</span>
                 </a>
               </li>
               <li className="menu-item">
-                <a className="menu-link" href="forms/form-input-group.html">
+                <a className="menu-link" href="/forms/form-input-group.html">
                   <span className="menu-label">Form input group</span>
                 </a>
               </li>
               <li className="menu-item">
-                <a className="menu-link" href="forms/form-layout.html">
+                <a className="menu-link" href="/forms/form-layout.html">
                   <span className="menu-label">Form layout</span>
                 </a>
               </li>
               <li className="menu-item">
-                <a className="menu-link" href="forms/form-validation.html">
+                <a className="menu-link" href="/forms/form-validation.html">
                   <span className="menu-label">Form validation</span>
                 </a>
               </li>
               <li className="menu-item">
-                <a className="menu-link" href="forms/flatpickr.html">
+                <a className="menu-link" href="/forms/flatpickr.html">
                   <span className="menu-label">Flatpickr</span>
                 </a>
               </li>
               <li className="menu-item">
-                <a className="menu-link" href="forms/tagify.html">
+                <a className="menu-link" href="/forms/tagify.html">
                   <span className="menu-label">Tagify</span>
                 </a>
               </li>
             </ul>
           </li>
 
+          {/* CÁC ĐOẠN COMMENT GIỮ NGUYÊN NHƯ BAN ĐẦU (PHẦN DƯỚI CÙNG) */}
           {/* <li className="menu-item menu-arrow">
               <a className="menu-link" href="#" role="button">
                 <i className="icon-table-2"></i>
@@ -408,12 +427,12 @@ export const Sidebar = ({ onNavigate, currentPage, onToggleSidebar }) => {
               </a>
               <ul className="menu-inner">
                 <li className="menu-item">
-                  <a className="menu-link" href="table/tables-basic.html">
+                  <a className="menu-link" href="/table/tables-basic.html">
                     <span className="menu-label">Table</span>
                   </a>
                 </li>
                 <li className="menu-item">
-                  <a className="menu-link" href="table/tables-datatable.html">
+                  <a className="menu-link" href="/table/tables-datatable.html">
                     <span className="menu-label">Datatable</span>
                   </a>
                 </li>
@@ -426,12 +445,12 @@ export const Sidebar = ({ onNavigate, currentPage, onToggleSidebar }) => {
               </a>
               <ul className="menu-inner">
                 <li className="menu-item">
-                  <a className="menu-link" href="chart/apexchart.html">
+                  <a className="menu-link" href="/chart/apexchart.html">
                     <span className="menu-label">Apex Chart</span>
                   </a>
                 </li>
                 <li className="menu-item">
-                  <a className="menu-link" href="chart/chartjs.html">
+                  <a className="menu-link" href="/chart/chartjs.html">
                     <span className="menu-label">Chart JS</span>
                   </a>
                 </li>
@@ -444,12 +463,12 @@ export const Sidebar = ({ onNavigate, currentPage, onToggleSidebar }) => {
               </a>
               <ul className="menu-inner">
                 <li className="menu-item">
-                  <a className="menu-link" href="maps/jsvectormap.html">
+                  <a className="menu-link" href="/maps/jsvectormap.html">
                     <span className="menu-label">JS Vector Map</span>
                   </a>
                 </li>
                 <li className="menu-item">
-                  <a className="menu-link" href="maps/leaflet.html">
+                  <a className="menu-link" href="/maps/leaflet.html">
                     <span className="menu-label">Leaflet</span>
                   </a>
                 </li>
@@ -496,10 +515,10 @@ export const Sidebar = ({ onNavigate, currentPage, onToggleSidebar }) => {
       </nav>
       <div className="app-footer">
         <a
-          href="pages/faq.html"
-          className="btn btn-outline-light btn-shadow btn-app-nav w-100"
+          href="/pages/faq.html"
+          className="btn btn-outline-light btn-shadow btn-app-nav w-100 d-flex align-items-center justify-content-center"
         >
-          <i className="fi fi-rs-interrogation text-primary"></i>
+          <i className="fi fi-rs-interrogation text-primary me-2"></i>
           <span className="nav-text">Help and Support</span>
         </a>
       </div>
