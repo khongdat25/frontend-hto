@@ -31,14 +31,83 @@
 
 .login-card {
   width: 100%;
-  max-width: 450px;
+  max-width: 480px;
   background: #ffffff;
   border-radius: var(--hto-radius);
   box-shadow: var(--hto-card-shadow);
-  padding: 40px;
+  padding: 45px;
   position: relative;
   z-index: 1;
   border: 1px solid rgba(0, 0, 0, 0.03);
+  transition: all 0.3s ease;
+}
+
+/* Tablet & Mobile Optimization (Fluid Scaling) */
+@media (max-width: 1024px) {
+  .login-container {
+    padding: 0;
+    background-color: #ffffff;
+    align-items: flex-start;
+  }
+
+  [data-bs-theme="dark"] .login-container {
+    background-color: #1a1d21;
+  }
+
+  .login-card {
+    max-width: 100% !important;
+    width: 100%;
+    min-height: 100vh;
+    padding: clamp(40px, 8vw, 80px) clamp(20px, 5vw, 50px);
+    border-radius: 0;
+    box-shadow: none;
+    border: none;
+  }
+
+  .login-logo {
+    height: clamp(45px, 8vw, 70px);
+    margin-bottom: clamp(20px, 4vw, 40px);
+  }
+
+  .login-title {
+    font-size: clamp(22px, 6vw, 36px);
+    margin-top: 10px;
+    line-height: 1.2;
+  }
+
+  .login-subtitle {
+    font-size: clamp(14px, 2.5vw, 18px);
+    margin-bottom: clamp(25px, 5vw, 50px);
+  }
+
+  .form-label {
+    font-size: clamp(13px, 2.2vw, 16px);
+    margin-bottom: 8px;
+  }
+
+  /* Fluid Input Scaling */
+  .form-control {
+    font-size: clamp(16px, 2.5vw, 18px);
+    padding: clamp(14px, 3vw, 22px) clamp(16px, 3.5vw, 25px);
+    border-radius: clamp(8px, 2vw, 14px);
+  }
+
+  /* Fluid Button Scaling */
+  .btn-login {
+    padding: clamp(14px, 3vw, 22px);
+    font-size: clamp(16px, 2.8vw, 20px);
+    border-radius: clamp(8px, 2vw, 14px);
+    margin-top: clamp(20px, 4vw, 40px);
+  }
+
+  .auth-links {
+    margin-top: clamp(30px, 6vw, 60px);
+    font-size: clamp(13px, 2.5vw, 17px);
+  }
+
+  .password-wrapper .toggle-password {
+    right: clamp(12px, 3vw, 20px);
+  }
 }
 
 [data-bs-theme="dark"] .login-card {
@@ -164,7 +233,8 @@
 }
 
 .password-wrapper .form-control.is-invalid {
-  background-image: none; /* Ẩn icon lỗi mặc định của Bootstrap để không đè lên nút hiện mật khẩu */
+  background-image: none;
+  /* Ẩn icon lỗi mặc định của Bootstrap để không đè lên nút hiện mật khẩu */
 }
 
 .form-control.is-invalid:focus {
@@ -212,7 +282,9 @@
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* Mascot decoration */
