@@ -4,7 +4,6 @@ import { useForm } from "react-hook-form";
 import "./UserList.css";
 
 // --- CẤU HÌNH DANH SÁCH ROLE VÀ LINK CHỨC NĂNG TƯƠNG ỨNG ---
-// BẠN HÃY THAY THẾ CÁC LINK TRONG BIẾN NÀY BẰNG LINK TỪ FILE EXCEL CỦA BẠN
 const ROLE_MAP = {
   admin: { label: "Admin", color: "bg-danger", link: "/role-links/admin" },
   bangiamdoc: { label: "Ban giám đốc", color: "bg-primary", link: "/role-links/ban-giam-doc" },
@@ -21,6 +20,7 @@ const MOCK_USERS = [
   { id: 2, name: "Trần Thị B", email: "tranb@hto.vn", role: "nhansu", department: "Tuyển Sinh", status: "active" },
   { id: 3, name: "Lê Văn C", email: "lec@hto.vn", role: "daily", department: "Hồ Sơ", status: "locked" },
   { id: 4, name: "Phạm D", email: "phamd@hto.vn", role: "congtacvien", department: "Kế Toán", status: "active" },
+  { id: 5, name: "Hoàng Thị E", email: "hoange@hto.vn", role: "truongbophan", department: "Marketing", status: "active" },
 ];
 
 export const UserList = ({ currentUser }) => {
@@ -41,12 +41,20 @@ export const UserList = ({ currentUser }) => {
   const [actionLoading, setActionLoading] = useState(false);
 
   // Cấu hình React Hook Form
-  const { register, handleSubmit, reset, formState: { errors } } = useForm({
+  const { register, handleSubmit, reset, watch, formState: { errors } } = useForm({
     mode: "onTouched"
   });
 
-  // 1. Kiểm tra quyền truy cập (Chỉ Admin hoặc Ban giám đốc mới được xem trang này)
-  // Bạn có thể tùy chỉnh lại mảng quyền bên dưới theo ý muốn
+  // Theo dõi giá trị của ô Select Phòng ban để biết khi nào hiện ô Input "Khác"
+  const watchDepartmentSelect = watch("departmentSelect");
+
+  // Kiểm tra xem có bộ lọc nào đang hoạt động không để hiện nút Hoàn tác
+  const hasActiveFilters = searchTerm !== "" || filterRole !== "" || filterDepartment !== "";
+
+  // Lấy danh sách phòng ban unique từ dữ liệu hiện tại để đưa vào bộ lọc & dropdown
+  const departments = [...new Set(users.map(u => u.department).filter(Boolean))];
+
+  // 1. Kiểm tra quyền truy cập
   if (!["admin", "bangiamdoc"].includes(currentUser?.role)) {
     return (
       <div className="container-fluid pt-5 text-center">
@@ -61,8 +69,8 @@ export const UserList = ({ currentUser }) => {
     setLoading(true);
     setError("");
     try {
-      /* --- LOGIC API THẬT ---
-      const res = await fetch("http://localhost:3001/api/users", {
+      /* --- LOGIC API THẬT (Chỉ cần mở comment và thay link) ---
+      const res = await fetch("https://api.domaincuaban.com/api/users", {
         headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
       });
       const data = await res.json();
@@ -85,23 +93,43 @@ export const UserList = ({ currentUser }) => {
     fetchUsers();
   }, [fetchUsers]);
 
-  // 3. Xử lý mở đóng Modal
+  // 3. Hàm Hoàn tác Filter
+  const resetFilters = () => {
+    setSearchTerm("");
+    setFilterRole("");
+    setFilterDepartment("");
+  };
+
+  // 4. Xử lý mở đóng Modal
   const openCreateModal = () => {
     setModalMode("create");
     setSelectedUser(null);
-    reset({ name: "", email: "", role: "", department: "" });
+    reset({ 
+      name: "", 
+      email: "", 
+      role: "", 
+      departmentSelect: "", 
+      departmentInput: "" 
+    });
     setIsModalOpen(true);
   };
 
   const openEditModal = (user) => {
     setModalMode("edit");
     setSelectedUser(user);
+    
+    // Kiểm tra xem phòng ban của user có nằm trong danh sách hiện tại không
+    const isKnownDepartment = departments.includes(user.department);
+    const initialDeptSelect = isKnownDepartment ? user.department : (user.department ? "other" : "");
+    const initialDeptInput = isKnownDepartment ? "" : (user.department || "");
+
     // Fill data vào form
     reset({
       name: user.name,
       email: user.email,
       role: user.role,
-      department: user.department,
+      departmentSelect: initialDeptSelect,
+      departmentInput: initialDeptInput,
     });
     setIsModalOpen(true);
   };
@@ -111,12 +139,23 @@ export const UserList = ({ currentUser }) => {
     reset(); // Reset form
   };
 
-  // 4. Xử lý Submit Form (Create / Update)
+  // 5. Xử lý Submit Form (Create / Update)
   const onSubmit = async (data) => {
     setActionLoading(true);
     try {
+      // Logic xử lý Phòng ban: Nếu chọn 'other' thì lấy giá trị ở ô Input, ngược lại lấy giá trị ở ô Select
+      const finalDepartment = data.departmentSelect === "other" ? data.departmentInput : data.departmentSelect;
+
+      // Xây dựng Payload để ném cho API (Loại bỏ 2 trường phụ trợ Select/Input)
+      const payload = {
+        name: data.name,
+        email: data.email,
+        role: data.role,
+        department: finalDepartment
+      };
+
       /* --- LOGIC API THẬT ---
-      const url = modalMode === "create" ? "http://localhost:3001/api/users" : `http://localhost:3001/api/users/${selectedUser.id}`;
+      const url = modalMode === "create" ? "https://api.domaincuaban.com/api/users" : `https://api.domaincuaban.com/api/users/${selectedUser.id}`;
       const method = modalMode === "create" ? "POST" : "PUT";
       const res = await fetch(url, {
         method,
@@ -124,19 +163,21 @@ export const UserList = ({ currentUser }) => {
           "Content-Type": "application/json",
           Authorization: `Bearer ${localStorage.getItem("token")}`
         },
-        body: JSON.stringify(data)
+        body: JSON.stringify(payload)
       });
       if (!res.ok) throw new Error("Thao tác thất bại");
+      // Cập nhật lại UI sau khi API thành công
+      // Nếu có trả về data mới từ API: const savedUser = await res.json();
       ------------------------- */
 
       // --- LOGIC GIẢ LẬP ---
       await new Promise(resolve => setTimeout(resolve, 1000));
       if (modalMode === "create") {
         // eslint-disable-next-line react-hooks/purity
-        const newUser = { ...data, id: Date.now(), status: "active" };
+        const newUser = { ...payload, id: Date.now(), status: "active" };
         setUsers(prev => [newUser, ...prev]);
       } else {
-        setUsers(prev => prev.map(u => u.id === selectedUser.id ? { ...u, ...data } : u));
+        setUsers(prev => prev.map(u => u.id === selectedUser.id ? { ...u, ...payload } : u));
       }
       // ---------------------
 
@@ -148,7 +189,7 @@ export const UserList = ({ currentUser }) => {
     }
   };
 
-  // 5. Xử lý Lock / Unlock tài khoản
+  // 6. Xử lý Lock / Unlock tài khoản
   const toggleUserStatus = async (userId, currentStatus) => {
     const newStatus = currentStatus === "active" ? "locked" : "active";
     const confirmMsg = currentStatus === "active" ? "Bạn có chắc muốn KHÓA tài khoản này?" : "Bạn có chắc muốn MỞ KHÓA tài khoản này?";
@@ -158,7 +199,7 @@ export const UserList = ({ currentUser }) => {
     setActionLoading(true);
     try {
       /* --- LOGIC API THẬT ---
-      const res = await fetch(`http://localhost:3001/api/users/${userId}/status`, {
+      const res = await fetch(`https://api.domaincuaban.com/api/users/${userId}/status`, {
         method: "PATCH",
         headers: { 
           "Content-Type": "application/json",
@@ -180,7 +221,7 @@ export const UserList = ({ currentUser }) => {
     }
   };
 
-  // 6. Lọc dữ liệu hiển thị (Derived State)
+  // 7. Lọc dữ liệu hiển thị
   const filteredUsers = users.filter(user => {
     const matchSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
                         user.email.toLowerCase().includes(searchTerm.toLowerCase());
@@ -188,9 +229,6 @@ export const UserList = ({ currentUser }) => {
     const matchDept = filterDepartment ? user.department === filterDepartment : true;
     return matchSearch && matchRole && matchDept;
   });
-
-  // Lấy danh sách phòng ban unique (dùng cho bộ lọc)
-  const departments = [...new Set(users.map(u => u.department).filter(Boolean))];
 
   return (
     <div className="user-list-wrapper container-fluid pt-3 pb-4" style={{ maxWidth: "1600px" }}>
@@ -205,7 +243,7 @@ export const UserList = ({ currentUser }) => {
             <line x1="12" y1="5" x2="12" y2="19"></line>
             <line x1="5" y1="12" x2="19" y2="12"></line>
           </svg>
-          Thêm tài khoản
+          <span className="d-none d-sm-inline">Thêm tài khoản</span>
         </button>
       </div>
 
@@ -246,6 +284,21 @@ export const UserList = ({ currentUser }) => {
             <option key={dept} value={dept}>{dept}</option>
           ))}
         </select>
+
+        {/* Nút Hoàn Tác (Chỉ hiện khi có filter) */}
+        {hasActiveFilters && (
+          <button 
+            className="btn btn-outline-secondary btn-sm btn-reset-filter"
+            onClick={resetFilters}
+            title="Xóa bộ lọc"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+              <polyline points="3 3 3 8 8 8"></polyline>
+            </svg>
+            Hoàn tác
+          </button>
+        )}
       </div>
 
       {/* Main Table Card */}
@@ -336,7 +389,7 @@ export const UserList = ({ currentUser }) => {
                           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                         </button>
                         
-                        {/* Không cho tự khóa chính mình (ví dụ ID = currentUser.id) */}
+                        {/* Không cho tự khóa chính mình */}
                         {currentUser?.email !== user.email && (
                           <button 
                             className={`action-btn ${user.status === 'active' ? 'btn-lock' : 'btn-unlock'}`}
@@ -395,7 +448,7 @@ export const UserList = ({ currentUser }) => {
                     type="email" 
                     className={`form-control ${errors.email ? 'is-invalid' : ''}`} 
                     placeholder="name@hto.vn"
-                    disabled={actionLoading || modalMode === "edit"} // Khóa email khi Edit (Tùy logic nghiệp vụ)
+                    disabled={actionLoading || modalMode === "edit"} 
                     {...register("email", { 
                       required: "Vui lòng nhập email",
                       pattern: { value: /\S+@\S+\.\S+/, message: "Email không hợp lệ" }
@@ -421,15 +474,37 @@ export const UserList = ({ currentUser }) => {
                     {errors.role && <div className="invalid-feedback">{errors.role.message}</div>}
                   </div>
 
+                  {/* Khu vực chọn / nhập phòng ban */}
                   <div className="col-md-6 mb-3">
                     <label className="form-label" style={{ fontSize: "14px", fontWeight: "600" }}>Phòng ban</label>
-                    <input 
-                      type="text" 
-                      className="form-control" 
-                      placeholder="VD: Kế Toán, Tuyển Sinh..."
+                    
+                    {/* Dùng register bắt sự thay đổi của Select */}
+                    <select 
+                      className="form-select mb-2"
                       disabled={actionLoading}
-                      {...register("department")}
-                    />
+                      {...register("departmentSelect")}
+                    >
+                      <option value="">-- Trống --</option>
+                      {departments.map(dept => (
+                        <option key={dept} value={dept}>{dept}</option>
+                      ))}
+                      <option value="other" className="fw-bold text-primary">-- Nhập tên khác --</option>
+                    </select>
+
+                    {/* Nếu chọn Khác thì mới hiện ô Input này ra để người dùng tự gõ */}
+                    {watchDepartmentSelect === "other" && (
+                      <input 
+                        type="text" 
+                        className={`form-control ${errors.departmentInput ? 'is-invalid' : ''}`} 
+                        placeholder="Nhập tên phòng ban..."
+                        autoFocus
+                        disabled={actionLoading}
+                        {...register("departmentInput", {
+                          required: watchDepartmentSelect === "other" ? "Vui lòng nhập tên phòng ban" : false
+                        })}
+                      />
+                    )}
+                    {errors.departmentInput && <div className="invalid-feedback">{errors.departmentInput.message}</div>}
                   </div>
                 </div>
 
