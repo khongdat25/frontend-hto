@@ -7,6 +7,7 @@ import { LoginPage } from "./login/LoginPage";
 import { RegisterPage } from "./login/RegisterPage";
 import { ForgotPasswordPage } from "./login/ForgotPasswordPage";
 import { NewPasswordPage } from "./login/NewPasswordPage";
+import { AuthLayout } from "./login/AuthLayout";
 import { UserList } from "./UserList/UserList";
 
 function App() {
@@ -71,34 +72,45 @@ function App() {
   };
 
   if (!user) {
+
+    let authContent;
     if (authMode === "login") {
-      return <LoginPage 
-        onLogin={handleLogin} 
-        onSwitchToRegister={() => setAuthMode("register")} 
-        onSwitchToForgot={() => setAuthMode("forgot")}
-      />;
+      authContent = (
+        <LoginPage 
+          onLogin={handleLogin} 
+          onSwitchToRegister={() => setAuthMode("register")} 
+          onSwitchToForgot={() => setAuthMode("forgot")}
+        />
+      );
+    } else if (authMode === "register") {
+      authContent = (
+        <RegisterPage 
+          onRegister={handleLogin} 
+          onSwitchToLogin={() => setAuthMode("login")} 
+        />
+      );
+    } else if (authMode === "forgot") {
+      authContent = (
+        <ForgotPasswordPage 
+          onSwitchToLogin={() => setAuthMode("login")} 
+          onSwitchToNewPassword={() => setAuthMode("new-password")}
+        />
+      );
+    } else if (authMode === "new-password") {
+      authContent = (
+        <NewPasswordPage 
+          onSwitchToLogin={() => setAuthMode("login")} 
+        />
+      );
     }
-    if (authMode === "register") {
-      return <RegisterPage 
-        onRegister={handleLogin} 
-        onSwitchToLogin={() => setAuthMode("login")} 
-      />;
-    }
-    if (authMode === "forgot") {
-      return <ForgotPasswordPage 
-        onSwitchToLogin={() => setAuthMode("login")} 
-        onSwitchToNewPassword={() => {
-          console.log("Switching to new-password");
-          setAuthMode("new-password");
-        }}
-      />;
-    }
-    if (authMode === "new-password") {
-      return <NewPasswordPage 
-        onSwitchToLogin={() => setAuthMode("login")} 
-      />;
-    }
+
+    return (
+      <AuthLayout authMode={authMode} imageSrc="/assets/images/auth-bg.png">
+        {authContent}
+      </AuthLayout>
+    );
   }
+
 
   return (
     <div className="page-layout bg-body-tertiary d-flex flex-column min-vh-100">
