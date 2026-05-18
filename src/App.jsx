@@ -7,12 +7,36 @@ import { LoginPage } from "./login/LoginPage";
 import { RegisterPage } from "./login/RegisterPage";
 import { ForgotPasswordPage } from "./login/ForgotPasswordPage";
 import { NewPasswordPage } from "./login/NewPasswordPage";
+import { AuthLayout } from "./login/AuthLayout";
 import { UserList } from "./UserList/UserList";
+
+const ROLE_IDS = {
+  ADMIN: "69fc5af582ef85451120772a",
+};
+
+const hasStoredSession = () => {
+  const token = window.localStorage.getItem("token");
+  const refreshToken = window.localStorage.getItem("refresh_token");
+
+  return Boolean(token && refreshToken);
+};
+
+const clearStoredSession = () => {
+  window.localStorage.removeItem("token");
+  window.localStorage.removeItem("refresh_token");
+  document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;";
+};
 
 function App() {
   const [currentPage, setCurrentPage] = useState("dashboard");
   const [user, setUser] = useState(null);
-  const [authMode, setAuthMode] = useState("login"); // 'login', 'register', 'forgot', 'new-password'
+  const [authMode, setAuthMode] = useState(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const hasResetToken =
+      searchParams.has("token") || searchParams.has("resetToken");
+
+    return hasResetToken ? "new-password" : "login";
+  }); // 'login', 'register', 'forgot', 'new-password'
   const [theme, setTheme] = useState(() => {
     const storedTheme = window.localStorage.getItem("app-theme");
 
@@ -29,6 +53,61 @@ function App() {
     document.documentElement.setAttribute("data-bs-theme", theme);
     window.localStorage.setItem("app-theme", theme);
   }, [theme]);
+
+  useEffect(() => {
+    if (user) {
+      return undefined;
+    }
+
+    const syncAuthModeFromUrl = () => {
+      const searchParams = new URLSearchParams(window.location.search);
+      const hasResetToken =
+        searchParams.has("token") || searchParams.has("resetToken");
+
+      if (hasResetToken) {
+        setAuthMode("new-password");
+      } else if (window.location.search === "") {
+        setAuthMode((currentMode) =>
+          currentMode === "new-password" ? "login" : currentMode,
+        );
+      }
+    };
+
+    syncAuthModeFromUrl();
+    window.addEventListener("popstate", syncAuthModeFromUrl);
+
+    return () => {
+      window.removeEventListener("popstate", syncAuthModeFromUrl);
+    };
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) {
+      return undefined;
+    }
+
+    const enforceAuthSession = () => {
+      if (!hasStoredSession()) {
+        setUser(null);
+        setCurrentPage("dashboard");
+        setAuthMode("login");
+        clearStoredSession();
+      }
+    };
+
+    enforceAuthSession();
+
+    window.addEventListener("focus", enforceAuthSession);
+    document.addEventListener("visibilitychange", enforceAuthSession);
+
+    const sessionGuard = window.setInterval(enforceAuthSession, 1000);
+
+    return () => {
+      window.removeEventListener("focus", enforceAuthSession);
+      document.removeEventListener("visibilitychange", enforceAuthSession);
+      window.clearInterval(sessionGuard);
+    };
+  }, [user]);
 
   const handleToggleSidebar = (e) => {
     const togglerBtn = e?.currentTarget;
@@ -53,9 +132,15 @@ function App() {
   };
 
   const handleLogin = (userData) => {
+    if (!hasStoredSession()) {
+      setUser(null);
+      setAuthMode("login");
+      return;
+    }
+
     setUser(userData);
     // Điều hướng dựa trên vai trò
-    if (userData.role === "admin") {
+    if (userData.roleId === ROLE_IDS.ADMIN) {
       setCurrentPage("dashboard");
     } else {
       setCurrentPage("documents");
@@ -65,40 +150,51 @@ function App() {
   const handleLogout = () => {
     // Xóa thông tin đăng nhập
     setUser(null);
-    localStorage.removeItem("token");
-    document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;";
+    clearStoredSession();
+    setCurrentPage("dashboard");
     setAuthMode("login");
   };
 
   if (!user) {
+
+    let authContent;
     if (authMode === "login") {
-      return <LoginPage 
-        onLogin={handleLogin} 
-        onSwitchToRegister={() => setAuthMode("register")} 
-        onSwitchToForgot={() => setAuthMode("forgot")}
-      />;
+      authContent = (
+        <LoginPage 
+          onLogin={handleLogin} 
+          onSwitchToRegister={() => setAuthMode("register")} 
+          onSwitchToForgot={() => setAuthMode("forgot")}
+        />
+      );
+    } else if (authMode === "register") {
+      authContent = (
+        <RegisterPage 
+          onRegister={handleLogin} 
+          onSwitchToLogin={() => setAuthMode("login")} 
+        />
+      );
+    } else if (authMode === "forgot") {
+      authContent = (
+        <ForgotPasswordPage 
+          onSwitchToLogin={() => setAuthMode("login")} 
+          onSwitchToNewPassword={() => setAuthMode("new-password")}
+        />
+      );
+    } else if (authMode === "new-password") {
+      authContent = (
+        <NewPasswordPage 
+          onSwitchToLogin={() => setAuthMode("login")} 
+        />
+      );
     }
-    if (authMode === "register") {
-      return <RegisterPage 
-        onRegister={handleLogin} 
-        onSwitchToLogin={() => setAuthMode("login")} 
-      />;
-    }
-    if (authMode === "forgot") {
-      return <ForgotPasswordPage 
-        onSwitchToLogin={() => setAuthMode("login")} 
-        onSwitchToNewPassword={() => {
-          console.log("Switching to new-password");
-          setAuthMode("new-password");
-        }}
-      />;
-    }
-    if (authMode === "new-password") {
-      return <NewPasswordPage 
-        onSwitchToLogin={() => setAuthMode("login")} 
-      />;
-    }
+
+    return (
+      <AuthLayout authMode={authMode} imageSrc="/assets/images/z7832613943587_bf4b220919f48d434d108e0de31e00e9.jpg">
+        {authContent}
+      </AuthLayout>
+    );
   }
+
 
   return (
     <div className="page-layout bg-body-tertiary d-flex flex-column min-vh-100">
