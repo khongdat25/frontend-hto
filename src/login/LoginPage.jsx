@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 
 const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "http://localhost:8080/api/v1" || "http://qlnb-api.hto.edu.vn/api/v1/auth/login";
+  import.meta.env.VITE_API_BASE_URL || "http://qlnb-api.hto.edu.vn/api/v1";
 
 const ROLE_ID_MAP = {
   "69fc5af582ef85451120772a": "admin",
