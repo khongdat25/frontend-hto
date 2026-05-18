@@ -2,7 +2,8 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 
 const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "http://qlnb-api.hto.edu.vn/api/v1";
+  import.meta.env.VITE_API_BASE_URL ||
+  (import.meta.env.PROD ? "/api/v1" : "http://qlnb-api.hto.edu.vn/api/v1");
 
 const getResetToken = () => {
   const searchParams = new URLSearchParams(window.location.search);
