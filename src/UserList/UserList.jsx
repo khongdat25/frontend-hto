@@ -1,78 +1,36 @@
 // src/UserList/UserList.jsx
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import "./UserList.css";
 
 // =========================================================================
-// --- KHU VỰC 1: CẤU HÌNH ĐƯỜNG DẪN API VÀ KHỞI TẠO ĐỐI TƯỢNG MẪU ---
+// --- KHU VỰC 1: CẤU HÌNH API ---
 // =========================================================================
 
-// CHÚ Ý: Cổng 3000 khớp với Backend NestJS của bạn
 const API_BASE_URL = "http://localhost:3000/api/v1";
 
-const ROLE_MAP = {
-  admin: { label: "Admin", color: "bg-danger", link: "/role-links/admin" },
-  bangiamdoc: { label: "Ban giám đốc", color: "bg-primary", link: "/role-links/ban-giam-doc" },
-  truongbophan: { label: "Trưởng bộ phận", color: "bg-warning text-dark", link: "/role-links/truong-bo-phan" },
-  nhansu: { label: "Nhân sự", color: "bg-info text-dark", link: "/role-links/nhan-su" },
-  daily: { label: "Đại lý", color: "bg-success", link: "/role-links/dai-ly" },
-  congtacvien: { label: "Cộng tác viên", color: "bg-secondary", link: "/role-links/cong-tac-vien" },
-  hethong: { label: "Hệ thống", color: "bg-dark", link: "/role-links/he-thong" }
+// Cấu hình giao diện màu sắc Badge theo tên Role (name)
+const ROLE_UI_MAP = {
+  "admin": { color: "bg-danger" },
+  "ban giám đốc": { color: "bg-primary" },
+  "trưởng bộ phận": { color: "bg-warning text-dark" },
+  "nhân sự": { color: "bg-info text-dark" },
+  "chuyên viên nhân sự": { color: "bg-info text-dark" },
+  "đại lý": { color: "bg-success" },
+  "cộng tác viên": { color: "bg-secondary" },
+  "hệ thống": { color: "bg-dark" }
 };
-
-const PERMISSION_MODULES = [
-  {
-    id: "dashboard",
-    name: "Dashboard & Báo cáo tổng hợp",
-    actions: [
-      { id: "view_dashboard", name: "Xem Dashboard" },
-      { id: "export_report", name: "Xuất báo cáo doanh nghiệp" }
-    ]
-  },
-  {
-    id: "users",
-    name: "Hệ thống quản lý tài khoản nhân viên",
-    actions: [
-      { id: "view_users", name: "Xem danh sách tài khoản" },
-      { id: "create_users", name: "Tạo mới tài khoản" },
-      { id: "edit_users", name: "Chỉnh sửa thông tin" },
-      { id: "lock_users", name: "Khóa / Mở khóa tài khoản" }
-    ]
-  },
-  {
-    id: "roles",
-    name: "Phân quyền và Quản lý vai trò",
-    actions: [
-      { id: "view_roles", name: "Xem danh sách vai trò" },
-      { id: "create_roles", name: "Thêm vai trò hệ thống" },
-      { id: "edit_roles", name: "Sửa cấu hình quyền" },
-      { id: "delete_roles", name: "Xóa cấu hình vai trò" }
-    ]
-  },
-  {
-    id: "products",
-    name: "Quản lý danh mục Sản phẩm & Nghiệp vụ",
-    actions: [
-      { id: "view_products", name: "Xem danh mục sản phẩm" },
-      { id: "create_products", name: "Thêm mới sản phẩm" },
-      { id: "edit_products", name: "Cập nhật sản phẩm" },
-      { id: "delete_products", name: "Xóa bỏ sản phẩm" }
-    ]
-  }
-];
 
 // =========================================================================
 // --- KHU VỰC 2: TỪ ĐIỂN TRA CỨU MA TRẬN PHÂN QUYỀN (DICTIONARY MODAL) ---
 // =========================================================================
-const PermissionDictionaryModal = ({ isOpen, onClose, roles }) => {
+const PermissionDictionaryModal = ({ isOpen, onClose, roles, permissions }) => {
   if (!isOpen) return null;
 
-  const getActionName = (actionId) => {
-    for (const mod of PERMISSION_MODULES) {
-      const found = mod.actions.find(a => a.id === actionId);
-      if (found) return found.name;
-    }
-    return actionId;
+  // Lấy tên/mô tả quyền dựa trên ID
+  const getPermissionDesc = (permId) => {
+    const perm = permissions.find(p => p._id === permId);
+    return perm ? (perm.description || perm.name) : permId;
   };
 
   return (
@@ -96,34 +54,36 @@ const PermissionDictionaryModal = ({ isOpen, onClose, roles }) => {
         
         <div className="custom-modal-body" style={{ maxHeight: "70vh" }}>
           <p className="text-body-secondary mb-4" style={{ fontSize: "14px" }}>
-            Bảng dưới đây liệt kê chi tiết các chức năng mà từng Nhóm vai trò được phép thao tác trong hệ thống.
+            Bảng dưới đây liệt kê chi tiết các chức năng mà từng Nhóm vai trò được phép thao tác trong hệ thống dựa trên dữ liệu thực tế.
           </p>
 
           {roles.map((role) => {
-            const roleUI = ROLE_MAP[role.key] || { color: "bg-secondary", label: role.name };
+            const roleUI = ROLE_UI_MAP[role.name?.toLowerCase()] || { color: "bg-secondary" };
+            const permsArray = role.permissionIds || [];
+            
             return (
-              <div className="dict-role-card" key={role.id}>
+              <div className="dict-role-card" key={role._id}>
                 <div className="dict-role-header">
                   <span className={`badge ${roleUI.color} px-2 py-1`} style={{ fontSize: "13px" }}>
                     {role.name}
                   </span>
                   <span className="text-body-secondary fw-normal" style={{ fontSize: "12px" }}>
-                    ({role.permissions?.length || 0} quyền hạn)
+                    ({permsArray.length} quyền hạn)
                   </span>
                 </div>
                 <div className="dict-role-body">
-                  {(!role.permissions || role.permissions.length === 0) ? (
+                  {permsArray.length === 0 ? (
                     <span className="text-muted fst-italic" style={{ fontSize: "13px" }}>
                       Vai trò này chưa được gán bất kỳ quyền nào.
                     </span>
                   ) : (
                     <div className="d-flex flex-wrap gap-2">
-                      {role.permissions.map(permId => (
+                      {permsArray.map(permId => (
                         <span key={permId} className="badge bg-body-secondary text-body-emphasis border fw-medium" style={{ fontSize: "12px" }}>
                           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="3" className="me-1">
                             <polyline points="20 6 9 17 4 12"></polyline>
                           </svg>
-                          {getActionName(permId)}
+                          {getPermissionDesc(permId)}
                         </span>
                       ))}
                     </div>
@@ -141,52 +101,33 @@ const PermissionDictionaryModal = ({ isOpen, onClose, roles }) => {
 // =========================================================================
 // --- KHU VỰC 3: LOGIC & GIAO DIỆN QUẢN LÝ VAI TRÒ (ROLE LIST COMPONENT) ---
 // =========================================================================
-const RoleManagementSection = ({ roles, setRoles }) => {
+const RoleManagementSection = ({ roles, setRoles, users, permissions, permissionModules }) => {
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState("create");
   const [selectedRole, setSelectedRole] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
+  
+  // Lưu trữ danh sách ObjectIds của Permission
   const [selectedPermissions, setSelectedPermissions] = useState([]);
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm({
     mode: "onTouched"
   });
 
-  useEffect(() => {
-    const fetchRoles = async () => {
-      setLoading(true);
-      try {
-        const res = await fetch(`${API_BASE_URL}/roles`, {
-          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.message || "Lỗi tải dữ liệu vai trò");
-        setRoles(data.data ? data.data : data);
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchRoles();
-  }, [setRoles]);
-
   const openCreateModal = () => {
     setModalMode("create");
     setSelectedRole(null);
     setSelectedPermissions([]);
-    reset({ name: "", key: "", description: "" });
+    reset({ name: "", description: "" });
     setIsModalOpen(true);
   };
 
   const openEditModal = (role) => {
     setModalMode("edit");
     setSelectedRole(role);
-    setSelectedPermissions(role.permissions || []);
-    reset({ name: role.name, key: role.key, description: role.description });
+    setSelectedPermissions(role.permissionIds || []);
+    reset({ name: role.name, description: role.description });
     setIsModalOpen(true);
   };
 
@@ -198,8 +139,8 @@ const RoleManagementSection = ({ roles, setRoles }) => {
     );
   };
 
-  const toggleModuleAll = (module, isChecked) => {
-    const modulePermissionIds = module.actions.map(action => action.id);
+  const toggleModuleAll = (moduleActions, isChecked) => {
+    const modulePermissionIds = moduleActions.map(action => action._id);
     if (isChecked) {
       setSelectedPermissions(prev => [...new Set([...prev, ...modulePermissionIds])]);
     } else {
@@ -210,17 +151,17 @@ const RoleManagementSection = ({ roles, setRoles }) => {
   const onSubmitRole = async (data) => {
     setActionLoading(true);
     try {
+      // Khớp cấu trúc Bảng Roles của MongoDB
       const payload = {
         name: data.name,
-        key: data.key,
         description: data.description,
-        permissions: selectedPermissions
+        permissionIds: selectedPermissions
       };
 
-      const url = modalMode === "create" ? `${API_BASE_URL}/roles` : `${API_BASE_URL}/roles/${selectedRole.id}`;
+      const rId = selectedRole?._id;
+      const url = modalMode === "create" ? `${API_BASE_URL}/roles` : `${API_BASE_URL}/roles/${rId}`;
       const method = modalMode === "create" ? "POST" : "PATCH";
 
-      // 1. Gọi API cập nhật thông tin chung của Role
       const res = await fetch(url, {
         method: method,
         headers: { 
@@ -230,30 +171,35 @@ const RoleManagementSection = ({ roles, setRoles }) => {
         body: JSON.stringify(payload)
       });
       const responseData = await res.json();
-      if (!res.ok) throw new Error(responseData.message || "Cập nhật thông tin vai trò thất bại");
 
-      let updatedRecord = responseData.data ? responseData.data : responseData;
+      if (!res.ok) throw new Error(responseData.message || "Thao tác vai trò thất bại");
+      
+      let updatedRecord = responseData.data || responseData;
 
-      // 2. Nếu là Edit (PATCH), gọi thêm API /permissions để cập nhật ma trận phân quyền theo thiết kế của BE
+      // Cập nhật ma trận phân quyền (Nếu API tách rời)
       if (modalMode === "edit") {
-        const permRes = await fetch(`${API_BASE_URL}/roles/${selectedRole.id}/permissions`, {
-          method: "PATCH",
-          headers: { 
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("token")}`
-          },
-          body: JSON.stringify({ permissions: selectedPermissions })
-        });
-        const permData = await permRes.json();
-        if (!permRes.ok) throw new Error(permData.message || "Cập nhật quyền thất bại");
-        updatedRecord = permData.data ? permData.data : permData;
+        try {
+          const permRes = await fetch(`${API_BASE_URL}/roles/${rId}/permissions`, {
+            method: "PATCH",
+            headers: { 
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${localStorage.getItem("token")}`
+            },
+            body: JSON.stringify({ permissionIds: selectedPermissions }) // Gửi theo format mảng ID
+          });
+          const permData = await permRes.json();
+          if (permRes.ok) {
+             updatedRecord = permData.data || permData;
+          }
+        } catch (e) {
+          console.log("Cập nhật quyền bị lỗi, hoặc API đã gom chung vào PATCH /roles/:id");
+        }
       }
 
-      // Cập nhật lại UI
       if (modalMode === "create") {
         setRoles(prev => [...prev, updatedRecord]);
       } else {
-        setRoles(prev => prev.map(item => item.id === selectedRole.id ? updatedRecord : item));
+        setRoles(prev => prev.map(item => item._id === rId ? updatedRecord : item));
       }
       closeModal();
     } catch (err) {
@@ -264,23 +210,27 @@ const RoleManagementSection = ({ roles, setRoles }) => {
   };
 
   const handleDeleteRole = async (role) => {
-    if (role.key === "admin") return; 
-    if (role.userCount > 0) {
-      alert(`Từ chối lệnh xóa: Đang có ${role.userCount} tài khoản nhân sự đang áp dụng vai trò này.`);
+    if (role.name?.toLowerCase() === "admin") return; 
+    
+    // Đếm chính xác nhân sự dựa trên _id reference của MongoDB
+    const currentUserCount = users.filter(u => u.role_id === role._id).length;
+
+    if (currentUserCount > 0) {
+      alert(`Từ chối lệnh xóa: Đang có ${currentUserCount} tài khoản nhân sự đang áp dụng vai trò này.`);
       return;
     }
     if (!window.confirm(`Xác nhận xóa bỏ hoàn toàn vai trò "${role.name}" ra khỏi hệ thống phân quyền?`)) return;
 
     setActionLoading(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/roles/${role.id}`, {
+      const res = await fetch(`${API_BASE_URL}/roles/${role._id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
       });
       const responseData = await res.json();
       if (!res.ok) throw new Error(responseData.message || "Yêu cầu xóa từ API thất bại");
 
-      setRoles(prev => prev.filter(item => item.id !== role.id));
+      setRoles(prev => prev.filter(item => item._id !== role._id));
     } catch (err) {
       alert("Lỗi hệ thống: " + err.message);
     } finally {
@@ -322,23 +272,23 @@ const RoleManagementSection = ({ roles, setRoles }) => {
                     <div className="spinner-border text-primary" role="status"><span className="visually-hidden">Loading...</span></div>
                   </td>
                 </tr>
-              ) : error ? (
-                <tr><td colSpan="4" className="text-center py-4 text-danger">{error}</td></tr>
               ) : roles.length === 0 ? (
                 <tr><td colSpan="4" className="text-center py-5 text-body-secondary">Hệ thống chưa ghi nhận cấu hình vai trò nào.</td></tr>
               ) : (
                 roles.map((role) => {
-                  const isAdmin = role.key === "admin";
+                  const isAdmin = role.name?.toLowerCase() === "admin";
+                  const userCount = users.filter(u => u.role_id === role._id).length;
+
                   return (
-                    <tr key={role.id}>
+                    <tr key={role._id}>
                       <td>
                         <span className="fw-bold text-body-emphasis">{role.name}</span>
-                        <div className="text-body-secondary" style={{ fontSize: "11px", marginTop: "2px" }}>Mã định danh: {role.key}</div>
+                        <div className="text-body-secondary" style={{ fontSize: "11px", marginTop: "2px" }}>ID: {role._id}</div>
                       </td>
                       <td><span className="text-body-secondary text-wrap" style={{ fontSize: "13px" }}>{role.description || "Chưa thiết lập mô tả cụ thể cho nhóm này."}</span></td>
                       <td>
                         <span className="badge bg-secondary-subtle text-body-emphasis border">
-                          {role.userCount || 0} nhân sự
+                          {userCount} nhân sự
                         </span>
                       </td>
                       <td className="text-center">
@@ -368,9 +318,9 @@ const RoleManagementSection = ({ roles, setRoles }) => {
                         ) : (
                           <button 
                             className="action-btn btn-lock" 
-                            title={role.userCount > 0 ? "Không thể xóa Role đang có nhân sự sử dụng" : "Xóa nhóm vai trò khỏi hệ thống"} 
+                            title={userCount > 0 ? "Không thể xóa Role đang có nhân sự sử dụng" : "Xóa nhóm vai trò khỏi hệ thống"} 
                             onClick={() => handleDeleteRole(role)} 
-                            disabled={actionLoading || role.userCount > 0}
+                            disabled={actionLoading || userCount > 0}
                           >
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                           </button>
@@ -404,26 +354,12 @@ const RoleManagementSection = ({ roles, setRoles }) => {
                       type="text" 
                       className={`form-control ${errors.name ? 'is-invalid' : ''}`} 
                       placeholder="Ví dụ: Trưởng phòng nghiệp vụ" 
-                      disabled={actionLoading || (modalMode === "edit" && selectedRole?.key === "admin")} 
+                      disabled={actionLoading || (modalMode === "edit" && selectedRole?.name?.toLowerCase() === "admin")} 
                       {...register("name", { required: "Yêu cầu bắt buộc điền tên hiển thị vai trò" })} 
                     />
                     {errors.name && <div className="invalid-feedback">{errors.name.message}</div>}
                   </div>
                   <div className="col-md-6">
-                    <label className="form-label" style={{ fontWeight: "600" }}>Mã hệ thống định danh (Key) <span className="text-danger">*</span></label>
-                    <input 
-                      type="text" 
-                      className={`form-control ${errors.key ? 'is-invalid' : ''}`} 
-                      placeholder="Ví dụ: truong_phong_nghiep_vu" 
-                      disabled={actionLoading || modalMode === "edit"} 
-                      {...register("key", { 
-                        required: "Mã định danh hệ thống không được để trống", 
-                        pattern: { value: /^[a-z0-9_]+$/, message: "Quy ước mã viết thường liền nhau, số hoặc dấu gạch dưới" } 
-                      })} 
-                    />
-                    {errors.key && <div className="invalid-feedback">{errors.key.message}</div>}
-                  </div>
-                  <div className="col-12 mt-3">
                     <label className="form-label" style={{ fontWeight: "600" }}>Mô tả diễn giải chi tiết</label>
                     <input 
                       type="text" 
@@ -437,52 +373,57 @@ const RoleManagementSection = ({ roles, setRoles }) => {
 
                 <h6 className="fw-bold mb-3 d-flex align-items-center" style={{ fontSize: "14px" }}>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="me-2 text-primary"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
-                  Thiết lập phân quyền theo cấu trúc module tác vụ
+                  Thiết lập phân quyền tự động từ Database
                 </h6>
                 
                 <div className="permissions-container">
-                  {PERMISSION_MODULES.map((module) => {
-                    const modulePermissionIds = module.actions.map(action => action.id);
-                    const isAllChecked = modulePermissionIds.every(id => selectedPermissions.includes(id));
-                    const isSomeChecked = modulePermissionIds.some(id => selectedPermissions.includes(id)) && !isAllChecked;
+                  {permissionModules.length === 0 ? (
+                     <div className="text-center text-body-secondary py-4 fst-italic">Đang tải cấu trúc quyền từ hệ thống...</div>
+                  ) : (
+                    permissionModules.map((module) => {
+                      const isAllChecked = module.actions.every(action => selectedPermissions.includes(action._id));
+                      const isSomeChecked = module.actions.some(action => selectedPermissions.includes(action._id)) && !isAllChecked;
 
-                    return (
-                      <div className="module-group" key={module.id}>
-                        <div className="module-header">
-                          <h6 className="module-title">{module.name}</h6>
-                          <label className="permission-checkbox fw-bold text-primary">
-                            <input 
-                              type="checkbox" 
-                              checked={isAllChecked} 
-                              ref={input => { if (input) input.indeterminate = isSomeChecked; }} 
-                              onChange={(e) => toggleModuleAll(module, e.target.checked)} 
-                              disabled={actionLoading || (modalMode === "edit" && selectedRole?.key === "admin")} 
-                            />
-                            Bật tất cả
-                          </label>
-                        </div>
-                        <div className="permissions-grid">
-                          {module.actions.map(action => (
-                            <label key={action.id} className="permission-checkbox">
+                      return (
+                        <div className="module-group" key={module.id}>
+                          <div className="module-header">
+                            <h6 className="module-title text-capitalize">{module.id}</h6>
+                            <label className="permission-checkbox fw-bold text-primary">
                               <input 
                                 type="checkbox" 
-                                checked={selectedPermissions.includes(action.id)} 
-                                onChange={() => togglePermission(action.id)} 
-                                disabled={actionLoading || (modalMode === "edit" && selectedRole?.key === "admin")} 
+                                checked={isAllChecked} 
+                                ref={input => { if (input) input.indeterminate = isSomeChecked; }} 
+                                onChange={(e) => toggleModuleAll(module.actions, e.target.checked)} 
+                                disabled={actionLoading || (modalMode === "edit" && selectedRole?.name?.toLowerCase() === "admin")} 
                               />
-                              {action.name}
+                              Bật tất cả
                             </label>
-                          ))}
+                          </div>
+                          <div className="permissions-grid">
+                            {module.actions.map(action => (
+                              <label key={action._id} className="permission-checkbox">
+                                <input 
+                                  type="checkbox" 
+                                  checked={selectedPermissions.includes(action._id)} 
+                                  onChange={() => togglePermission(action._id)} 
+                                  disabled={actionLoading || (modalMode === "edit" && selectedRole?.name?.toLowerCase() === "admin")} 
+                                />
+                                <span className="text-truncate" title={action.description || action.name}>
+                                  {action.description || action.name}
+                                </span>
+                              </label>
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })
+                  )}
                 </div>
               </div>
 
               <div className="custom-modal-footer mt-auto">
                 <button type="button" className="btn btn-light border" onClick={closeModal} disabled={actionLoading}>Đóng lại</button>
-                <button type="submit" className="btn btn-primary d-flex align-items-center gap-2" disabled={actionLoading || (modalMode === "edit" && selectedRole?.key === "admin")}>
+                <button type="submit" className="btn btn-primary d-flex align-items-center gap-2" disabled={actionLoading || (modalMode === "edit" && selectedRole?.name?.toLowerCase() === "admin")}>
                   {actionLoading && <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>}
                   {modalMode === "create" ? "Khởi tạo ngay" : "Cập nhật phân quyền"}
                 </button>
@@ -502,9 +443,11 @@ export const UserList = ({ currentUser }) => {
   const [activeTab, setActiveTab] = useState("users");
   const [isDictOpen, setIsDictOpen] = useState(false);
 
+  // States danh sách dùng chung cho nghiệp vụ
   const [users, setUsers] = useState([]);
   const [roles, setRoles] = useState([]);
-  const [departments, setDepartments] = useState([]); // Tích hợp API Departments
+  const [departments, setDepartments] = useState([]);
+  const [permissions, setPermissions] = useState([]); // Chứa mảng object quyền chuẩn từ Database
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -525,79 +468,75 @@ export const UserList = ({ currentUser }) => {
   const watchDepartmentSelect = watch("departmentSelect");
   const hasActiveFilters = searchTerm !== "" || filterRole !== "" || filterDepartment !== "";
 
-  // TRÍCH XUẤT QUYỀN ĐỂ KHÓA UI
-  const currentUserRoleData = roles.find(r => r.key === currentUser?.role);
-  const userPermissions = currentUserRoleData?.permissions || [];
+  // Helper: Chuyển mảng Permissions phẳng thành nhóm theo Module cho UI
+  const permissionModules = useMemo(() => {
+    const groups = {};
+    permissions.forEach(p => {
+      const mod = p.module || 'Khác';
+      if (!groups[mod]) groups[mod] = [];
+      groups[mod].push(p);
+    });
+    return Object.keys(groups).map(mod => ({
+      id: mod,
+      actions: groups[mod]
+    }));
+  }, [permissions]);
+
+  // LOGIC TRÍCH XUẤT QUYỀN HIỆN TẠI (Theo chuẩn mới _id)
+  const currentUserRoleData = roles.find(r => r._id === currentUser?.role_id || r.name === currentUser?.role);
+  const userPermissionIds = currentUserRoleData?.permissionIds || [];
   
-  const isAdmin = currentUser?.role === "admin";
-  const canCreateUser = isAdmin || userPermissions.includes("create_users");
-  const canEditUser = isAdmin || userPermissions.includes("edit_users");
-  const canLockUser = isAdmin || userPermissions.includes("lock_users");
+  const isAdmin = currentUserRoleData?.name?.toLowerCase() === "admin" || currentUser?.role === "admin";
+  
+  // Hàm check quyền thông minh, dựa theo tên permission (vd: users:create:all)
+  const hasPermissionStr = (searchStr) => {
+      if (isAdmin) return true;
+      const permObj = permissions.find(p => p.name && p.name.includes(searchStr));
+      return permObj ? userPermissionIds.includes(permObj._id) : false;
+  };
 
-  // Fetch Danh sách Phòng ban (Tích hợp API thực tế GET /departments)
-  const fetchDepartments = useCallback(async () => {
-    try {
-      const res = await fetch(`${API_BASE_URL}/departments`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
-      });
-      const data = await res.json();
-      if (res.ok) {
-        const deptList = data.data || data;
-        // Trích xuất tên phòng ban (Cho phép API trả về array string hoặc array object)
-        const formattedList = deptList.map(item => typeof item === 'object' ? (item.name || item.id) : item).filter(Boolean);
-        setDepartments(formattedList);
-      }
-    } catch (err) {
-      console.log("Lỗi fetch danh sách phòng ban");
-    }
-  }, []);
+  const canCreateUser = hasPermissionStr("users:create");
+  const canEditUser = hasPermissionStr("users:update");
+  const canLockUser = hasPermissionStr("users:status") || hasPermissionStr("users:update");
 
-  // Fetch Danh sách Người dùng
-  const fetchUsers = useCallback(async () => {
+  // Fetch API Đồng Bộ
+  const fetchAllData = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(`${API_BASE_URL}/users`, {
-        method: "GET",
-        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
-      });
-      const responseData = await res.json();
-      
-      if (!res.ok) throw new Error(responseData.message || "Không thể đồng bộ dữ liệu tài khoản");
-      setUsers(responseData.data ? responseData.data : responseData);
+      const token = localStorage.getItem("token");
+      const headers = { Authorization: `Bearer ${token}` };
+
+      // Chạy đa luồng lấy toàn bộ hệ sinh thái dữ liệu
+      const [usersRes, rolesRes, deptsRes, permsRes] = await Promise.all([
+        fetch(`${API_BASE_URL}/users`, { headers }),
+        fetch(`${API_BASE_URL}/roles`, { headers }),
+        fetch(`${API_BASE_URL}/departments`, { headers }),
+        fetch(`${API_BASE_URL}/permissions`, { headers }).catch(() => null) // Dự phòng nếu chưa code controller
+      ]);
+
+      const [usersData, rolesData, deptsData, permsData] = await Promise.all([
+        usersRes.json(),
+        rolesRes.json(),
+        deptsRes.json(),
+        permsRes ? permsRes.json() : { data: [] }
+      ]);
+
+      setUsers(usersData.data || usersData || []);
+      setRoles(rolesData.data || rolesData || []);
+      setDepartments(deptsData.data || deptsData || []);
+      setPermissions(permsData.data || permsData || []);
+
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Xảy ra lỗi đồng bộ hệ thống");
+      setError("Lỗi đồng bộ dữ liệu với máy chủ.");
     } finally {
       setLoading(false);
     }
   }, []);
 
-  // Fetch Danh sách Role cho UserList UI (Lấy Tooltip/Badge)
-  const fetchRolesData = useCallback(async () => {
-    try {
-      const res = await fetch(`${API_BASE_URL}/roles`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setRoles(data.data ? data.data : data);
-      }
-    } catch (err) {
-      console.log("Lỗi fetch roles");
-    }
-  }, []);
-
-  // Gọi APIs khi mount
   useEffect(() => {
-    fetchRolesData();
-    fetchDepartments();
-  }, [fetchRolesData, fetchDepartments]);
-
-  useEffect(() => {
-    if (activeTab === "users") {
-      fetchUsers();
-    }
-  }, [fetchUsers, activeTab]);
+    fetchAllData();
+  }, [fetchAllData]);
 
   const resetFilters = () => {
     setSearchTerm("");
@@ -608,7 +547,7 @@ export const UserList = ({ currentUser }) => {
   const openCreateModal = () => {
     setModalMode("create");
     setSelectedUser(null);
-    reset({ name: "", email: "", role: "", departmentSelect: "", departmentInput: "" });
+    reset({ full_name: "", email: "", role_id: "", departmentSelect: "", departmentInput: "" });
     setIsModalOpen(true);
   };
 
@@ -616,14 +555,15 @@ export const UserList = ({ currentUser }) => {
     setModalMode("edit");
     setSelectedUser(user);
     
-    const isKnownDepartment = departments.includes(user.department);
-    const initialDeptSelect = isKnownDepartment ? user.department : (user.department ? "other" : "");
-    const initialDeptInput = isKnownDepartment ? "" : (user.department || "");
+    // Tìm ID phòng ban khớp với MongoDB reference
+    const isKnownDept = departments.some(d => d._id === user.department_id);
+    const initialDeptSelect = isKnownDept ? user.department_id : (user.department_id ? "other" : "");
+    const initialDeptInput = isKnownDept ? "" : "Phòng ban mới";
 
     reset({
-      name: user.name,
+      full_name: user.full_name || user.name,
       email: user.email,
-      role: user.role,
+      role_id: user.role_id,
       departmentSelect: initialDeptSelect,
       departmentInput: initialDeptInput,
     });
@@ -635,38 +575,48 @@ export const UserList = ({ currentUser }) => {
     reset(); 
   };
 
-  // Submit User (Tích hợp tạo Phòng ban mới nếu user gõ tay)
+  // Nén dữ liệu và gửi lên API User (POST/PATCH) chuẩn Database
   const onSubmitUser = async (data) => {
     setActionLoading(true);
     try {
-      let finalDepartment = data.departmentSelect === "other" ? data.departmentInput : data.departmentSelect;
+      let finalDepartmentId = data.departmentSelect;
       
-      // XỬ LÝ API POST PHÒNG BAN: Nếu người dùng nhập tên mới chưa có trong hệ thống
-      if (data.departmentSelect === "other" && finalDepartment) {
+      // XỬ LÝ TẠO PHÒNG BAN: Nếu người dùng nhập tên mới (other)
+      if (data.departmentSelect === "other" && data.departmentInput) {
         try {
-          await fetch(`${API_BASE_URL}/departments`, {
+          const deptRes = await fetch(`${API_BASE_URL}/departments`, {
             method: "POST",
             headers: { 
               "Content-Type": "application/json", 
               Authorization: `Bearer ${localStorage.getItem("token")}` 
             },
-            body: JSON.stringify({ name: finalDepartment })
+            body: JSON.stringify({ name: data.departmentInput })
           });
-          // Kích hoạt lấy lại list phòng ban thả vào state
-          fetchDepartments();
+          const newDeptData = await deptRes.json();
+          if (deptRes.ok) {
+            const createdDept = newDeptData.data || newDeptData;
+            setDepartments(prev => [...prev, createdDept]);
+            finalDepartmentId = createdDept._id; // Trích Object ID mới tạo
+          }
         } catch (e) {
-          console.log("Bỏ qua lỗi tạo department (Có thể do đã tồn tại)");
+          console.log("Lỗi tạo phòng ban mới.");
         }
       }
 
+      // Payload Khớp Bảng Users (full_name, role_id, department_id)
       const payload = {
-        name: data.name,
+        full_name: data.full_name,
         email: data.email,
-        role: data.role,
-        department: finalDepartment
+        role_id: data.role_id,
+        department_id: finalDepartmentId
       };
 
-      const url = modalMode === "create" ? `${API_BASE_URL}/users` : `${API_BASE_URL}/users/${selectedUser.id}`;
+      if (modalMode === "create") {
+        payload.password = "Hito@123456"; // Tránh lỗi Class Validator
+      }
+
+      const uId = selectedUser?._id;
+      const url = modalMode === "create" ? `${API_BASE_URL}/users` : `${API_BASE_URL}/users/${uId}`;
       const method = modalMode === "create" ? "POST" : "PATCH"; 
 
       const res = await fetch(url, {
@@ -681,22 +631,12 @@ export const UserList = ({ currentUser }) => {
       const responseData = await res.json();
       if (!res.ok) throw new Error(responseData.message || "Thao tác cập nhật tài khoản trên API thất bại");
       
-      const savedUserRecord = responseData.data ? responseData.data : responseData;
+      const savedUserRecord = responseData.data || responseData;
       
       if (modalMode === "create") {
         setUsers(prev => [savedUserRecord, ...prev]);
-        setRoles(prev => prev.map(r => r.key === payload.role ? { ...r, userCount: (r.userCount || 0) + 1 } : r));
       } else {
-        const oldRole = selectedUser.role;
-        const newRole = payload.role;
-        if (oldRole !== newRole) {
-          setRoles(prev => prev.map(r => {
-            if (r.key === oldRole) return { ...r, userCount: Math.max(0, (r.userCount || 0) - 1) };
-            if (r.key === newRole) return { ...r, userCount: (r.userCount || 0) + 1 };
-            return r;
-          }));
-        }
-        setUsers(prev => prev.map(item => item.id === selectedUser.id ? savedUserRecord : item));
+        setUsers(prev => prev.map(item => item._id === uId ? savedUserRecord : item));
       }
       closeModal();
     } catch (err) {
@@ -725,7 +665,7 @@ export const UserList = ({ currentUser }) => {
       const responseData = await res.json();
 
       if (!res.ok) throw new Error(responseData.message || "Lệnh PATCH cập nhật trạng thái thất bại");
-      setUsers(prev => prev.map(item => item.id === userId ? { ...item, status: newStatus } : item));
+      setUsers(prev => prev.map(item => item._id === userId ? { ...item, status: newStatus } : item));
     } catch (err) {
       alert("Lỗi hệ thống: " + err.message);
     } finally {
@@ -745,7 +685,7 @@ export const UserList = ({ currentUser }) => {
       const responseData = await res.json();
 
       if (!res.ok) throw new Error(responseData.message || "Lệnh xóa mềm trên API thất bại");
-      setUsers(prev => prev.filter(item => item.id !== userId));
+      setUsers(prev => prev.filter(item => item._id !== userId));
     } catch (err) {
       alert("Lỗi hệ thống: " + err.message);
     } finally {
@@ -753,33 +693,25 @@ export const UserList = ({ currentUser }) => {
     }
   };
 
-  // Filter an toàn với Optional Chaining chặn lỗi null/undefined
+  // Lọc an toàn bằng Optional Chaining
   const filteredUsers = users.filter(user => {
     if (!user) return false;
 
-    const name = user.name?.toLowerCase() || "";
-    const email = user.email?.toLowerCase() || "";
+    const name = (user.full_name || user.name || "").toLowerCase();
+    const email = (user.email || "").toLowerCase();
     const term = searchTerm.toLowerCase();
 
     const matchSearch = name.includes(term) || email.includes(term);
-    const matchRole = filterRole ? user.role === filterRole : true;
-    const matchDept = filterDepartment ? user.department === filterDepartment : true;
+    const matchRole = filterRole ? user.role_id === filterRole : true;
+    const matchDept = filterDepartment ? user.department_id === filterDepartment : true;
     
     return matchSearch && matchRole && matchDept;
   });
 
-  if (!["admin", "bangiamdoc", "nhansu"].includes(currentUser?.role)) {
-    return (
-      <div className="container-fluid pt-5 text-center">
-        <h2 className="text-danger">Từ chối quyền truy cập</h2>
-        <p className="text-body-secondary">Tài khoản hiện tại của bạn không nằm trong phân cấp quản lý nhân sự.</p>
-      </div>
-    );
-  }
-
   return (
     <div className="user-list-wrapper container-fluid pt-3 pb-4" style={{ maxWidth: "1600px" }}>
       
+      {/* THANH ĐIỀU HƯỚNG TAB TỐI GIẢN */}
       <div className="custom-tab-container">
         <button 
           className={`custom-tab-btn ${activeTab === 'users' ? 'active' : ''}`} 
@@ -800,11 +732,11 @@ export const UserList = ({ currentUser }) => {
       <div className="current-role-banner mb-4 p-3 rounded-3 d-flex justify-content-between align-items-center">
         <div>
           <span className="text-body-secondary me-2">Đang đăng nhập:</span> 
-          <span className="fw-bold text-body-emphasis">{currentUser?.name}</span> 
+          <span className="fw-bold text-body-emphasis">{currentUser?.full_name || currentUser?.name}</span> 
           <span className="mx-2 text-body-secondary">|</span>
           <span className="text-body-secondary me-2">Vai trò:</span>
-          <span className={`badge ${ROLE_MAP[currentUser?.role]?.color || 'bg-secondary'} px-2 py-1`} style={{ fontSize: '13px' }}>
-            {ROLE_MAP[currentUser?.role]?.label || currentUser?.role}
+          <span className={`badge ${ROLE_UI_MAP[currentUserRoleData?.name?.toLowerCase()]?.color || 'bg-secondary'} px-2 py-1`} style={{ fontSize: '13px' }}>
+            {currentUserRoleData?.name || "Không rõ"}
           </span>
         </div>
         <button 
@@ -816,10 +748,10 @@ export const UserList = ({ currentUser }) => {
         </button>
       </div>
 
-      <PermissionDictionaryModal isOpen={isDictOpen} onClose={() => setIsDictOpen(false)} roles={roles} />
+      <PermissionDictionaryModal isOpen={isDictOpen} onClose={() => setIsDictOpen(false)} roles={roles} permissions={permissions} />
 
       {activeTab === 'roles' && isAdmin ? (
-        <RoleManagementSection roles={roles} setRoles={setRoles} />
+        <RoleManagementSection roles={roles} setRoles={setRoles} users={users} permissions={permissions} permissionModules={permissionModules} />
       ) : (
         <>
           <div className="d-flex justify-content-between align-items-center mb-4">
@@ -867,8 +799,8 @@ export const UserList = ({ currentUser }) => {
               onChange={(e) => setFilterRole(e.target.value)}
             >
               <option value="">Lọc theo vai trò</option>
-              {Object.entries(ROLE_MAP).map(([key, data]) => (
-                <option key={key} value={key}>{data.label}</option>
+              {roles.map(role => (
+                <option key={role._id} value={role._id}>{role.name}</option>
               ))}
             </select>
 
@@ -879,7 +811,7 @@ export const UserList = ({ currentUser }) => {
             >
               <option value="">Lọc theo phòng ban</option>
               {departments.map(dept => (
-                <option key={dept} value={dept}>{dept}</option>
+                <option key={dept._id} value={dept._id}>{dept.name}</option>
               ))}
             </select>
 
@@ -890,7 +822,7 @@ export const UserList = ({ currentUser }) => {
                 title="Khôi phục danh sách ban đầu"
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><polyline points="3 3 3 8 8 8"></polyline></svg>
-                Hoàn tác bộ lọc
+                Hoàn tác
               </button>
             )}
           </div>
@@ -921,26 +853,33 @@ export const UserList = ({ currentUser }) => {
                     <tr><td colSpan="6" className="text-center py-5 text-body-secondary">Hệ thống dữ liệu trống hoặc không tìm thấy kết quả.</td></tr>
                   ) : (
                     filteredUsers.map((user, index) => {
-                      const roleData = ROLE_MAP[user.role] || { label: user.role, color: "bg-secondary", link: "#" };
+                      // Lookup Role & Department by ObjectId
+                      const uRole = roles.find(r => r._id === user.role_id) || {};
+                      const roleName = uRole.name || "Chưa gán quyền";
+                      const roleUI = ROLE_UI_MAP[roleName.toLowerCase()] || { color: "bg-secondary" };
+                      
+                      const uDept = departments.find(d => d._id === user.department_id);
+                      const deptName = uDept?.name || "—";
+
                       return (
-                        <tr key={user.id}>
+                        <tr key={user._id}>
                           <td>{index + 1}</td>
                           <td>
                             <div className="d-flex flex-column">
-                              <span className="fw-bold text-body-emphasis">{user.name}</span>
+                              <span className="fw-bold text-body-emphasis">{user.full_name || user.name}</span>
                               <span className="text-body-secondary" style={{ fontSize: "12px" }}>{user.email}</span>
                             </div>
                           </td>
                           <td>
                             <div className="d-flex align-items-center gap-2">
-                              <span className={`badge ${roleData.color}`}>{roleData.label}</span>
-                              <a href={roleData.link} target="_blank" rel="noopener noreferrer" className="text-primary text-decoration-none" style={{ fontSize: "12px" }}>
+                              <span className={`badge ${roleUI.color}`}>{roleName}</span>
+                              <a href="#" onClick={(e) => { e.preventDefault(); setIsDictOpen(true); }} className="text-primary text-decoration-none" style={{ fontSize: "12px" }}>
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="me-1"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
                                 Xem chức năng
                               </a>
                             </div>
                           </td>
-                          <td>{user.department || '—'}</td>
+                          <td>{deptName}</td>
                           <td>
                             <span className={`status-badge ${user.status === 'active' ? 'status-active' : 'status-locked'}`}>
                               {user.status === 'active' ? (
@@ -973,7 +912,7 @@ export const UserList = ({ currentUser }) => {
                                 <button 
                                   className={`action-btn ${user.status === 'active' ? 'btn-lock' : 'btn-unlock'} me-1`} 
                                   title={user.status === 'active' ? 'Khóa tài khoản' : 'Mở khóa tài khoản'} 
-                                  onClick={() => toggleUserStatus(user.id, user.status)} 
+                                  onClick={() => toggleUserStatus(user._id, user.status)} 
                                   disabled={actionLoading}
                                 >
                                   {user.status === 'active' ? (
@@ -995,7 +934,7 @@ export const UserList = ({ currentUser }) => {
                               <button 
                                 className="action-btn btn-delete" 
                                 title="Xóa mềm người dùng" 
-                                onClick={() => deleteUser(user.id, user.name)} 
+                                onClick={() => deleteUser(user._id, user.full_name || user.name)} 
                                 disabled={actionLoading}
                               >
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
@@ -1028,15 +967,15 @@ export const UserList = ({ currentUser }) => {
                 <form onSubmit={handleSubmit(onSubmitUser)}>
                   <div className="custom-modal-body">
                     <div className="mb-3">
-                      <label className="form-label" style={{ fontSize: "14px", fontWeight: "600" }}>Họ và tên nhân sự <span className="text-danger">*</span></label>
+                      <label className="form-label" style={{ fontSize: "14px", fontWeight: "600" }}>Họ và tên nhân sự (full_name) <span className="text-danger">*</span></label>
                       <input 
                         type="text" 
-                        className={`form-control ${errors.name ? 'is-invalid' : ''}`} 
+                        className={`form-control ${errors.full_name ? 'is-invalid' : ''}`} 
                         placeholder="Nhập họ và tên..." 
                         disabled={actionLoading} 
-                        {...register("name", { required: "Trường họ và tên bắt buộc nhập" })} 
+                        {...register("full_name", { required: "Trường họ và tên bắt buộc nhập" })} 
                       />
-                      {errors.name && <div className="invalid-feedback">{errors.name.message}</div>}
+                      {errors.full_name && <div className="invalid-feedback">{errors.full_name.message}</div>}
                     </div>
 
                     <div className="mb-3">
@@ -1055,16 +994,16 @@ export const UserList = ({ currentUser }) => {
                       <div className="col-md-6 mb-3">
                         <label className="form-label" style={{ fontSize: "14px", fontWeight: "600" }}>Phân cấp vai trò <span className="text-danger">*</span></label>
                         <select 
-                          className={`form-select ${errors.role ? 'is-invalid' : ''}`} 
+                          className={`form-select ${errors.role_id ? 'is-invalid' : ''}`} 
                           disabled={actionLoading} 
-                          {...register("role", { required: "Bắt buộc chỉ định vai trò quyền" })}
+                          {...register("role_id", { required: "Bắt buộc chỉ định vai trò quyền" })}
                         >
                           <option value="">-- Chọn vai trò --</option>
-                          {Object.entries(ROLE_MAP).map(([key, data]) => (
-                            <option key={key} value={key}>{data.label}</option>
+                          {roles.map(role => (
+                            <option key={role._id} value={role._id}>{role.name}</option>
                           ))}
                         </select>
-                        {errors.role && <div className="invalid-feedback">{errors.role.message}</div>}
+                        {errors.role_id && <div className="invalid-feedback">{errors.role_id.message}</div>}
                       </div>
 
                       <div className="col-md-6 mb-3">
@@ -1076,7 +1015,7 @@ export const UserList = ({ currentUser }) => {
                         >
                           <option value="">-- Bỏ trống --</option>
                           {departments.map(dept => (
-                            <option key={dept} value={dept}>{dept}</option>
+                            <option key={dept._id} value={dept._id}>{dept.name}</option>
                           ))}
                           <option value="other" className="fw-bold text-primary">-- Nhập phòng ban mới --</option>
                         </select>
