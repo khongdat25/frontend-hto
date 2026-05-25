@@ -3,25 +3,89 @@ import { useState, useEffect, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import "./UserList.css";
 
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL ||
+  (import.meta.env.PROD ? "/api/v1" : "http://qlnb-api.hto.edu.vn/api/v1");
+
 // --- CẤU HÌNH DANH SÁCH ROLE VÀ LINK CHỨC NĂNG TƯƠNG ỨNG ---
 // BẠN HÃY THAY THẾ CÁC LINK TRONG BIẾN NÀY BẰNG LINK TỪ FILE EXCEL CỦA BẠN
 const ROLE_MAP = {
-  admin: { label: "Admin", color: "bg-danger", link: "/role-links/admin" },
-  bangiamdoc: { label: "Ban giám đốc", color: "bg-primary", link: "/role-links/ban-giam-doc" },
-  truongbophan: { label: "Trưởng bộ phận", color: "bg-warning text-dark", link: "/role-links/truong-bo-phan" },
-  nhansu: { label: "Nhân sự", color: "bg-info text-dark", link: "/role-links/nhan-su" },
-  daily: { label: "Đại lý", color: "bg-success", link: "/role-links/dai-ly" },
-  congtacvien: { label: "Cộng tác viên", color: "bg-secondary", link: "/role-links/cong-tac-vien" },
-  hethong: { label: "Hệ thống", color: "bg-dark", link: "/role-links/he-thong" }
+  admin: { label: "Admin", color: "bg-danger", link: "/role-links/admin", roleId: "69fc5af582ef85451120772a" },
+  bangiamdoc: { label: "Ban giám đốc", color: "bg-primary", link: "/role-links/ban-giam-doc", roleId: "69fc5af582ef85451120772b" },
+  truongbophan: { label: "Trưởng bộ phận", color: "bg-warning text-dark", link: "/role-links/truong-bo-phan", roleId: "69fc5af582ef85451120772c" },
+  nhansu: { label: "Nhân sự", color: "bg-info text-dark", link: "/role-links/nhan-su", roleId: "69fc5af582ef85451120772d" },
+  daily: { label: "Đại lý", color: "bg-success", link: "/role-links/dai-ly", roleId: "69fc5af582ef85451120772e" },
+  congtacvien: { label: "Cộng tác viên", color: "bg-secondary", link: "/role-links/cong-tac-vien", roleId: "69fc5af682ef85451120772f" },
+  hethong: { label: "Hệ thống", color: "bg-dark", link: "/role-links/he-thong", roleId: "69fc5af782ef854511207730" }
 };
 
-// --- MOCK DATA ---
-const MOCK_USERS = [
-  { id: 1, name: "Nguyễn Văn Admin", email: "admin@hto.vn", role: "admin", department: "Ban Giám Đốc", status: "active" },
-  { id: 2, name: "Trần Thị B", email: "tranb@hto.vn", role: "nhansu", department: "Tuyển Sinh", status: "active" },
-  { id: 3, name: "Lê Văn C", email: "lec@hto.vn", role: "daily", department: "Hồ Sơ", status: "locked" },
-  { id: 4, name: "Phạm D", email: "phamd@hto.vn", role: "congtacvien", department: "Kế Toán", status: "active" },
-];
+const ROLE_ID_TO_KEY = Object.fromEntries(
+  Object.entries(ROLE_MAP).map(([key, value]) => [value.roleId, key]),
+);
+
+const getAuthHeaders = () => {
+  const token = localStorage.getItem("token");
+
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
+
+const normalizeUser = (user) => {
+  const role = user.role || ROLE_ID_TO_KEY[user.roleId] || "hethong";
+  const department =
+    user.department?.name ||
+    user.departmentName ||
+    user.department ||
+    user.departmentId ||
+    "";
+
+  return {
+    id: user.id || user._id,
+    name: user.name || user.fullName || "",
+    email: user.email || "",
+    role,
+    roleId: user.roleId || ROLE_MAP[role]?.roleId || "",
+    department,
+    departmentId: user.departmentId || "",
+    status: user.status || "active",
+  };
+};
+
+const normalizeApiData = (payload) => {
+  const data = payload?.data ?? payload;
+
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.items)) return data.items;
+  if (Array.isArray(data?.users)) return data.users;
+
+  return [];
+};
+
+const getApiErrorMessage = (payload, fallback) => {
+  const details = payload?.error?.details;
+
+  if (Array.isArray(details) && details.length > 0) return details[0];
+  if (payload?.message && payload.message !== "Bad Request") return payload.message;
+
+  return fallback;
+};
+
+async function usersRequest(path = "", options = {}) {
+  const response = await fetch(`${API_BASE_URL}/users${path}`, {
+    method: options.method || "GET",
+    headers: {
+      "Content-Type": "application/json",
+      ...getAuthHeaders(),
+    },
+    ...(options.body ? { body: JSON.stringify(options.body) } : {}),
+  });
+  const payload = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    throw new Error(getApiErrorMessage(payload, "Không thể xử lý tài khoản."));
+  }
+
+  return payload;
+}
 
 export const UserList = ({ currentUser }) => {
   // States quản lý Data
@@ -40,40 +104,16 @@ export const UserList = ({ currentUser }) => {
   const [selectedUser, setSelectedUser] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
 
-  // Cấu hình React Hook Form
   const { register, handleSubmit, reset, formState: { errors } } = useForm({
     mode: "onTouched"
   });
 
-  // 1. Kiểm tra quyền truy cập (Chỉ Admin hoặc Ban giám đốc mới được xem trang này)
-  // Bạn có thể tùy chỉnh lại mảng quyền bên dưới theo ý muốn
-  if (!["admin", "bangiamdoc"].includes(currentUser?.role)) {
-    return (
-      <div className="container-fluid pt-5 text-center">
-        <h2 className="text-danger">Từ chối truy cập</h2>
-        <p className="text-body-secondary">Bạn không có quyền truy cập trang Quản lý tài khoản.</p>
-      </div>
-    );
-  }
-
-  // 2. Fetch danh sách Users
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      /* --- LOGIC API THẬT ---
-      const res = await fetch("http://localhost:3001/api/users", {
-        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Lỗi tải dữ liệu");
-      setUsers(data);
-      ------------------------- */
-
-      // --- LOGIC GIẢ LẬP ---
-      await new Promise(resolve => setTimeout(resolve, 800));
-      setUsers(MOCK_USERS);
-      // ---------------------
+      const payload = await usersRequest();
+      setUsers(normalizeApiData(payload).map(normalizeUser));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Đã có lỗi xảy ra");
     } finally {
@@ -82,14 +122,14 @@ export const UserList = ({ currentUser }) => {
   }, []);
 
   useEffect(() => {
-    fetchUsers();
+    void Promise.resolve().then(() => fetchUsers());
   }, [fetchUsers]);
 
   // 3. Xử lý mở đóng Modal
   const openCreateModal = () => {
     setModalMode("create");
     setSelectedUser(null);
-    reset({ name: "", email: "", role: "", department: "" });
+    reset({ name: "", email: "", password: "", role: "", departmentId: "" });
     setIsModalOpen(true);
   };
 
@@ -101,7 +141,7 @@ export const UserList = ({ currentUser }) => {
       name: user.name,
       email: user.email,
       role: user.role,
-      department: user.department,
+      departmentId: user.departmentId,
     });
     setIsModalOpen(true);
   };
@@ -115,34 +155,36 @@ export const UserList = ({ currentUser }) => {
   const onSubmit = async (data) => {
     setActionLoading(true);
     try {
-      /* --- LOGIC API THẬT ---
-      const url = modalMode === "create" ? "http://localhost:3001/api/users" : `http://localhost:3001/api/users/${selectedUser.id}`;
-      const method = modalMode === "create" ? "POST" : "PUT";
-      const res = await fetch(url, {
-        method,
-        headers: { 
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("token")}`
-        },
-        body: JSON.stringify(data)
-      });
-      if (!res.ok) throw new Error("Thao tác thất bại");
-      ------------------------- */
+      const input = {
+        fullName: data.name.trim(),
+        email: data.email.trim(),
+        roleId: ROLE_MAP[data.role]?.roleId,
+        departmentId: data.departmentId?.trim() || undefined,
+      };
 
-      // --- LOGIC GIẢ LẬP ---
-      await new Promise(resolve => setTimeout(resolve, 1000));
       if (modalMode === "create") {
-        // eslint-disable-next-line react-hooks/purity
-        const newUser = { ...data, id: Date.now(), status: "active" };
-        setUsers(prev => [newUser, ...prev]);
+        const payload = await usersRequest("", {
+          method: "POST",
+          body: {
+            ...input,
+            password: data.password,
+            status: "active",
+          },
+        });
+        const createdUser = normalizeUser(payload?.data ?? payload);
+        setUsers(prev => [createdUser, ...prev]);
       } else {
-        setUsers(prev => prev.map(u => u.id === selectedUser.id ? { ...u, ...data } : u));
+        const payload = await usersRequest(`/${selectedUser.id}`, {
+          method: "PATCH",
+          body: input,
+        });
+        const updatedUser = normalizeUser(payload?.data ?? payload);
+        setUsers(prev => prev.map(u => u.id === selectedUser.id ? updatedUser : u));
       }
-      // ---------------------
 
       closeModal();
     } catch (err) {
-      alert("Lỗi: " + err.message);
+      alert("Lỗi: " + (err instanceof Error ? err.message : "Thao tác thất bại"));
     } finally {
       setActionLoading(false);
     }
@@ -150,31 +192,21 @@ export const UserList = ({ currentUser }) => {
 
   // 5. Xử lý Lock / Unlock tài khoản
   const toggleUserStatus = async (userId, currentStatus) => {
-    const newStatus = currentStatus === "active" ? "locked" : "active";
+    const newStatus = currentStatus === "active" ? "suspended" : "active";
     const confirmMsg = currentStatus === "active" ? "Bạn có chắc muốn KHÓA tài khoản này?" : "Bạn có chắc muốn MỞ KHÓA tài khoản này?";
     
     if (!window.confirm(confirmMsg)) return;
 
     setActionLoading(true);
     try {
-      /* --- LOGIC API THẬT ---
-      const res = await fetch(`http://localhost:3001/api/users/${userId}/status`, {
+      const payload = await usersRequest(`/${userId}/status`, {
         method: "PATCH",
-        headers: { 
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("token")}`
-        },
-        body: JSON.stringify({ status: newStatus })
+        body: { status: newStatus },
       });
-      if (!res.ok) throw new Error("Cập nhật trạng thái thất bại");
-      ------------------------- */
-
-      // --- LOGIC GIẢ LẬP ---
-      await new Promise(resolve => setTimeout(resolve, 600));
-      setUsers(prev => prev.map(u => u.id === userId ? { ...u, status: newStatus } : u));
-      // ---------------------
+      const updatedUser = normalizeUser(payload?.data ?? payload);
+      setUsers(prev => prev.map(u => u.id === userId ? updatedUser : u));
     } catch (err) {
-      alert("Lỗi: " + err.message);
+      alert("Lỗi: " + (err instanceof Error ? err.message : "Cập nhật trạng thái thất bại"));
     } finally {
       setActionLoading(false);
     }
@@ -185,12 +217,27 @@ export const UserList = ({ currentUser }) => {
     const matchSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
                         user.email.toLowerCase().includes(searchTerm.toLowerCase());
     const matchRole = filterRole ? user.role === filterRole : true;
-    const matchDept = filterDepartment ? user.department === filterDepartment : true;
+    const matchDept = filterDepartment ? user.departmentId === filterDepartment : true;
     return matchSearch && matchRole && matchDept;
   });
 
   // Lấy danh sách phòng ban unique (dùng cho bộ lọc)
-  const departments = [...new Set(users.map(u => u.department).filter(Boolean))];
+  const departments = Array.from(
+    new Map(
+      users
+        .filter((user) => user.departmentId)
+        .map((user) => [user.departmentId, user.department || user.departmentId]),
+    ),
+  );
+
+  if (!["admin", "bangiamdoc"].includes(currentUser?.role)) {
+    return (
+      <div className="container-fluid pt-5 text-center">
+        <h2 className="text-danger">Từ chối truy cập</h2>
+        <p className="text-body-secondary">Bạn không có quyền truy cập trang Quản lý tài khoản.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="user-list-wrapper container-fluid pt-3 pb-4" style={{ maxWidth: "1600px" }}>
@@ -242,8 +289,8 @@ export const UserList = ({ currentUser }) => {
           onChange={(e) => setFilterDepartment(e.target.value)}
         >
           <option value="">Tất cả phòng ban</option>
-          {departments.map(dept => (
-            <option key={dept} value={dept}>{dept}</option>
+          {departments.map(([departmentId, departmentName]) => (
+            <option key={departmentId} value={departmentId}>{departmentName}</option>
           ))}
         </select>
       </div>
@@ -322,13 +369,14 @@ export const UserList = ({ currentUser }) => {
                           {user.status === 'active' ? (
                             <><span className="spinner-grow spinner-grow-sm bg-success" style={{width: '6px', height: '6px'}}></span> Hoạt động</>
                           ) : (
-                            <><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg> Đã khóa</>
+                            <><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg> {user.status === "inactive" ? "Ngừng hoạt động" : "Đã khóa"}</>
                           )}
                         </span>
                       </td>
                       <td className="text-center">
+                        <div className="d-inline-flex align-items-center justify-content-center gap-2" style={{ minWidth: "76px" }}>
                         <button 
-                          className="action-btn btn-edit me-2" 
+                          className="action-btn btn-edit" 
                           title="Chỉnh sửa"
                           onClick={() => openEditModal(user)}
                           disabled={actionLoading}
@@ -336,21 +384,25 @@ export const UserList = ({ currentUser }) => {
                           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                         </button>
                         
-                        {/* Không cho tự khóa chính mình (ví dụ ID = currentUser.id) */}
-                        {currentUser?.email !== user.email && (
-                          <button 
-                            className={`action-btn ${user.status === 'active' ? 'btn-lock' : 'btn-unlock'}`}
-                            title={user.status === 'active' ? 'Khóa tài khoản' : 'Mở khóa tài khoản'}
-                            onClick={() => toggleUserStatus(user.id, user.status)}
-                            disabled={actionLoading}
-                          >
-                            {user.status === 'active' ? (
-                              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-                            ) : (
-                              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 9.9-1"></path></svg>
-                            )}
-                          </button>
-                        )}
+                        <button 
+                          className={`action-btn ${user.status === 'active' ? 'btn-lock' : 'btn-unlock'}`}
+                          title={
+                            currentUser?.email === user.email
+                              ? "Không thể tự khóa tài khoản đang đăng nhập"
+                              : user.status === 'active'
+                                ? 'Khóa tài khoản'
+                                : 'Mở khóa tài khoản'
+                          }
+                          onClick={() => toggleUserStatus(user.id, user.status)}
+                          disabled={actionLoading || currentUser?.email === user.email}
+                        >
+                          {user.status === 'active' ? (
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                          ) : (
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 9.9-1"></path></svg>
+                          )}
+                        </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -405,6 +457,23 @@ export const UserList = ({ currentUser }) => {
                   {modalMode === "edit" && <small className="text-body-secondary mt-1 d-block">Email dùng để đăng nhập nên không thể thay đổi.</small>}
                 </div>
 
+                {modalMode === "create" && (
+                  <div className="mb-3">
+                    <label className="form-label" style={{ fontSize: "14px", fontWeight: "600" }}>Mật khẩu <span className="text-danger">*</span></label>
+                    <input 
+                      type="password" 
+                      className={`form-control ${errors.password ? 'is-invalid' : ''}`} 
+                      placeholder="Ít nhất 8 ký tự"
+                      disabled={actionLoading}
+                      {...register("password", {
+                        required: "Vui lòng nhập mật khẩu",
+                        minLength: { value: 8, message: "Mật khẩu phải có ít nhất 8 ký tự" },
+                      })}
+                    />
+                    {errors.password && <div className="invalid-feedback">{errors.password.message}</div>}
+                  </div>
+                )}
+
                 <div className="row">
                   <div className="col-md-6 mb-3">
                     <label className="form-label" style={{ fontSize: "14px", fontWeight: "600" }}>Vai trò <span className="text-danger">*</span></label>
@@ -422,13 +491,13 @@ export const UserList = ({ currentUser }) => {
                   </div>
 
                   <div className="col-md-6 mb-3">
-                    <label className="form-label" style={{ fontSize: "14px", fontWeight: "600" }}>Phòng ban</label>
+                    <label className="form-label" style={{ fontSize: "14px", fontWeight: "600" }}>ID phòng ban</label>
                     <input 
                       type="text" 
                       className="form-control" 
-                      placeholder="VD: Kế Toán, Tuyển Sinh..."
+                      placeholder="Nhập departmentId nếu có"
                       disabled={actionLoading}
-                      {...register("department")}
+                      {...register("departmentId")}
                     />
                   </div>
                 </div>
@@ -436,7 +505,7 @@ export const UserList = ({ currentUser }) => {
                 {modalMode === "create" && (
                   <div className="alert alert-info py-2" style={{ fontSize: "13px" }}>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="me-2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
-                    Mật khẩu mặc định sẽ được gửi qua email cho người dùng mới.
+                    Tài khoản sẽ được tạo trực tiếp qua API người dùng.
                   </div>
                 )}
               </div>
