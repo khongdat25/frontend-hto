@@ -62,10 +62,12 @@ const PERMISSION_MODULES = [
   }
 ];
 
-// Hàm hỗ trợ bóc tách ID an toàn (Xử lý trường hợp BE trả về Object lồng nhau do Populate)
+// Hàm bóc tách ID cực kỳ an toàn (Xử lý mọi trường hợp trả về của Backend)
 const getSafeId = (val) => {
   if (!val) return "";
-  if (typeof val === 'object') return String(val._id || val.id || "");
+  if (typeof val === 'object') {
+    return String(val._id || val.id || "");
+  }
   return String(val);
 };
 
@@ -76,7 +78,7 @@ const PermissionDictionaryModal = ({ isOpen, onClose, roles, permissions }) => {
   if (!isOpen) return null;
 
   const getPermissionDesc = (permId) => {
-    const perm = permissions.find(p => String(p._id) === String(permId));
+    const perm = permissions.find(p => getSafeId(p) === String(permId));
     return perm ? (perm.description || perm.name) : permId;
   };
 
@@ -106,10 +108,11 @@ const PermissionDictionaryModal = ({ isOpen, onClose, roles, permissions }) => {
 
           {roles.map((role) => {
             const roleUI = ROLE_UI_MAP[role.name?.toLowerCase()] || { color: "bg-secondary" };
-            const permsArray = role.permissionIds || [];
+            // Lấy chính xác trường permissionIds (hoặc permission_ids) từ định nghĩa BE
+            const permsArray = role.permissionIds || role.permission_ids || role.permissions || [];
             
             return (
-              <div className="dict-role-card" key={role._id}>
+              <div className="dict-role-card" key={getSafeId(role)}>
                 <div className="dict-role-header">
                   <span className={`badge ${roleUI.color} px-2 py-1`} style={{ fontSize: "13px" }}>
                     {role.name}
@@ -172,7 +175,7 @@ const RoleManagementSection = ({ roles, setRoles, users, permissions, permission
   const openEditModal = (role) => {
     setModalMode("edit");
     setSelectedRole(role);
-    setSelectedPermissions(role.permissionIds || []);
+    setSelectedPermissions(role.permissionIds || role.permission_ids || role.permissions || []);
     reset({ name: role.name, description: role.description });
     setIsModalOpen(true);
   };
@@ -180,13 +183,14 @@ const RoleManagementSection = ({ roles, setRoles, users, permissions, permission
   const closeModal = () => setIsModalOpen(false);
 
   const togglePermission = (permissionId) => {
+    const idStr = String(permissionId);
     setSelectedPermissions(prev => 
-      prev.includes(permissionId) ? prev.filter(id => id !== permissionId) : [...prev, permissionId]
+      prev.includes(idStr) ? prev.filter(id => id !== idStr) : [...prev, idStr]
     );
   };
 
   const toggleModuleAll = (moduleActions, isChecked) => {
-    const modulePermissionIds = moduleActions.map(action => action._id);
+    const modulePermissionIds = moduleActions.map(action => getSafeId(action));
     if (isChecked) {
       setSelectedPermissions(prev => [...new Set([...prev, ...modulePermissionIds])]);
     } else {
@@ -197,13 +201,14 @@ const RoleManagementSection = ({ roles, setRoles, users, permissions, permission
   const onSubmitRole = async (data) => {
     setActionLoading(true);
     try {
+      // Khớp chuẩn với Interface RoleDbDocument của Backend
       const payload = {
         name: data.name,
         description: data.description,
         permissionIds: selectedPermissions
       };
 
-      const rId = selectedRole?._id;
+      const rId = getSafeId(selectedRole);
       const url = modalMode === "create" ? `${API_BASE_URL}/roles` : `${API_BASE_URL}/roles/${rId}`;
       const method = modalMode === "create" ? "POST" : "PATCH";
 
@@ -221,7 +226,7 @@ const RoleManagementSection = ({ roles, setRoles, users, permissions, permission
       
       let updatedRecord = responseData.data || responseData;
 
-      // Cập nhật ma trận phân quyền (Nếu API tách rời)
+      // Cập nhật mảng phân quyền riêng rẽ nếu Backend tách API
       if (modalMode === "edit") {
         try {
           const permRes = await fetch(`${API_BASE_URL}/roles/${rId}/permissions`, {
@@ -230,21 +235,21 @@ const RoleManagementSection = ({ roles, setRoles, users, permissions, permission
               "Content-Type": "application/json",
               Authorization: `Bearer ${localStorage.getItem("token")}`
             },
-            body: JSON.stringify({ permissionIds: selectedPermissions })
+            body: JSON.stringify({ permissionIds: selectedPermissions }) 
           });
           const permData = await permRes.json();
           if (permRes.ok) {
              updatedRecord = permData.data || permData;
           }
         } catch (e) {
-          console.log("Cập nhật quyền bị lỗi, hoặc API đã gom chung vào PATCH /roles/:id");
+          console.log("Ghi nhận quyền được xử lý gộp chung vào API PATCH Role");
         }
       }
 
       if (modalMode === "create") {
         setRoles(prev => [...prev, updatedRecord]);
       } else {
-        setRoles(prev => prev.map(item => item._id === rId ? updatedRecord : item));
+        setRoles(prev => prev.map(item => getSafeId(item) === rId ? updatedRecord : item));
       }
       closeModal();
     } catch (err) {
@@ -257,10 +262,10 @@ const RoleManagementSection = ({ roles, setRoles, users, permissions, permission
   const handleDeleteRole = async (role) => {
     if (role.name?.toLowerCase() === "admin") return; 
     
-    // FIX SỐ LƯỢNG: Đếm chính xác nhân sự dựa trên ID thông minh
-    const roleIdStr = String(role._id);
+    // BỘ ĐẾM SỐ LƯỢNG MẠNH MẼ NHẤT
+    const roleIdStr = getSafeId(role);
     const currentUserCount = users.filter(u => {
-      const uRoleIdStr = getSafeId(u.role_id) || getSafeId(u.role);
+      const uRoleIdStr = getSafeId(u.role_id) || getSafeId(u.roleId) || getSafeId(u.role);
       return uRoleIdStr === roleIdStr;
     }).length;
 
@@ -272,14 +277,14 @@ const RoleManagementSection = ({ roles, setRoles, users, permissions, permission
 
     setActionLoading(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/roles/${role._id}`, {
+      const res = await fetch(`${API_BASE_URL}/roles/${roleIdStr}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
       });
       const responseData = await res.json();
       if (!res.ok) throw new Error(responseData.message || "Yêu cầu xóa từ API thất bại");
 
-      setRoles(prev => prev.filter(item => item._id !== role._id));
+      setRoles(prev => prev.filter(item => getSafeId(item) !== roleIdStr));
     } catch (err) {
       alert("Lỗi hệ thống: " + err.message);
     } finally {
@@ -326,19 +331,19 @@ const RoleManagementSection = ({ roles, setRoles, users, permissions, permission
               ) : (
                 roles.map((role) => {
                   const isAdmin = role.name?.toLowerCase() === "admin";
-                  const roleIdStr = String(role._id);
+                  const roleIdStr = getSafeId(role);
                   
-                  // BỘ ĐẾM SỐ LƯỢNG NHÂN SỰ CHUẨN XÁC 100%
+                  // BỘ ĐẾM SỐ LƯỢNG NHÂN SỰ CHUẨN XÁC
                   const userCount = users.filter(u => {
-                    const uRoleIdStr = getSafeId(u.role_id) || getSafeId(u.role);
+                    const uRoleIdStr = getSafeId(u.role_id) || getSafeId(u.roleId) || getSafeId(u.role);
                     return uRoleIdStr === roleIdStr;
                   }).length;
 
                   return (
-                    <tr key={role._id}>
+                    <tr key={roleIdStr}>
                       <td>
                         <span className="fw-bold text-body-emphasis">{role.name}</span>
-                        <div className="text-body-secondary" style={{ fontSize: "11px", marginTop: "2px" }}>ID: {role._id}</div>
+                        <div className="text-body-secondary" style={{ fontSize: "11px", marginTop: "2px" }}>ID: {roleIdStr}</div>
                       </td>
                       <td><span className="text-body-secondary text-wrap" style={{ fontSize: "13px" }}>{role.description || "Chưa thiết lập mô tả cụ thể cho nhóm này."}</span></td>
                       <td>
@@ -436,8 +441,8 @@ const RoleManagementSection = ({ roles, setRoles, users, permissions, permission
                      <div className="text-center text-body-secondary py-4 fst-italic">Đang tải cấu trúc quyền từ hệ thống...</div>
                   ) : (
                     permissionModules.map((module) => {
-                      const isAllChecked = module.actions.every(action => selectedPermissions.includes(action._id));
-                      const isSomeChecked = module.actions.some(action => selectedPermissions.includes(action._id)) && !isAllChecked;
+                      const isAllChecked = module.actions.every(action => selectedPermissions.includes(getSafeId(action)));
+                      const isSomeChecked = module.actions.some(action => selectedPermissions.includes(getSafeId(action))) && !isAllChecked;
 
                       return (
                         <div className="module-group" key={module.id}>
@@ -456,11 +461,11 @@ const RoleManagementSection = ({ roles, setRoles, users, permissions, permission
                           </div>
                           <div className="permissions-grid">
                             {module.actions.map(action => (
-                              <label key={action._id} className="permission-checkbox">
+                              <label key={getSafeId(action)} className="permission-checkbox">
                                 <input 
                                   type="checkbox" 
-                                  checked={selectedPermissions.includes(action._id)} 
-                                  onChange={() => togglePermission(action._id)} 
+                                  checked={selectedPermissions.includes(getSafeId(action))} 
+                                  onChange={() => togglePermission(getSafeId(action))} 
                                   disabled={actionLoading || (modalMode === "edit" && selectedRole?.name?.toLowerCase() === "admin")} 
                                 />
                                 <span className="text-truncate" title={action.description || action.name}>
@@ -498,7 +503,6 @@ export const UserList = ({ currentUser }) => {
   const [activeTab, setActiveTab] = useState("users");
   const [isDictOpen, setIsDictOpen] = useState(false);
 
-  // States danh sách dùng chung cho nghiệp vụ
   const [users, setUsers] = useState([]);
   const [roles, setRoles] = useState([]);
   const [departments, setDepartments] = useState([]);
@@ -523,7 +527,7 @@ export const UserList = ({ currentUser }) => {
   const watchDepartmentSelect = watch("departmentSelect");
   const hasActiveFilters = searchTerm !== "" || filterRole !== "" || filterDepartment !== "";
 
-  // Helper chuyển mảng Permissions phẳng thành nhóm theo Module
+  // Nhóm mảng Permissions theo Module
   const permissionModules = useMemo(() => {
     const groups = {};
     permissions.forEach(p => {
@@ -539,21 +543,21 @@ export const UserList = ({ currentUser }) => {
 
   // LOGIC TRÍCH XUẤT QUYỀN TRUY CẬP HIỆN TẠI
   const currentUserRoleData = roles.find(r => getSafeId(r) === getSafeId(currentUser?.role_id) || r.name === currentUser?.role);
-  const userPermissionIds = currentUserRoleData?.permissionIds || [];
+  const userPermissionIds = currentUserRoleData?.permissionIds || currentUserRoleData?.permission_ids || [];
   
   const isAdmin = currentUserRoleData?.name?.toLowerCase() === "admin" || currentUser?.role === "admin";
   
   const hasPermissionStr = (searchStr) => {
       if (isAdmin) return true;
       const permObj = permissions.find(p => p.name && p.name.includes(searchStr));
-      return permObj ? userPermissionIds.includes(permObj._id) : false;
+      return permObj ? userPermissionIds.includes(getSafeId(permObj)) : false;
   };
 
   const canCreateUser = hasPermissionStr("users:create");
   const canEditUser = hasPermissionStr("users:update");
   const canLockUser = hasPermissionStr("users:status") || hasPermissionStr("users:update");
 
-  // Multi-Fetch API Đồng Bộ Toàn Hệ Thống
+  // Fetch API Đồng Bộ Toàn Hệ Thống
   const fetchAllData = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -565,7 +569,7 @@ export const UserList = ({ currentUser }) => {
         fetch(`${API_BASE_URL}/users`, { headers }),
         fetch(`${API_BASE_URL}/roles`, { headers }),
         fetch(`${API_BASE_URL}/departments`, { headers }),
-        fetch(`${API_BASE_URL}/permissions`, { headers }).catch(() => null)
+        fetch(`${API_BASE_URL}/permissions`, { headers }).catch(() => null) 
       ]);
 
       const [usersData, rolesData, deptsData, permsData] = await Promise.all([
@@ -608,7 +612,7 @@ export const UserList = ({ currentUser }) => {
     setModalMode("edit");
     setSelectedUser(user);
     
-    // Tìm ID phòng ban (so sánh an toàn)
+    // Tìm ID phòng ban (so sánh an toàn bằng getSafeId)
     const userDeptIdStr = getSafeId(user.department_id) || getSafeId(user.department);
     const isKnownDept = departments.some(d => getSafeId(d) === userDeptIdStr);
     const initialDeptSelect = isKnownDept ? userDeptIdStr : (userDeptIdStr ? "other" : "");
@@ -634,7 +638,7 @@ export const UserList = ({ currentUser }) => {
     try {
       let finalDepartmentId = data.departmentSelect;
       
-      // XỬ LÝ TẠO PHÒNG BAN: Nếu người dùng nhập tên mới (other)
+      // XỬ LÝ TẠO PHÒNG BAN
       if (data.departmentSelect === "other" && data.departmentInput) {
         try {
           const deptRes = await fetch(`${API_BASE_URL}/departments`, {
@@ -649,14 +653,14 @@ export const UserList = ({ currentUser }) => {
           if (deptRes.ok) {
             const createdDept = newDeptData.data || newDeptData;
             setDepartments(prev => [...prev, createdDept]);
-            finalDepartmentId = createdDept._id;
+            finalDepartmentId = getSafeId(createdDept); 
           }
         } catch (e) {
           console.log("Lỗi tạo phòng ban mới.");
         }
       }
 
-      // Payload Khớp Bảng Users (full_name, role_id, department_id)
+      // Payload Khớp Bảng Users 
       const payload = {
         full_name: data.full_name,
         email: data.email,
@@ -668,7 +672,7 @@ export const UserList = ({ currentUser }) => {
         payload.password = "Hito@123456"; 
       }
 
-      const uId = selectedUser?._id;
+      const uId = getSafeId(selectedUser);
       const url = modalMode === "create" ? `${API_BASE_URL}/users` : `${API_BASE_URL}/users/${uId}`;
       const method = modalMode === "create" ? "POST" : "PATCH"; 
 
@@ -689,7 +693,7 @@ export const UserList = ({ currentUser }) => {
       if (modalMode === "create") {
         setUsers(prev => [savedUserRecord, ...prev]);
       } else {
-        setUsers(prev => prev.map(item => item._id === uId ? savedUserRecord : item));
+        setUsers(prev => prev.map(item => getSafeId(item) === uId ? savedUserRecord : item));
       }
       closeModal();
     } catch (err) {
@@ -718,7 +722,7 @@ export const UserList = ({ currentUser }) => {
       const responseData = await res.json();
 
       if (!res.ok) throw new Error(responseData.message || "Lệnh PATCH cập nhật trạng thái thất bại");
-      setUsers(prev => prev.map(item => item._id === userId ? { ...item, status: newStatus } : item));
+      setUsers(prev => prev.map(item => getSafeId(item) === userId ? { ...item, status: newStatus } : item));
     } catch (err) {
       alert("Lỗi hệ thống: " + err.message);
     } finally {
@@ -738,7 +742,7 @@ export const UserList = ({ currentUser }) => {
       const responseData = await res.json();
 
       if (!res.ok) throw new Error(responseData.message || "Lệnh xóa mềm trên API thất bại");
-      setUsers(prev => prev.filter(item => item._id !== userId));
+      setUsers(prev => prev.filter(item => getSafeId(item) !== userId));
     } catch (err) {
       alert("Lỗi hệ thống: " + err.message);
     } finally {
@@ -767,7 +771,6 @@ export const UserList = ({ currentUser }) => {
   return (
     <div className="user-list-wrapper container-fluid pt-3 pb-4" style={{ maxWidth: "1600px" }}>
       
-      {/* THANH ĐIỀU HƯỚNG TAB TỐI GIẢN */}
       <div className="custom-tab-container">
         <button 
           className={`custom-tab-btn ${activeTab === 'users' ? 'active' : ''}`} 
@@ -856,7 +859,7 @@ export const UserList = ({ currentUser }) => {
             >
               <option value="">Lọc theo vai trò</option>
               {roles.map(role => (
-                <option key={role._id} value={role._id}>{role.name}</option>
+                <option key={getSafeId(role)} value={getSafeId(role)}>{role.name}</option>
               ))}
             </select>
 
@@ -867,7 +870,7 @@ export const UserList = ({ currentUser }) => {
             >
               <option value="">Lọc theo phòng ban</option>
               {departments.map(dept => (
-                <option key={dept._id} value={dept._id}>{dept.name}</option>
+                <option key={getSafeId(dept)} value={getSafeId(dept)}>{dept.name}</option>
               ))}
             </select>
 
@@ -909,18 +912,16 @@ export const UserList = ({ currentUser }) => {
                     <tr><td colSpan="6" className="text-center py-5 text-body-secondary">Hệ thống dữ liệu trống hoặc không tìm thấy kết quả.</td></tr>
                   ) : (
                     filteredUsers.map((user, index) => {
-                      // Bóc tách ID để Lookup an toàn
-                      const uRoleIdStr = getSafeId(user.role_id) || getSafeId(user.role);
-                      const uRole = roles.find(r => String(r._id) === uRoleIdStr) || {};
+                      // Lookup Role & Department by Safe ObjectId
+                      const uRole = roles.find(r => getSafeId(r) === getSafeId(user.role_id)) || {};
                       const roleName = uRole.name || "Chưa gán quyền";
                       const roleUI = ROLE_UI_MAP[roleName.toLowerCase()] || { color: "bg-secondary" };
                       
-                      const uDeptIdStr = getSafeId(user.department_id) || getSafeId(user.department);
-                      const uDept = departments.find(d => String(d._id) === uDeptIdStr);
+                      const uDept = departments.find(d => getSafeId(d) === getSafeId(user.department_id));
                       const deptName = uDept?.name || "—";
 
                       return (
-                        <tr key={user._id}>
+                        <tr key={getSafeId(user)}>
                           <td>{index + 1}</td>
                           <td>
                             <div className="d-flex flex-column">
@@ -970,7 +971,7 @@ export const UserList = ({ currentUser }) => {
                                 <button 
                                   className={`action-btn ${user.status === 'active' ? 'btn-lock' : 'btn-unlock'} me-1`} 
                                   title={user.status === 'active' ? 'Khóa tài khoản' : 'Mở khóa tài khoản'} 
-                                  onClick={() => toggleUserStatus(user._id, user.status)} 
+                                  onClick={() => toggleUserStatus(getSafeId(user), user.status)} 
                                   disabled={actionLoading}
                                 >
                                   {user.status === 'active' ? (
@@ -992,7 +993,7 @@ export const UserList = ({ currentUser }) => {
                               <button 
                                 className="action-btn btn-delete" 
                                 title="Xóa mềm người dùng" 
-                                onClick={() => deleteUser(user._id, user.full_name || user.name)} 
+                                onClick={() => deleteUser(getSafeId(user), user.full_name || user.name)} 
                                 disabled={actionLoading}
                               >
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
@@ -1058,7 +1059,7 @@ export const UserList = ({ currentUser }) => {
                         >
                           <option value="">-- Chọn vai trò --</option>
                           {roles.map(role => (
-                            <option key={role._id} value={role._id}>{role.name}</option>
+                            <option key={getSafeId(role)} value={getSafeId(role)}>{role.name}</option>
                           ))}
                         </select>
                         {errors.role_id && <div className="invalid-feedback">{errors.role_id.message}</div>}
@@ -1073,7 +1074,7 @@ export const UserList = ({ currentUser }) => {
                         >
                           <option value="">-- Bỏ trống --</option>
                           {departments.map(dept => (
-                            <option key={dept._id} value={dept._id}>{dept.name}</option>
+                            <option key={getSafeId(dept)} value={getSafeId(dept)}>{dept.name}</option>
                           ))}
                           <option value="other" className="fw-bold text-primary">-- Nhập phòng ban mới --</option>
                         </select>
