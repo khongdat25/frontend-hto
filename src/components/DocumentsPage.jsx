@@ -6,6 +6,30 @@ const API_BASE_URL =
 
 const ADMIN_ROLE_ID = "69fc5af582ef85451120772a";
 const DEPARTMENT_HEAD_ROLE_ID = "69fc5af582ef85451120772c";
+const DOCUMENT_PERMISSIONS_STORAGE_KEY = "hto_document_permissions";
+
+const ROLE_OPTIONS = [
+  { id: "admin", roleId: ADMIN_ROLE_ID, label: "Admin" },
+  { id: "bangiamdoc", roleId: "69fc5af582ef85451120772b", label: "Ban giám đốc" },
+  { id: "truongbophan", roleId: DEPARTMENT_HEAD_ROLE_ID, label: "Trưởng bộ phận" },
+  { id: "nhansu", roleId: "69fc5af582ef85451120772d", label: "Nhân sự" },
+  { id: "daily", roleId: "69fc5af582ef85451120772e", label: "Đại lý" },
+  { id: "congtacvien", roleId: "69fc5af682ef85451120772f", label: "Cộng tác viên" },
+  { id: "user", roleId: "69fc5af782ef854511207730", label: "Người dùng" },
+];
+
+const USER_GROUP_OPTIONS = [
+  { id: "all", label: "Tất cả người dùng" },
+  { id: "internal", label: "Nội bộ" },
+  { id: "partner", label: "Đối tác/Cộng tác viên" },
+  { id: "manager", label: "Quản lý" },
+];
+
+const PERMISSION_ACTIONS = [
+  { id: "view", label: "Xem" },
+  { id: "download", label: "Tải" },
+  { id: "edit", label: "Sửa" },
+];
 
 const canUploadDocument = (user) =>
   ["admin", "truongbophan"].includes(user?.role) ||
@@ -35,6 +59,11 @@ const initialDocuments = [
     status: "Đang dùng",
     sourceType: "file",
     sourceName: "don-xin-nghi-phep.docx",
+    permissions: {
+      view: { groups: ["all"], roles: [], departments: [] },
+      download: { groups: ["all"], roles: [], departments: [] },
+      edit: { groups: ["manager"], roles: ["admin", "truongbophan"], departments: [] },
+    },
   },
   {
     id: 2,
@@ -45,6 +74,11 @@ const initialDocuments = [
     status: "Đang dùng",
     sourceType: "file",
     sourceName: "phieu-de-nghi-thanh-toan.pdf",
+    permissions: {
+      view: { groups: ["all"], roles: [], departments: [] },
+      download: { groups: ["internal"], roles: [], departments: ["dept-ke-toan"] },
+      edit: { groups: ["manager"], roles: ["admin", "truongbophan"], departments: [] },
+    },
   },
   {
     id: 3,
@@ -55,6 +89,11 @@ const initialDocuments = [
     status: "Nháp",
     sourceType: "link",
     sourceName: "https://drive.google.com/bien-ban-ban-giao",
+    permissions: {
+      view: { groups: ["internal"], roles: [], departments: ["dept-hanh-chinh"] },
+      download: { groups: ["internal"], roles: [], departments: ["dept-hanh-chinh"] },
+      edit: { groups: ["manager"], roles: ["admin", "truongbophan"], departments: [] },
+    },
   },
 ];
 
@@ -74,6 +113,96 @@ const getAuthHeaders = () => {
   const token = window.localStorage.getItem("token");
 
   return token ? { Authorization: `Bearer ${token}` } : {};
+};
+
+const emptyPermissionRule = () => ({ groups: [], roles: [], departments: [] });
+
+const createDefaultPermissions = (departmentId = "") => ({
+  view: { groups: ["all"], roles: [], departments: departmentId ? [departmentId] : [] },
+  download: { groups: ["all"], roles: [], departments: departmentId ? [departmentId] : [] },
+  edit: { groups: ["manager"], roles: ["admin", "truongbophan"], departments: [] },
+});
+
+const normalizePermissions = (permissions, departmentId) => {
+  const defaults = createDefaultPermissions(departmentId);
+
+  return PERMISSION_ACTIONS.reduce((acc, action) => {
+    const rule = permissions?.[action.id] || defaults[action.id] || emptyPermissionRule();
+
+    acc[action.id] = {
+      groups: Array.isArray(rule.groups) ? rule.groups : [],
+      roles: Array.isArray(rule.roles) ? rule.roles : [],
+      departments: Array.isArray(rule.departments) ? rule.departments : [],
+    };
+
+    return acc;
+  }, {});
+};
+
+const getUserGroupIds = (user) => {
+  const role = user?.role || "";
+  const groups = ["all"];
+
+  if (["admin", "bangiamdoc", "truongbophan", "nhansu", "user"].includes(role)) {
+    groups.push("internal");
+  }
+
+  if (["daily", "congtacvien"].includes(role)) {
+    groups.push("partner");
+  }
+
+  if (["admin", "bangiamdoc", "truongbophan"].includes(role)) {
+    groups.push("manager");
+  }
+
+  return groups;
+};
+
+const isAdminUser = (user) => user?.role === "admin" || user?.roleId === ADMIN_ROLE_ID;
+
+const canUseDocumentAction = (user, document, action) => {
+  if (isAdminUser(user)) {
+    return true;
+  }
+
+  const rule = document.permissions?.[action] || emptyPermissionRule();
+  const userGroups = getUserGroupIds(user);
+  const userRole = user?.role;
+  const userDepartmentId = user?.departmentId;
+
+  return (
+    rule.groups.some((groupId) => userGroups.includes(groupId)) ||
+    rule.roles.includes(userRole) ||
+    Boolean(userDepartmentId && rule.departments.includes(userDepartmentId))
+  );
+};
+
+const readStoredPermissions = () => {
+  try {
+    return JSON.parse(window.localStorage.getItem(DOCUMENT_PERMISSIONS_STORAGE_KEY) || "{}");
+  } catch {
+    window.localStorage.removeItem(DOCUMENT_PERMISSIONS_STORAGE_KEY);
+    return {};
+  }
+};
+
+const writeStoredPermissions = (permissionsByDocumentId) => {
+  window.localStorage.setItem(
+    DOCUMENT_PERMISSIONS_STORAGE_KEY,
+    JSON.stringify(permissionsByDocumentId),
+  );
+};
+
+const applyStoredPermissions = (documents) => {
+  const storedPermissions = readStoredPermissions();
+
+  return documents.map((document) => ({
+    ...document,
+    permissions: normalizePermissions(
+      storedPermissions[document.id] || document.permissions,
+      document.departmentId,
+    ),
+  }));
 };
 
 const normalizeCategory = (category) => ({
@@ -137,10 +266,13 @@ const toggleDocumentCategoryVisibility = async (categoryId) => {
 
 export const DocumentsPage = ({ currentUser }) => {
   const [categories, setCategories] = useState(initialCategories);
-  const [documents, setDocuments] = useState(initialDocuments);
+  const [documents, setDocuments] = useState(() => applyStoredPermissions(initialDocuments));
   const [activeCategory, setActiveCategory] = useState("all");
   const [categoryPage, setCategoryPage] = useState(1);
   const [editingId, setEditingId] = useState(null);
+  const [selectedPermissionDocId, setSelectedPermissionDocId] = useState(
+    () => String(initialDocuments[0]?.id || ""),
+  );
   const [form, setForm] = useState(emptyForm);
   const [categoryLoading, setCategoryLoading] = useState(false);
   const [categoryActionLoading, setCategoryActionLoading] = useState(false);
@@ -150,6 +282,7 @@ export const DocumentsPage = ({ currentUser }) => {
   const [uploadSuccess, setUploadSuccess] = useState("");
 
   const canUpload = canUploadDocument(currentUser);
+  const canConfigurePermissions = isAdminUser(currentUser);
 
   const categoryMap = useMemo(
     () => new Map(categories.map((c) => [String(c.id), c])),
@@ -168,9 +301,26 @@ export const DocumentsPage = ({ currentUser }) => {
     safeCategoryPage * CATEGORY_PAGE_SIZE,
   );
   const filteredDocuments = documents.filter((doc) => {
+    if (!canUseDocumentAction(currentUser, doc, "view")) {
+      return false;
+    }
+
     if (activeCategory === "all") return true;
     return String(doc.categoryId) === activeCategory;
   });
+  const selectedPermissionDocument =
+    documents.find((document) => String(document.id) === selectedPermissionDocId) ||
+    documents[0] ||
+    null;
+
+  useEffect(() => {
+    const permissionsByDocumentId = documents.reduce((acc, document) => {
+      acc[document.id] = document.permissions;
+      return acc;
+    }, {});
+
+    writeStoredPermissions(permissionsByDocumentId);
+  }, [documents]);
 
   useEffect(() => {
     let isMounted = true;
@@ -340,12 +490,54 @@ export const DocumentsPage = ({ currentUser }) => {
           ? uploadForm.file.name
           : uploadForm.link.trim(),
       description: uploadForm.description.trim(),
+      permissions: createDefaultPermissions(uploadForm.departmentId),
     };
 
     setDocuments((prev) => [uploadedDocument, ...prev]);
+    setSelectedPermissionDocId(String(uploadedDocument.id));
     setUploadForm(emptyUploadForm);
     setUploadErrors({});
     setUploadSuccess("Đã thêm tài liệu vào danh sách tạm thời.");
+  };
+
+  const updateDocumentPermission = (documentId, action, scope, optionId) => {
+    setDocuments((prev) =>
+      prev.map((document) => {
+        if (String(document.id) !== String(documentId)) {
+          return document;
+        }
+
+        const permissions = normalizePermissions(document.permissions, document.departmentId);
+        const currentValues = permissions[action][scope];
+        const nextValues = currentValues.includes(optionId)
+          ? currentValues.filter((value) => value !== optionId)
+          : [...currentValues, optionId];
+
+        return {
+          ...document,
+          permissions: {
+            ...permissions,
+            [action]: {
+              ...permissions[action],
+              [scope]: nextValues,
+            },
+          },
+        };
+      }),
+    );
+  };
+
+  const resetDocumentPermissions = (documentId) => {
+    setDocuments((prev) =>
+      prev.map((document) =>
+        String(document.id) === String(documentId)
+          ? {
+              ...document,
+              permissions: createDefaultPermissions(document.departmentId),
+            }
+          : document,
+      ),
+    );
   };
 
   return (
@@ -353,7 +545,6 @@ export const DocumentsPage = ({ currentUser }) => {
       <div className="app-page-head d-flex flex-wrap gap-3 align-items-center justify-content-between">
         <div className="clearfix">
           <h1 className="app-page-title mb-0">Tài Liệu & Biểu Mẫu</h1>
-          <p className="text-body mb-0">Quản lý danh mục và danh sách tài liệu</p>
         </div>
       </div>
 
@@ -550,9 +741,6 @@ export const DocumentsPage = ({ currentUser }) => {
         <div className="card-header border-0 pb-0 d-flex flex-wrap justify-content-between align-items-center gap-2">
           <div>
             <h6 className="card-title mb-1">Upload tài liệu</h6>
-            <span className="text-body-secondary" style={{ fontSize: "13px" }}>
-              Admin và trưởng bộ phận có thể thêm file hoặc link kèm metadata.
-            </span>
           </div>
           <span className={`badge ${canUpload ? "bg-success-subtle text-success" : "bg-warning-subtle text-warning"}`}>
             {canUpload ? "Có quyền upload" : "Chỉ xem"}
@@ -745,6 +933,124 @@ export const DocumentsPage = ({ currentUser }) => {
         </div>
       </div>
 
+      {canConfigurePermissions && (
+        <div className="card mt-3">
+          <div className="card-header border-0 pb-0 d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <div>
+              <h6 className="card-title mb-1">Cấu hình quyền tài liệu</h6>
+              
+            </div>
+            {selectedPermissionDocument && (
+              <button
+                type="button"
+                className="btn btn-sm btn-outline-secondary"
+                onClick={() => resetDocumentPermissions(selectedPermissionDocument.id)}
+              >
+                Đặt quyền mặc định
+              </button>
+            )}
+          </div>
+          <div className="card-body">
+            <div className="row g-3">
+              <div className="col-lg-4">
+                <label className="form-label">Tài liệu</label>
+                <select
+                  className="form-select"
+                  value={String(selectedPermissionDocument?.id || "")}
+                  onChange={(e) => setSelectedPermissionDocId(e.target.value)}
+                >
+                  {documents.map((document) => (
+                    <option key={document.id} value={document.id}>
+                      {document.title}
+                    </option>
+                  ))}
+                </select>
+                {selectedPermissionDocument && (
+                  <DocumentPreview
+                    categoryName={
+                      categoryMap.get(String(selectedPermissionDocument.categoryId))?.name ||
+                      "Danh mục ẩn"
+                    }
+                    departmentName={
+                      departmentMap.get(selectedPermissionDocument.departmentId)?.name || "-"
+                    }
+                    document={selectedPermissionDocument}
+                  />
+                )}
+              </div>
+
+              <div className="col-lg-8">
+                {selectedPermissionDocument ? (
+                  <div className="table-responsive">
+                    <table className="table table-sm table-borderless align-middle mb-0">
+                      <thead>
+                        <tr>
+                          <th style={{ width: "96px" }}>Quyền</th>
+                          <th>Nhóm người dùng</th>
+                          <th>Role</th>
+                          <th>Phòng ban</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {PERMISSION_ACTIONS.map((action) => {
+                          const permissions = normalizePermissions(
+                            selectedPermissionDocument.permissions,
+                            selectedPermissionDocument.departmentId,
+                          );
+                          const rule = permissions[action.id];
+
+                          return (
+                            <tr key={action.id} className="border-0">
+                              <td>
+                                <span className="badge bg-primary-subtle text-primary">
+                                  {action.label}
+                                </span>
+                              </td>
+                              <td>
+                                <CheckboxGroup
+                                  action={action.id}
+                                  documentId={selectedPermissionDocument.id}
+                                  options={USER_GROUP_OPTIONS}
+                                  scope="groups"
+                                  values={rule.groups}
+                                  onToggle={updateDocumentPermission}
+                                />
+                              </td>
+                              <td>
+                                <CheckboxGroup
+                                  action={action.id}
+                                  documentId={selectedPermissionDocument.id}
+                                  options={ROLE_OPTIONS}
+                                  scope="roles"
+                                  values={rule.roles}
+                                  onToggle={updateDocumentPermission}
+                                />
+                              </td>
+                              <td>
+                                <CheckboxGroup
+                                  action={action.id}
+                                  documentId={selectedPermissionDocument.id}
+                                  options={initialDepartments}
+                                  scope="departments"
+                                  values={rule.departments}
+                                  onToggle={updateDocumentPermission}
+                                />
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="text-body-secondary">Chưa có tài liệu để cấu hình.</div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="card mt-3">
         <div className="card-header border-0 pb-0 d-flex justify-content-between align-items-center">
           <h6 className="card-title mb-0">Danh sách tài liệu</h6>
@@ -772,36 +1078,78 @@ export const DocumentsPage = ({ currentUser }) => {
                   <th>Nguồn</th>
                   <th>Cập nhật</th>
                   <th>Trạng thái</th>
+                  <th className="text-center">Thao tác</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredDocuments.map((doc) => (
-                  <tr key={doc.id}>
-                    <td>
-                      <div className="fw-semibold text-body-emphasis">{doc.title}</div>
-                      {doc.description && (
-                        <div className="text-body-secondary" style={{ fontSize: "12px" }}>
-                          {doc.description}
+                {filteredDocuments.map((doc) => {
+                  const canDownload = canUseDocumentAction(currentUser, doc, "download");
+                  const canEdit = canUseDocumentAction(currentUser, doc, "edit");
+
+                  return (
+                    <tr key={doc.id}>
+                      <td>
+                        <div className="fw-semibold text-body-emphasis">{doc.title}</div>
+                        {doc.description && (
+                          <div className="text-body-secondary" style={{ fontSize: "12px" }}>
+                            {doc.description}
+                          </div>
+                        )}
+                      </td>
+                      <td>{categoryMap.get(String(doc.categoryId))?.name || "Danh mục ẩn"}</td>
+                      <td>{departmentMap.get(doc.departmentId)?.name || "-"}</td>
+                      <td>
+                        <span className="badge bg-body-secondary text-body">
+                          {doc.sourceType === "link" ? "Link" : "File"}
+                        </span>
+                        <span className="ms-2 text-body-secondary" style={{ fontSize: "12px" }}>
+                          {doc.sourceName || "-"}
+                        </span>
+                      </td>
+                      <td>{doc.updatedAt}</td>
+                      <td>{doc.status}</td>
+                      <td>
+                        <div className="d-flex justify-content-center gap-2">
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center"
+                            style={{ width: "32px", height: "32px", padding: 0 }}
+                            title="Xem tài liệu"
+                            aria-label="Xem tài liệu"
+                            onClick={() => setUploadSuccess(`Đang xem: ${doc.title}`)}
+                          >
+                            <EyeIcon />
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-outline-success d-inline-flex align-items-center justify-content-center"
+                            style={{ width: "32px", height: "32px", padding: 0 }}
+                            disabled={!canDownload}
+                            title={canDownload ? "Tải tài liệu" : "Bạn chưa có quyền tải"}
+                            aria-label="Tải tài liệu"
+                            onClick={() => setUploadSuccess(`Đã ghi nhận tải: ${doc.title}`)}
+                          >
+                            <DownloadIcon />
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center justify-content-center"
+                            style={{ width: "32px", height: "32px", padding: 0 }}
+                            disabled={!canEdit}
+                            title={canEdit ? "Sửa tài liệu" : "Bạn chưa có quyền sửa"}
+                            aria-label="Sửa tài liệu"
+                            onClick={() => setSelectedPermissionDocId(String(doc.id))}
+                          >
+                            <EditIcon />
+                          </button>
                         </div>
-                      )}
-                    </td>
-                    <td>{categoryMap.get(String(doc.categoryId))?.name || "Danh mục ẩn"}</td>
-                    <td>{departmentMap.get(doc.departmentId)?.name || "-"}</td>
-                    <td>
-                      <span className="badge bg-body-secondary text-body">
-                        {doc.sourceType === "link" ? "Link" : "File"}
-                      </span>
-                      <span className="ms-2 text-body-secondary" style={{ fontSize: "12px" }}>
-                        {doc.sourceName || "-"}
-                      </span>
-                    </td>
-                    <td>{doc.updatedAt}</td>
-                    <td>{doc.status}</td>
-                  </tr>
-                ))}
+                      </td>
+                    </tr>
+                  );
+                })}
                 {filteredDocuments.length === 0 && (
                   <tr>
-                    <td colSpan="6" className="text-center text-body">
+                    <td colSpan="7" className="text-center text-body">
                       Không có tài liệu trong bộ lọc này.
                     </td>
                   </tr>
@@ -814,6 +1162,79 @@ export const DocumentsPage = ({ currentUser }) => {
     </div>
   );
 };
+
+function CheckboxGroup({ action, documentId, onToggle, options, scope, values }) {
+  return (
+    <div
+      className="d-flex flex-wrap gap-2 rounded border bg-body-tertiary p-2"
+      style={{ minHeight: "46px" }}
+    >
+      {options.map((option) => (
+        <label
+          key={option.id}
+          className="d-inline-flex align-items-center gap-1 rounded border bg-body px-2 py-1"
+          style={{ fontSize: "12px" }}
+        >
+          <input
+            type="checkbox"
+            className="form-check-input m-0"
+            checked={values.includes(option.id)}
+            onChange={() => onToggle(documentId, action, scope, option.id)}
+          />
+          <span>{option.label || option.name}</span>
+        </label>
+      ))}
+    </div>
+  );
+}
+
+function DocumentPreview({ categoryName, departmentName, document }) {
+  const extension = document.sourceName?.split(".").pop()?.toUpperCase() || "DOC";
+  const isLink = document.sourceType === "link";
+
+  return (
+    <div className="mt-7 rounded border bg-body-tertiary p-2">
+      <div className="rounded border bg-body overflow-hidden">
+        <div
+          className="d-flex align-items-center justify-content-center bg-primary-subtle text-primary"
+          style={{ aspectRatio: "4 / 3", minHeight: "260px" }}
+        >
+          {document.previewImage ? (
+            <img
+              src={document.previewImage}
+              alt={document.title}
+              className="h-100 w-100"
+              style={{ objectFit: "cover" }}
+            />
+          ) : (
+            <div className="text-center px-3">
+              <div
+                className="mx-auto mb-2 d-flex align-items-center justify-content-center rounded bg-primary text-white fw-bold"
+                style={{ width: "68px", height: "86px", fontSize: "15px" }}
+              >
+                {isLink ? "LINK" : extension.slice(0, 4)}
+              </div>
+              <div className="fw-semibold text-body-emphasis text-truncate">
+                {document.title}
+              </div>
+            </div>
+          )}
+        </div>
+        <div className="p-2">
+          <div className="fw-semibold text-body-emphasis text-truncate">{document.title}</div>
+          <div className="text-body-secondary text-truncate" style={{ fontSize: "12px" }}>
+            {document.sourceName || "-"}
+          </div>
+          <div className="d-flex flex-wrap gap-2 mt-2">
+            <span className="badge bg-body-secondary text-body">{categoryName}</span>
+            <span className="badge bg-body-secondary text-body">{departmentName}</span>
+            <span className="badge bg-body-secondary text-body">{document.updatedAt}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function EditIcon() {
   return (
@@ -840,6 +1261,16 @@ function EyeOffIcon() {
       <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"></path>
       <path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"></path>
       <line x1="1" y1="1" x2="23" y2="23"></line>
+    </svg>
+  );
+}
+
+function DownloadIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+      <polyline points="7 10 12 15 17 10"></polyline>
+      <line x1="12" y1="15" x2="12" y2="3"></line>
     </svg>
   );
 }
