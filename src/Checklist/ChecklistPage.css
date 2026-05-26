@@ -73,9 +73,17 @@
   line-height: 1;
 }
 
-.checklist-stat-card.success strong { color: #10b981; }
-.checklist-stat-card.warning strong { color: #f59e0b; }
-.checklist-stat-card.danger strong { color: #ef4444; }
+.checklist-stat-card.success strong {
+  color: #10b981;
+}
+
+.checklist-stat-card.warning strong {
+  color: #f59e0b;
+}
+
+.checklist-stat-card.danger strong {
+  color: #ef4444;
+}
 
 .checklist-filter-bar {
   display: flex;
@@ -329,6 +337,13 @@
 }
 
 @keyframes checklistFadeIn {
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }

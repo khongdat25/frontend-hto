@@ -18,7 +18,7 @@ const MOCK_CHECKLISTS = [
     updatedAt: "2026-05-24",
     ownerName: "Phòng Nhân sự",
     assignedUserIds: [],
-    allowedRoles: ["admin", "nhân sự", "chuyên viên nhân sự"],
+    allowedRoles: ["admin", "nhansu", "bangiamdoc"],
     editableForAssignee: true,
     sopId: "sop-hr-001",
     sopTitle: "SOP tạo và xác thực tài khoản nhân sự",
@@ -42,7 +42,7 @@ const MOCK_CHECKLISTS = [
     updatedAt: "2026-05-23",
     ownerName: "Ban điều hành",
     assignedUserIds: [],
-    allowedRoles: ["admin", "ban giám đốc", "trưởng bộ phận", "nhân sự"],
+    allowedRoles: ["admin", "bangiamdoc", "truongbophan", "nhansu"],
     editableForAssignee: false,
     sopId: "sop-doc-002",
     sopTitle: "SOP kiểm soát phiên bản tài liệu",
@@ -65,7 +65,7 @@ const MOCK_CHECKLISTS = [
     updatedAt: "2026-05-22",
     ownerName: "Admin hệ thống",
     assignedUserIds: [],
-    allowedRoles: ["admin", "hệ thống"],
+    allowedRoles: ["admin", "hethong"],
     editableForAssignee: false,
     sopId: "sop-sec-003",
     sopTitle: "SOP kiểm tra và xử lý audit log",
@@ -100,15 +100,40 @@ const MOCK_CHECKLISTS = [
   }
 ];
 
+const ROLE_ALIASES = {
+  admin: "admin",
+  bangiamdoc: "bangiamdoc",
+  truongbophan: "truongbophan",
+  nhansu: "nhansu",
+  daily: "daily",
+  congtacvien: "congtacvien",
+  hethong: "hethong"
+};
+
+const normalizeRoleKey = (roleValue) => {
+  const normalized = String(roleValue || "")
+    .trim()
+    .toLowerCase()
+    .replace(/đ/g, "d")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]/g, "");
+
+  return ROLE_ALIASES[normalized] || normalized;
+};
+
 const getSafeId = (value) => {
   if (!value) return "";
-  if (typeof value === "object") return String(value._id || value.id || value.user_id || value.role_id || "");
+  if (typeof value === "object") {
+    return String(value._id || value.id || value.user_id || value.role_id || "");
+  }
+
   return String(value);
 };
 
 const getCurrentRoleName = (currentUser) => {
   const rawRole = currentUser?.role?.name || currentUser?.roleName || currentUser?.role || currentUser?.role_key || "";
-  return String(rawRole).trim().toLowerCase();
+  return normalizeRoleKey(rawRole);
 };
 
 const normalizeArrayResponse = (payload) => {
@@ -121,17 +146,26 @@ const normalizeArrayResponse = (payload) => {
 
 const formatDate = (dateValue) => {
   if (!dateValue) return "—";
+
   const date = new Date(dateValue);
   if (Number.isNaN(date.getTime())) return "—";
-  return date.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" });
+
+  return date.toLocaleDateString("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric"
+  });
 };
 
 const isOverdue = (item) => {
   if (!item?.dueDate || item.status === "completed") return false;
+
   const today = new Date();
   today.setHours(0, 0, 0, 0);
+
   const due = new Date(item.dueDate);
   due.setHours(0, 0, 0, 0);
+
   return due < today;
 };
 
@@ -156,29 +190,35 @@ const PRIORITY_META = {
 const canAccessItem = (item, currentUser) => {
   const roleName = getCurrentRoleName(currentUser);
   const userId = getSafeId(currentUser);
-  const allowedRoles = (item.allowedRoles || item.allowed_roles || []).map((role) => String(role).toLowerCase());
+
+  const allowedRoles = (item.allowedRoles || item.allowed_roles || []).map(normalizeRoleKey);
   const assignedUserIds = (item.assignedUserIds || item.assigned_user_ids || []).map(getSafeId);
 
   if (roleName === "admin") return true;
   if (allowedRoles.includes("all") || allowedRoles.length === 0) return true;
   if (roleName && allowedRoles.includes(roleName)) return true;
   if (userId && assignedUserIds.includes(userId)) return true;
+
   return false;
 };
 
 const canUpdateItem = (item, currentUser) => {
   const roleName = getCurrentRoleName(currentUser);
   const userId = getSafeId(currentUser);
+
   const permissionNames = [
     ...(currentUser?.permissions || []),
     ...(currentUser?.permissionNames || []),
     ...(currentUser?.permission_names || [])
-  ].map((perm) => String(perm).toLowerCase());
+  ].map((permission) => String(permission).toLowerCase());
+
   const assignedUserIds = (item.assignedUserIds || item.assigned_user_ids || []).map(getSafeId);
 
   return (
     roleName === "admin" ||
-    permissionNames.some((perm) => ["checklist:update", "checklists:update", "checklist:complete", "checklists:complete"].includes(perm)) ||
+    permissionNames.some((permission) =>
+      ["checklist:update", "checklists:update", "checklist:complete", "checklists:complete"].includes(permission)
+    ) ||
     (item.editableForAssignee !== false && userId && assignedUserIds.includes(userId))
   );
 };
@@ -202,14 +242,20 @@ export const ChecklistPage = ({ currentUser }) => {
 
     try {
       const token = localStorage.getItem("token");
+
       const response = await fetch(`${API_BASE_URL}/checklists`, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
       });
 
-      if (!response.ok) throw new Error("API checklist chưa sẵn sàng hoặc chưa có quyền truy cập.");
+      if (!response.ok) {
+        throw new Error("API checklist chưa sẵn sàng hoặc tài khoản hiện tại chưa có quyền truy cập.");
+      }
 
       const payload = await response.json();
       const data = normalizeArrayResponse(payload);
+
       setChecklists(data);
       setSelectedId((currentId) => currentId || getSafeId(data[0]));
       setApiMode("real");
@@ -244,11 +290,13 @@ export const ChecklistPage = ({ currentUser }) => {
 
     return visibleChecklists.filter((item) => {
       const computedStatus = getComputedStatus(item);
+
       const matchSearch =
         !term ||
         String(item.title || "").toLowerCase().includes(term) ||
         String(item.description || "").toLowerCase().includes(term) ||
         String(item.ownerName || item.owner_name || "").toLowerCase().includes(term);
+
       const matchStatus = statusFilter === "all" || computedStatus === statusFilter;
       const matchCategory = categoryFilter === "all" || item.category === categoryFilter;
       const matchPriority = priorityFilter === "all" || item.priority === priorityFilter;
@@ -267,7 +315,12 @@ export const ChecklistPage = ({ currentUser }) => {
     const overdue = visibleChecklists.filter((item) => isOverdue(item)).length;
     const inProgress = visibleChecklists.filter((item) => item.status === "in_progress").length;
 
-    return { total, done, overdue, inProgress };
+    return {
+      total,
+      done,
+      overdue,
+      inProgress
+    };
   }, [visibleChecklists]);
 
   const resetFilters = () => {
@@ -283,6 +336,7 @@ export const ChecklistPage = ({ currentUser }) => {
 
   const handleToggleComplete = async (item) => {
     const itemId = getSafeId(item);
+
     if (!itemId || !canUpdateItem(item, currentUser)) return;
 
     const nextCompleted = item.status !== "completed";
@@ -301,8 +355,10 @@ export const ChecklistPage = ({ currentUser }) => {
     if (apiMode === "mock") return;
 
     setUpdatingId(itemId);
+
     try {
       const token = localStorage.getItem("token");
+
       const response = await fetch(`${API_BASE_URL}/checklists/${itemId}`, {
         method: "PATCH",
         headers: {
@@ -316,10 +372,13 @@ export const ChecklistPage = ({ currentUser }) => {
         })
       });
 
-      if (!response.ok) throw new Error("Không thể cập nhật checklist trên máy chủ.");
+      if (!response.ok) {
+        throw new Error("Không thể cập nhật checklist trên máy chủ.");
+      }
 
       const payload = await response.json();
       const savedItem = payload?.data || payload;
+
       if (savedItem && typeof savedItem === "object") {
         updateChecklistLocal(itemId, () => savedItem);
       }
@@ -331,7 +390,11 @@ export const ChecklistPage = ({ currentUser }) => {
     }
   };
 
-  const hasActiveFilters = searchTerm || statusFilter !== "all" || categoryFilter !== "all" || priorityFilter !== "all";
+  const hasActiveFilters =
+    searchTerm ||
+    statusFilter !== "all" ||
+    categoryFilter !== "all" ||
+    priorityFilter !== "all";
 
   return (
     <div className="checklist-page container-fluid pt-3 pb-4" style={{ maxWidth: "1600px" }}>
@@ -343,10 +406,12 @@ export const ChecklistPage = ({ currentUser }) => {
             Theo dõi các đầu việc định kỳ, đánh dấu hoàn thành và lọc nhanh theo trạng thái, mức ưu tiên hoặc phòng ban nghiệp vụ.
           </p>
         </div>
+
         <div className="d-flex flex-wrap gap-2 align-items-center justify-content-end">
           <span className={`api-mode-badge ${apiMode === "real" ? "api-mode-real" : "api-mode-mock"}`}>
             {apiMode === "real" ? "Đang dùng API thật" : "Đang dùng dữ liệu giả"}
           </span>
+
           <button className="btn btn-outline-primary btn-sm" onClick={fetchChecklists} disabled={loading}>
             Đồng bộ lại
           </button>
@@ -360,18 +425,21 @@ export const ChecklistPage = ({ currentUser }) => {
             <strong>{stats.total}</strong>
           </div>
         </div>
+
         <div className="col-6 col-xl-3">
           <div className="checklist-stat-card success">
             <span>Đã hoàn thành</span>
             <strong>{stats.done}</strong>
           </div>
         </div>
+
         <div className="col-6 col-xl-3">
           <div className="checklist-stat-card warning">
             <span>Đang xử lý</span>
             <strong>{stats.inProgress}</strong>
           </div>
         </div>
+
         <div className="col-6 col-xl-3">
           <div className="checklist-stat-card danger">
             <span>Quá hạn</span>
@@ -382,7 +450,11 @@ export const ChecklistPage = ({ currentUser }) => {
 
       <div className="checklist-filter-bar mb-4">
         <div className="checklist-search-box">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+
           <input
             className="form-control form-control-sm bg-body"
             value={searchTerm}
@@ -391,7 +463,11 @@ export const ChecklistPage = ({ currentUser }) => {
           />
         </div>
 
-        <select className="form-select form-select-sm bg-body checklist-filter-select" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+        <select
+          className="form-select form-select-sm bg-body checklist-filter-select"
+          value={statusFilter}
+          onChange={(event) => setStatusFilter(event.target.value)}
+        >
           <option value="all">Tất cả trạng thái</option>
           <option value="todo">Chưa làm</option>
           <option value="in_progress">Đang xử lý</option>
@@ -399,14 +475,24 @@ export const ChecklistPage = ({ currentUser }) => {
           <option value="overdue">Quá hạn</option>
         </select>
 
-        <select className="form-select form-select-sm bg-body checklist-filter-select" value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
+        <select
+          className="form-select form-select-sm bg-body checklist-filter-select"
+          value={categoryFilter}
+          onChange={(event) => setCategoryFilter(event.target.value)}
+        >
           <option value="all">Tất cả nhóm việc</option>
           {categories.map((category) => (
-            <option key={category} value={category}>{category}</option>
+            <option key={category} value={category}>
+              {category}
+            </option>
           ))}
         </select>
 
-        <select className="form-select form-select-sm bg-body checklist-filter-select" value={priorityFilter} onChange={(event) => setPriorityFilter(event.target.value)}>
+        <select
+          className="form-select form-select-sm bg-body checklist-filter-select"
+          value={priorityFilter}
+          onChange={(event) => setPriorityFilter(event.target.value)}
+        >
           <option value="all">Tất cả ưu tiên</option>
           <option value="high">Cao</option>
           <option value="medium">Trung bình</option>
@@ -437,16 +523,21 @@ export const ChecklistPage = ({ currentUser }) => {
                     <th style={{ width: "16%" }}>Tiến độ</th>
                   </tr>
                 </thead>
+
                 <tbody>
                   {loading ? (
                     <tr>
                       <td colSpan="6" className="text-center py-5">
-                        <div className="spinner-border text-primary" role="status"><span className="visually-hidden">Loading...</span></div>
+                        <div className="spinner-border text-primary" role="status">
+                          <span className="visually-hidden">Loading...</span>
+                        </div>
                       </td>
                     </tr>
                   ) : filteredChecklists.length === 0 ? (
                     <tr>
-                      <td colSpan="6" className="text-center py-5 text-body-secondary">Không có checklist phù hợp với quyền xem hoặc bộ lọc hiện tại.</td>
+                      <td colSpan="6" className="text-center py-5 text-body-secondary">
+                        Không có checklist phù hợp với quyền xem hoặc bộ lọc hiện tại.
+                      </td>
                     </tr>
                   ) : (
                     filteredChecklists.map((item) => {
@@ -472,24 +563,42 @@ export const ChecklistPage = ({ currentUser }) => {
                               onChange={() => handleToggleComplete(item)}
                             />
                           </td>
+
                           <td>
                             <div className="fw-bold text-body-emphasis">{item.title}</div>
                             <div className="text-body-secondary small line-clamp-1">{item.description}</div>
+
                             <div className="d-flex flex-wrap gap-2 mt-2">
-                              <span className={`priority-pill ${priorityMeta.className}`}>Ưu tiên {priorityMeta.label}</span>
+                              <span className={`priority-pill ${priorityMeta.className}`}>
+                                Ưu tiên {priorityMeta.label}
+                              </span>
                               <span className="soft-pill">{item.frequency || "Không lặp"}</span>
                             </div>
                           </td>
+
                           <td>{item.category || "—"}</td>
+
                           <td>
                             <span className={computedStatus === "overdue" ? "text-danger fw-semibold" : "text-body-secondary"}>
                               {formatDate(item.dueDate)}
                             </span>
                           </td>
-                          <td><span className={`checklist-status-pill ${statusMeta.className}`}>{statusMeta.label}</span></td>
+
+                          <td>
+                            <span className={`checklist-status-pill ${statusMeta.className}`}>
+                              {statusMeta.label}
+                            </span>
+                          </td>
+
                           <td>
                             <div className="checklist-progress-label">{item.progress || 0}%</div>
-                            <div className="progress checklist-progress" role="progressbar" aria-valuenow={item.progress || 0} aria-valuemin="0" aria-valuemax="100">
+                            <div
+                              className="progress checklist-progress"
+                              role="progressbar"
+                              aria-valuenow={item.progress || 0}
+                              aria-valuemin="0"
+                              aria-valuemax="100"
+                            >
                               <div className="progress-bar" style={{ width: `${item.progress || 0}%` }}></div>
                             </div>
                           </td>
@@ -513,16 +622,32 @@ export const ChecklistPage = ({ currentUser }) => {
                     <h5 className="fw-bold text-body-emphasis mb-1">{selectedItem.title}</h5>
                     <p className="text-body-secondary mb-0">{selectedItem.description}</p>
                   </div>
+
                   <span className={`checklist-status-pill ${STATUS_META[getComputedStatus(selectedItem)]?.className || "checklist-status-todo"}`}>
                     {STATUS_META[getComputedStatus(selectedItem)]?.label || "Chưa làm"}
                   </span>
                 </div>
 
                 <div className="detail-meta-grid mb-4">
-                  <div><span>Người phụ trách</span><strong>{selectedItem.ownerName || selectedItem.owner_name || "—"}</strong></div>
-                  <div><span>Nhóm</span><strong>{selectedItem.category || "—"}</strong></div>
-                  <div><span>Hạn xử lý</span><strong>{formatDate(selectedItem.dueDate)}</strong></div>
-                  <div><span>Cập nhật</span><strong>{formatDate(selectedItem.updatedAt)}</strong></div>
+                  <div>
+                    <span>Người phụ trách</span>
+                    <strong>{selectedItem.ownerName || selectedItem.owner_name || "—"}</strong>
+                  </div>
+
+                  <div>
+                    <span>Nhóm</span>
+                    <strong>{selectedItem.category || "—"}</strong>
+                  </div>
+
+                  <div>
+                    <span>Hạn xử lý</span>
+                    <strong>{formatDate(selectedItem.dueDate)}</strong>
+                  </div>
+
+                  <div>
+                    <span>Cập nhật</span>
+                    <strong>{formatDate(selectedItem.updatedAt)}</strong>
+                  </div>
                 </div>
 
                 <div className="linked-sop-box mb-4">
@@ -535,7 +660,9 @@ export const ChecklistPage = ({ currentUser }) => {
                   {(selectedItem.tasks || []).map((task) => (
                     <div key={task.id || task.name} className="task-item">
                       <span className={`task-dot ${task.done ? "done" : ""}`}></span>
-                      <span className={task.done ? "text-decoration-line-through text-body-secondary" : "text-body-emphasis"}>{task.name}</span>
+                      <span className={task.done ? "text-decoration-line-through text-body-secondary" : "text-body-emphasis"}>
+                        {task.name}
+                      </span>
                     </div>
                   ))}
                 </div>

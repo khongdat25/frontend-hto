@@ -17,7 +17,7 @@ const MOCK_SOPS = [
     status: "published",
     effectiveDate: "2026-05-01",
     updatedAt: "2026-05-24",
-    allowedRoles: ["admin", "nhân sự", "chuyên viên nhân sự", "ban giám đốc"],
+    allowedRoles: ["admin", "nhansu", "bangiamdoc"],
     tags: ["onboarding", "tài khoản", "phân quyền"],
     conditions: [
       "Áp dụng cho tài khoản nhân viên nội bộ.",
@@ -48,7 +48,7 @@ const MOCK_SOPS = [
     status: "published",
     effectiveDate: "2026-04-15",
     updatedAt: "2026-05-20",
-    allowedRoles: ["admin", "ban giám đốc", "trưởng bộ phận", "nhân sự"],
+    allowedRoles: ["admin", "bangiamdoc", "truongbophan", "nhansu"],
     tags: ["document", "version", "approval"],
     conditions: [
       "Mọi tài liệu SOP phát hành nội bộ đều phải có mã SOP.",
@@ -79,7 +79,7 @@ const MOCK_SOPS = [
     status: "reviewing",
     effectiveDate: "2026-05-10",
     updatedAt: "2026-05-22",
-    allowedRoles: ["admin", "hệ thống", "ban giám đốc"],
+    allowedRoles: ["admin", "hethong", "bangiamdoc"],
     tags: ["audit", "security", "risk"],
     conditions: [
       "Áp dụng khi phát hiện đăng nhập thất bại nhiều lần hoặc thay đổi quyền bất thường.",
@@ -127,15 +127,40 @@ const MOCK_SOPS = [
   }
 ];
 
+const ROLE_ALIASES = {
+  admin: "admin",
+  bangiamdoc: "bangiamdoc",
+  truongbophan: "truongbophan",
+  nhansu: "nhansu",
+  daily: "daily",
+  congtacvien: "congtacvien",
+  hethong: "hethong"
+};
+
+const normalizeRoleKey = (roleValue) => {
+  const normalized = String(roleValue || "")
+    .trim()
+    .toLowerCase()
+    .replace(/đ/g, "d")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]/g, "");
+
+  return ROLE_ALIASES[normalized] || normalized;
+};
+
 const getSafeId = (value) => {
   if (!value) return "";
-  if (typeof value === "object") return String(value._id || value.id || value.sop_id || "");
+  if (typeof value === "object") {
+    return String(value._id || value.id || value.sop_id || "");
+  }
+
   return String(value);
 };
 
 const getCurrentRoleName = (currentUser) => {
   const rawRole = currentUser?.role?.name || currentUser?.roleName || currentUser?.role || currentUser?.role_key || "";
-  return String(rawRole).trim().toLowerCase();
+  return normalizeRoleKey(rawRole);
 };
 
 const normalizeArrayResponse = (payload) => {
@@ -148,18 +173,25 @@ const normalizeArrayResponse = (payload) => {
 
 const formatDate = (dateValue) => {
   if (!dateValue) return "—";
+
   const date = new Date(dateValue);
   if (Number.isNaN(date.getTime())) return "—";
-  return date.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" });
+
+  return date.toLocaleDateString("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric"
+  });
 };
 
 const canAccessSop = (sop, currentUser) => {
   const roleName = getCurrentRoleName(currentUser);
-  const allowedRoles = (sop.allowedRoles || sop.allowed_roles || []).map((role) => String(role).toLowerCase());
+  const allowedRoles = (sop.allowedRoles || sop.allowed_roles || []).map(normalizeRoleKey);
 
   if (roleName === "admin") return true;
   if (allowedRoles.includes("all") || allowedRoles.length === 0) return true;
   if (roleName && allowedRoles.includes(roleName)) return true;
+
   return false;
 };
 
@@ -188,14 +220,20 @@ export const SOPPage = ({ currentUser }) => {
 
     try {
       const token = localStorage.getItem("token");
+
       const response = await fetch(`${API_BASE_URL}/sops`, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
       });
 
-      if (!response.ok) throw new Error("API SOP chưa sẵn sàng hoặc chưa có quyền truy cập.");
+      if (!response.ok) {
+        throw new Error("API SOP chưa sẵn sàng hoặc tài khoản hiện tại chưa có quyền truy cập.");
+      }
 
       const payload = await response.json();
       const data = normalizeArrayResponse(payload);
+
       setSops(data);
       setSelectedId((currentId) => currentId || getSafeId(data[0]));
       setApiMode("real");
@@ -221,8 +259,13 @@ export const SOPPage = ({ currentUser }) => {
     return sops.filter((sop) => canAccessSop(sop, currentUser));
   }, [sops, currentUser]);
 
-  const categories = useMemo(() => Array.from(new Set(visibleSops.map((sop) => sop.category).filter(Boolean))), [visibleSops]);
-  const departments = useMemo(() => Array.from(new Set(visibleSops.map((sop) => sop.department).filter(Boolean))), [visibleSops]);
+  const categories = useMemo(() => {
+    return Array.from(new Set(visibleSops.map((sop) => sop.category).filter(Boolean)));
+  }, [visibleSops]);
+
+  const departments = useMemo(() => {
+    return Array.from(new Set(visibleSops.map((sop) => sop.department).filter(Boolean)));
+  }, [visibleSops]);
 
   const filteredSops = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
@@ -234,6 +277,7 @@ export const SOPPage = ({ currentUser }) => {
         String(sop.summary || "").toLowerCase().includes(term) ||
         String(sop.code || "").toLowerCase().includes(term) ||
         (sop.tags || []).some((tag) => String(tag).toLowerCase().includes(term));
+
       const matchCategory = categoryFilter === "all" || sop.category === categoryFilter;
       const matchDepartment = departmentFilter === "all" || sop.department === departmentFilter;
       const matchStatus = statusFilter === "all" || sop.status === statusFilter;
@@ -262,7 +306,11 @@ export const SOPPage = ({ currentUser }) => {
     setStatusFilter("all");
   };
 
-  const hasActiveFilters = searchTerm || categoryFilter !== "all" || departmentFilter !== "all" || statusFilter !== "all";
+  const hasActiveFilters =
+    searchTerm ||
+    categoryFilter !== "all" ||
+    departmentFilter !== "all" ||
+    statusFilter !== "all";
 
   return (
     <div className="sop-page container-fluid pt-3 pb-4" style={{ maxWidth: "1600px" }}>
@@ -274,10 +322,12 @@ export const SOPPage = ({ currentUser }) => {
             Xem danh sách quy trình chuẩn theo quyền, đọc chi tiết từng SOP và truy cập nhanh tài liệu liên quan.
           </p>
         </div>
+
         <div className="d-flex flex-wrap gap-2 align-items-center justify-content-end">
           <span className={`api-mode-badge ${apiMode === "real" ? "api-mode-real" : "api-mode-mock"}`}>
             {apiMode === "real" ? "Đang dùng API thật" : "Đang dùng dữ liệu giả"}
           </span>
+
           <button className="btn btn-outline-primary btn-sm" onClick={fetchSops} disabled={loading}>
             Đồng bộ lại
           </button>
@@ -285,15 +335,42 @@ export const SOPPage = ({ currentUser }) => {
       </div>
 
       <div className="row g-3 mb-4">
-        <div className="col-6 col-xl-3"><div className="sop-stat-card"><span>Tổng SOP được xem</span><strong>{stats.total}</strong></div></div>
-        <div className="col-6 col-xl-3"><div className="sop-stat-card success"><span>Đã phát hành</span><strong>{stats.published}</strong></div></div>
-        <div className="col-6 col-xl-3"><div className="sop-stat-card warning"><span>Đang duyệt</span><strong>{stats.reviewing}</strong></div></div>
-        <div className="col-6 col-xl-3"><div className="sop-stat-card info"><span>Tài liệu liên kết</span><strong>{stats.linkedDocs}</strong></div></div>
+        <div className="col-6 col-xl-3">
+          <div className="sop-stat-card">
+            <span>Tổng SOP được xem</span>
+            <strong>{stats.total}</strong>
+          </div>
+        </div>
+
+        <div className="col-6 col-xl-3">
+          <div className="sop-stat-card success">
+            <span>Đã phát hành</span>
+            <strong>{stats.published}</strong>
+          </div>
+        </div>
+
+        <div className="col-6 col-xl-3">
+          <div className="sop-stat-card warning">
+            <span>Đang duyệt</span>
+            <strong>{stats.reviewing}</strong>
+          </div>
+        </div>
+
+        <div className="col-6 col-xl-3">
+          <div className="sop-stat-card info">
+            <span>Tài liệu liên kết</span>
+            <strong>{stats.linkedDocs}</strong>
+          </div>
+        </div>
       </div>
 
       <div className="sop-filter-bar mb-4">
         <div className="sop-search-box">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+
           <input
             className="form-control form-control-sm bg-body"
             value={searchTerm}
@@ -302,17 +379,37 @@ export const SOPPage = ({ currentUser }) => {
           />
         </div>
 
-        <select className="form-select form-select-sm bg-body sop-filter-select" value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
+        <select
+          className="form-select form-select-sm bg-body sop-filter-select"
+          value={categoryFilter}
+          onChange={(event) => setCategoryFilter(event.target.value)}
+        >
           <option value="all">Tất cả nhóm SOP</option>
-          {categories.map((category) => <option key={category} value={category}>{category}</option>)}
+          {categories.map((category) => (
+            <option key={category} value={category}>
+              {category}
+            </option>
+          ))}
         </select>
 
-        <select className="form-select form-select-sm bg-body sop-filter-select" value={departmentFilter} onChange={(event) => setDepartmentFilter(event.target.value)}>
+        <select
+          className="form-select form-select-sm bg-body sop-filter-select"
+          value={departmentFilter}
+          onChange={(event) => setDepartmentFilter(event.target.value)}
+        >
           <option value="all">Tất cả phòng ban</option>
-          {departments.map((department) => <option key={department} value={department}>{department}</option>)}
+          {departments.map((department) => (
+            <option key={department} value={department}>
+              {department}
+            </option>
+          ))}
         </select>
 
-        <select className="form-select form-select-sm bg-body sop-filter-select" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+        <select
+          className="form-select form-select-sm bg-body sop-filter-select"
+          value={statusFilter}
+          onChange={(event) => setStatusFilter(event.target.value)}
+        >
           <option value="all">Tất cả trạng thái</option>
           <option value="published">Đã phát hành</option>
           <option value="reviewing">Đang duyệt</option>
@@ -320,7 +417,11 @@ export const SOPPage = ({ currentUser }) => {
           <option value="archived">Lưu trữ</option>
         </select>
 
-        {hasActiveFilters && <button className="btn btn-outline-secondary btn-sm sop-reset-btn" onClick={resetFilters}>Xóa lọc</button>}
+        {hasActiveFilters && (
+          <button className="btn btn-outline-secondary btn-sm sop-reset-btn" onClick={resetFilters}>
+            Xóa lọc
+          </button>
+        )}
       </div>
 
       {error && <div className="alert alert-danger py-2">{error}</div>}
@@ -338,10 +439,14 @@ export const SOPPage = ({ currentUser }) => {
             <div className="sop-list-scroll">
               {loading ? (
                 <div className="text-center py-5">
-                  <div className="spinner-border text-primary" role="status"><span className="visually-hidden">Loading...</span></div>
+                  <div className="spinner-border text-primary" role="status">
+                    <span className="visually-hidden">Loading...</span>
+                  </div>
                 </div>
               ) : filteredSops.length === 0 ? (
-                <div className="text-center py-5 text-body-secondary">Không có SOP phù hợp với quyền xem hoặc bộ lọc hiện tại.</div>
+                <div className="text-center py-5 text-body-secondary">
+                  Không có SOP phù hợp với quyền xem hoặc bộ lọc hiện tại.
+                </div>
               ) : (
                 filteredSops.map((sop) => {
                   const sopId = getSafeId(sop);
@@ -357,10 +462,14 @@ export const SOPPage = ({ currentUser }) => {
                     >
                       <div className="d-flex justify-content-between gap-3 align-items-start">
                         <span className="sop-code">{sop.code || sopId}</span>
-                        <span className={`sop-status-pill ${statusMeta.className}`}>{statusMeta.label}</span>
+                        <span className={`sop-status-pill ${statusMeta.className}`}>
+                          {statusMeta.label}
+                        </span>
                       </div>
+
                       <div className="sop-list-title">{sop.title}</div>
                       <div className="sop-list-summary">{sop.summary}</div>
+
                       <div className="d-flex flex-wrap gap-2 mt-3">
                         <span className="soft-pill">{sop.category || "Chưa phân nhóm"}</span>
                         <span className="soft-pill">{sop.version || "v1.0"}</span>
@@ -384,27 +493,46 @@ export const SOPPage = ({ currentUser }) => {
                     <h4 className="fw-bold text-body-emphasis mb-2">{selectedSop.title}</h4>
                     <p className="text-body-secondary mb-0">{selectedSop.summary}</p>
                   </div>
+
                   <span className={`sop-status-pill ${STATUS_META[selectedSop.status]?.className || "sop-status-draft"}`}>
                     {STATUS_META[selectedSop.status]?.label || "Bản nháp"}
                   </span>
                 </div>
 
                 <div className="sop-meta-grid my-4">
-                  <div><span>Phòng ban</span><strong>{selectedSop.department || "—"}</strong></div>
-                  <div><span>Phụ trách</span><strong>{selectedSop.ownerName || selectedSop.owner_name || "—"}</strong></div>
-                  <div><span>Phiên bản</span><strong>{selectedSop.version || "—"}</strong></div>
-                  <div><span>Ngày hiệu lực</span><strong>{formatDate(selectedSop.effectiveDate || selectedSop.effective_date)}</strong></div>
+                  <div>
+                    <span>Phòng ban</span>
+                    <strong>{selectedSop.department || "—"}</strong>
+                  </div>
+
+                  <div>
+                    <span>Phụ trách</span>
+                    <strong>{selectedSop.ownerName || selectedSop.owner_name || "—"}</strong>
+                  </div>
+
+                  <div>
+                    <span>Phiên bản</span>
+                    <strong>{selectedSop.version || "—"}</strong>
+                  </div>
+
+                  <div>
+                    <span>Ngày hiệu lực</span>
+                    <strong>{formatDate(selectedSop.effectiveDate || selectedSop.effective_date)}</strong>
+                  </div>
                 </div>
 
                 <div className="sop-section mb-4">
                   <div className="sop-section-title">Điều kiện áp dụng</div>
                   <ul className="sop-check-list">
-                    {(selectedSop.conditions || []).map((condition) => <li key={condition}>{condition}</li>)}
+                    {(selectedSop.conditions || []).map((condition) => (
+                      <li key={condition}>{condition}</li>
+                    ))}
                   </ul>
                 </div>
 
                 <div className="sop-section mb-4">
                   <div className="sop-section-title">Các bước thực hiện</div>
+
                   <div className="sop-step-list">
                     {(selectedSop.steps || []).map((step, index) => (
                       <div key={step} className="sop-step-item">
@@ -417,12 +545,18 @@ export const SOPPage = ({ currentUser }) => {
 
                 <div className="sop-section">
                   <div className="sop-section-title">Tài liệu liên quan</div>
+
                   <div className="related-doc-grid">
                     {(selectedSop.relatedDocs || selectedSop.related_docs || []).length === 0 ? (
                       <div className="text-body-secondary small">SOP này chưa liên kết tài liệu.</div>
                     ) : (
                       (selectedSop.relatedDocs || selectedSop.related_docs || []).map((doc) => (
-                        <a key={doc.id || doc.title} href={doc.url || "#"} className="related-doc-card" onClick={(event) => doc.url === "#" && event.preventDefault()}>
+                        <a
+                          key={doc.id || doc.title}
+                          href={doc.url || "#"}
+                          className="related-doc-card"
+                          onClick={(event) => doc.url === "#" && event.preventDefault()}
+                        >
                           <span>{doc.type || "Document"}</span>
                           <strong>{doc.title}</strong>
                         </a>

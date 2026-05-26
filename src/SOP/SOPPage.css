@@ -73,9 +73,17 @@
   line-height: 1;
 }
 
-.sop-stat-card.success strong { color: #10b981; }
-.sop-stat-card.warning strong { color: #f59e0b; }
-.sop-stat-card.info strong { color: #3b82f6; }
+.sop-stat-card.success strong {
+  color: #10b981;
+}
+
+.sop-stat-card.warning strong {
+  color: #f59e0b;
+}
+
+.sop-stat-card.info strong {
+  color: #3b82f6;
+}
 
 .sop-filter-bar {
   display: flex;
@@ -295,7 +303,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #fff;
+  color: #ffffff;
   background: #10b981;
   font-size: 11px;
   font-weight: 900;
@@ -323,7 +331,7 @@
   height: 34px;
   border-radius: 10px;
   background: var(--bs-primary);
-  color: #fff;
+  color: #ffffff;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -403,6 +411,13 @@
 }
 
 @keyframes sopFadeIn {
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }

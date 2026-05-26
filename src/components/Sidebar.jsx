@@ -133,7 +133,7 @@ export const Sidebar = ({ currentUser, onNavigate, currentPage, onToggleSidebar 
           {/* --- 3. NGHIỆP VỤ --- */}
           <li className="menu-item mb-2 mt-2">
             <a
-              className={`menu-link d-flex align-items-center px-2 py-2 rounded-2 ${currentPage === "nghiepvu" ? "text-primary fw-bold" : "text-body-secondary"}`}
+              className={`menu-link d-flex align-items-center px-2 py-2 rounded-2 ${["nghiepvu", "checklist", "sop"].includes(currentPage) ? "text-primary fw-bold" : "text-body-secondary"}`}
               href="#"
               role="button"
               style={{ textDecoration: "none" }}
@@ -163,7 +163,47 @@ export const Sidebar = ({ currentUser, onNavigate, currentPage, onToggleSidebar 
             </a>
             {/* Dummy submenu cho Nghiệp vụ nếu cần mở rộng sau này */}
             <ul className="menu-inner list-unstyled mb-0" style={{ display: openMenu === "nghiepvu" ? "block" : "none", paddingLeft: "52px" }}>
-              <li className="menu-item mb-1"><a className="menu-link d-block px-3 py-2 text-body-secondary" style={{ textDecoration: "none", fontSize: "13px" }} href="#">Quản lý chung</a></li>
+              <li className="menu-item mb-1">
+                <a
+                  className={`menu-link d-block px-3 py-2 rounded-2 ${currentPage === "nghiepvu" ? "bg-primary-subtle text-primary fw-medium" : "text-body-secondary"}`}
+                  style={{ textDecoration: "none", fontSize: "13px" }}
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    onNavigate?.("nghiepvu");
+                  }}
+                >
+                  Quản lý chung
+                </a>
+              </li>
+
+              <li className="menu-item mb-1">
+                <a
+                  className={`menu-link d-block px-3 py-2 rounded-2 ${currentPage === "checklist" ? "bg-primary-subtle text-primary fw-medium" : "text-body-secondary"}`}
+                  style={{ textDecoration: "none", fontSize: "13px" }}
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    onNavigate?.("checklist");
+                  }}
+                >
+                  Checklist công việc
+                </a>
+              </li>
+
+              <li className="menu-item mb-1">
+                <a
+                  className={`menu-link d-block px-3 py-2 rounded-2 ${currentPage === "sop" ? "bg-primary-subtle text-primary fw-medium" : "text-body-secondary"}`}
+                  style={{ textDecoration: "none", fontSize: "13px" }}
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    onNavigate?.("sop");
+                  }}
+                >
+                  SOP nghiệp vụ
+                </a>
+              </li>
             </ul>
           </li>
 
