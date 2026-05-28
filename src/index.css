@@ -33,3 +33,20 @@
     right: 0;
   }
 }
+
+@layer components {
+  .app-wrapper.ai-chat-wrapper {
+    height: calc(100vh - var(--app-header-height));
+    min-height: 0;
+    overflow: hidden;
+    padding-bottom: 12px;
+    padding-top: 12px;
+  }
+
+  @media (max-width: 1199.98px) {
+    .app-wrapper.ai-chat-wrapper {
+      height: auto;
+      overflow: visible;
+    }
+  }
+}

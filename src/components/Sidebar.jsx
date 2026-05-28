@@ -216,9 +216,20 @@ export const Sidebar = ({ currentUser, onNavigate, currentPage, onToggleSidebar 
                 </svg>
               </span>
             </a>
-            {/* Dummy submenu cho Nghiệp vụ nếu cần mở rộng sau này */}
             <ul className="menu-inner list-unstyled mb-0" style={{ display: openMenu === "nghiepvu" ? "block" : "none", paddingLeft: "52px" }}>
-              <li className="menu-item mb-1"><a className="menu-link d-block px-3 py-2 text-body-secondary" style={{ textDecoration: "none", fontSize: "13px" }} href="#">Quản lý chung</a></li>
+              <li className="menu-item mb-1">
+                <a
+                  className={`menu-link d-block px-3 py-2 rounded-2 ${currentPage === "nghiepvu" ? "bg-primary-subtle text-primary fw-medium" : "text-body-secondary"}`}
+                  style={{ textDecoration: "none", fontSize: "13px" }}
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    onNavigate?.("nghiepvu");
+                  }}
+                >
+                  Kế toán & hoa hồng
+                </a>
+              </li>
             </ul>
           </li>
 
@@ -273,7 +284,7 @@ export const Sidebar = ({ currentUser, onNavigate, currentPage, onToggleSidebar 
                   <line x1="12" y1="17" x2="12.01" y2="17"></line>
                 </svg>
               </div>
-              <span className="menu-label" style={{ flex: 1, fontSize: "14px" }}>Q&A - Hỗ trợ 24/7</span>
+              <span className="menu-label" style={{ flex: 1, fontSize: "14px" }}>AI Chat - Hỗ trợ 24/7</span>
             </a>
           </li>
 

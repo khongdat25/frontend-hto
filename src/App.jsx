@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { Header } from "./components/Header";
 import { Sidebar } from "./components/Sidebar";
 import { Footer } from "./components/Footer";
+import { AccountingPlaceholderPage } from "./components/AccountingPlaceholderPage";
+import { AiChatPage } from "./components/AiChatPage";
 import { DocumentsPage } from "./components/DocumentsPage";
 import { LoginPage } from "./login/LoginPage";
 import { RegisterPage } from "./login/RegisterPage";
@@ -249,7 +251,7 @@ function App() {
 
   const handleToggleTheme = (e) => {
     e?.preventDefault?.();
-    setTheme((currentTheme) => (currentTheme === "dark" ? "light" : "dark"));
+    setTheme((currentTheme) => (currentTheme === "light" ? "light" : "dark"));
   };
 
   const handleLogin = (userData) => {
@@ -353,7 +355,7 @@ function App() {
         onToggleSidebar={handleToggleSidebar}
       />
 
-      <main className="app-wrapper">
+      <main className={`app-wrapper${currentPage === "qna" ? " ai-chat-wrapper" : ""}`}>
         {currentPage === "users" ? (
         // Truyền currentUser (chính là state 'user' ở App.jsx) xuống để check quyền
         <UserList currentUser={user} />
@@ -365,6 +367,10 @@ function App() {
           <JobDescriptionsPage currentUser={user} />
         ) : currentPage === "documents" ? (
           <DocumentsPage currentUser={user} />
+        ) : currentPage === "nghiepvu" ? (
+          <AccountingPlaceholderPage />
+        ) : currentPage === "qna" ? (
+          <AiChatPage currentUser={user} />
         ) : ["sanpham", "duhocduc", "dinhcu", "visa", "daotaongonngu", "nophosoonline"].includes(currentPage) || currentPage.startsWith("product:") ? (
           <ProductsPage currentUser={user} currentPage={currentPage} onNavigate={setCurrentPage} />
         ) : (
@@ -727,7 +733,7 @@ function App() {
         )}
       </main>
 
-      <Footer />
+      {currentPage !== "qna" && <Footer />}
     </div>
   );
 }
