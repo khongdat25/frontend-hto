@@ -11,6 +11,13 @@ import { AuthLayout } from "./login/AuthLayout";
 import { UserList } from "./UserList/UserList";
 import { DepartmentsPage } from "./departments/DepartmentsPage";
 import { AuditLogPage } from "./auditLogs/AuditLogPage";
+import { ChecklistPage } from "./Checklist/ChecklistPage";
+import { SOPPage } from "./SOP/SOPPage";
+import { DocumentSearchPage } from "./DocumentSearch/DocumentSearchPage";
+import { LeadFormPage } from "./LeadForm/LeadFormPage";
+import { AIConfigPage } from "./AIConfig/AIConfigPage";
+import { AIPendingQuestionsPage } from "./AIPendingQuestions/AIPendingQuestionsPage";
+import { AIHistoryPage } from "./AIHistory/AIHistoryPage";
 
 const ROLE_IDS = {
   ADMIN: "69fc5af582ef85451120772a",
@@ -239,6 +246,20 @@ function App() {
           <DepartmentsPage currentUser={user} />
         ) : currentPage === "auditLogs" ? (
           <AuditLogPage currentUser={user} />
+        ) : currentPage === "checklist" ? (
+          <ChecklistPage currentUser={user} />
+        ) : currentPage === "sop" ? (
+          <SOPPage currentUser={user} />
+        ) : currentPage === "documentSearch" ? (
+          <DocumentSearchPage currentUser={user} />
+        ) : currentPage === "leadForm" ? (
+          <LeadFormPage currentUser={user} />
+        ) : currentPage === "aiConfig" ? (
+          <AIConfigPage currentUser={user} />
+        ) : currentPage === "aiPending" ? (
+          <AIPendingQuestionsPage currentUser={user} />
+        ) : currentPage === "aiHistory" ? (
+          <AIHistoryPage currentUser={user} />
         ) : currentPage === "documents" ? (
           <DocumentsPage />
         ) : (

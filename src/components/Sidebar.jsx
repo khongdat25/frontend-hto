@@ -4,6 +4,10 @@ const ADMIN_ROLE_ID = "69fc5af582ef85451120772a";
 
 const isAdmin = (user) => user?.role === "admin" || user?.roleId === ADMIN_ROLE_ID;
 
+const canViewAIManagement = (user) => {
+  return ["admin", "bangiamdoc", "truongbophan", "hethong"].includes(user?.role) || user?.roleId === ADMIN_ROLE_ID;
+};
+
 export const Sidebar = ({ currentUser, onNavigate, currentPage, onToggleSidebar }) => {
   // State quản lý việc đóng/mở menu con (mặc định mở 'sanpham' cho giống hình mẫu)
   const [openMenu, setOpenMenu] = useState("sanpham");
@@ -176,7 +180,6 @@ export const Sidebar = ({ currentUser, onNavigate, currentPage, onToggleSidebar 
                   Quản lý chung
                 </a>
               </li>
-
               <li className="menu-item mb-1">
                 <a
                   className={`menu-link d-block px-3 py-2 rounded-2 ${currentPage === "checklist" ? "bg-primary-subtle text-primary fw-medium" : "text-body-secondary"}`}
@@ -190,7 +193,6 @@ export const Sidebar = ({ currentUser, onNavigate, currentPage, onToggleSidebar 
                   Checklist công việc
                 </a>
               </li>
-
               <li className="menu-item mb-1">
                 <a
                   className={`menu-link d-block px-3 py-2 rounded-2 ${currentPage === "sop" ? "bg-primary-subtle text-primary fw-medium" : "text-body-secondary"}`}
@@ -210,7 +212,7 @@ export const Sidebar = ({ currentUser, onNavigate, currentPage, onToggleSidebar 
           {/* --- 4. HỖ TRỢ --- */}
           <li className="menu-item mb-2">
             <a
-              className={`menu-link d-flex align-items-center px-2 py-2 rounded-2 ${currentPage === "hotro" ? "text-primary fw-bold" : "text-body-secondary"}`}
+              className={`menu-link d-flex align-items-center px-2 py-2 rounded-2 ${["hotro", "leadForm"].includes(currentPage) ? "text-primary fw-bold" : "text-body-secondary"}`}
               href="#"
               role="button"
               style={{ textDecoration: "none" }}
@@ -240,6 +242,19 @@ export const Sidebar = ({ currentUser, onNavigate, currentPage, onToggleSidebar 
             </a>
             <ul className="menu-inner list-unstyled mb-0" style={{ display: openMenu === "hotro" ? "block" : "none", paddingLeft: "52px" }}>
               <li className="menu-item mb-1"><a className="menu-link d-block px-3 py-2 text-body-secondary" style={{ textDecoration: "none", fontSize: "13px" }} href="#">Tạo Ticket</a></li>
+              <li className="menu-item mb-1">
+                <a
+                  className={`menu-link d-block px-3 py-2 rounded-2 ${currentPage === "leadForm" ? "bg-primary-subtle text-primary fw-medium" : "text-body-secondary"}`}
+                  style={{ textDecoration: "none", fontSize: "13px" }}
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    onNavigate?.("leadForm");
+                  }}
+                >
+                  Gửi lead khách hàng
+                </a>
+              </li>
             </ul>
           </li>
 
@@ -285,7 +300,7 @@ export const Sidebar = ({ currentUser, onNavigate, currentPage, onToggleSidebar 
           {/* --- 7. TÀI LIỆU & BIỂU MẪU --- */}
           <li className="menu-item mb-2">
             <a
-              className={`menu-link d-flex align-items-center px-2 py-2 rounded-2 ${currentPage === "documents" ? "text-primary fw-bold" : "text-body-secondary"}`}
+              className={`menu-link d-flex align-items-center px-2 py-2 rounded-2 ${["documents", "documentSearch"].includes(currentPage) ? "text-primary fw-bold" : "text-body-secondary"}`}
               href="#"
               role="button"
               style={{ textDecoration: "none" }}
@@ -319,6 +334,19 @@ export const Sidebar = ({ currentUser, onNavigate, currentPage, onToggleSidebar 
               </span>
             </a>
             <ul className="menu-inner list-unstyled mb-0" style={{ display: openMenu === "documents" ? "block" : "none", paddingLeft: "52px", marginTop: "4px" }}>
+              <li className="menu-item mb-1">
+                <a
+                  className={`menu-link d-block px-3 py-2 rounded-2 ${currentPage === "documentSearch" ? "bg-primary-subtle text-primary fw-medium" : "text-body-secondary"}`}
+                  style={{ textDecoration: "none", fontSize: "13px" }}
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    onNavigate?.("documentSearch");
+                  }}
+                >
+                  Tìm kiếm tài liệu
+                </a>
+              </li>
               <li className="menu-item mb-1"><a className="menu-link d-block px-3 py-2 rounded-2 text-body-secondary" style={{ textDecoration: "none", fontSize: "13px" }} href="/forms/form-elements.html">Form Elements</a></li>
               <li className="menu-item mb-1"><a className="menu-link d-block px-3 py-2 rounded-2 text-body-secondary" style={{ textDecoration: "none", fontSize: "13px" }} href="/forms/form-floating.html">Form floating</a></li>
               <li className="menu-item mb-1"><a className="menu-link d-block px-3 py-2 rounded-2 text-body-secondary" style={{ textDecoration: "none", fontSize: "13px" }} href="/forms/form-input-group.html">Form input group</a></li>
@@ -328,6 +356,91 @@ export const Sidebar = ({ currentUser, onNavigate, currentPage, onToggleSidebar 
               <li className="menu-item mb-1"><a className="menu-link d-block px-3 py-2 rounded-2 text-body-secondary" style={{ textDecoration: "none", fontSize: "13px" }} href="/forms/tagify.html">Tagify</a></li>
             </ul>
           </li>
+
+          {/* --- 8A. AI NỘI BỘ --- */}
+          {canViewAIManagement(currentUser) && (
+            <li className="menu-item mb-2">
+              <a
+                className={`menu-link d-flex align-items-center px-2 py-2 rounded-2 ${["aiConfig", "aiPending", "aiHistory"].includes(currentPage) ? "text-primary fw-bold" : "text-body-secondary"}`}
+                href="#"
+                role="button"
+                style={{ textDecoration: "none" }}
+                onClick={(e) => {
+                  e.preventDefault();
+                  setOpenMenu(openMenu === "ai" ? "" : "ai");
+                }}
+              >
+                <div className="d-flex align-items-center justify-content-center rounded-3 bg-body-secondary me-3 flex-shrink-0" style={{ width: "36px", height: "36px" }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 2a4 4 0 0 0-4 4v2H6a4 4 0 0 0-4 4v2a4 4 0 0 0 4 4h2v2a4 4 0 0 0 8 0v-2h2a4 4 0 0 0 4-4v-2a4 4 0 0 0-4-4h-2V6a4 4 0 0 0-4-4z"></path>
+                    <path d="M9 12h6"></path>
+                    <path d="M12 9v6"></path>
+                  </svg>
+                </div>
+                <span className="menu-label" style={{ flex: 1, fontSize: "14px" }}>AI nội bộ</span>
+                <span
+                  style={{ cursor: "pointer", padding: "4px" }}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setOpenMenu(openMenu === "ai" ? "" : "ai");
+                  }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: openMenu === "ai" ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.3s ease" }}>
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                  </svg>
+                </span>
+              </a>
+
+              <ul className="menu-inner list-unstyled mb-0" style={{ display: openMenu === "ai" ? "block" : "none", paddingLeft: "52px", marginTop: "4px" }}>
+                {isAdmin(currentUser) && (
+                  <li className="menu-item mb-1">
+                    <a
+                      className={`menu-link d-block px-3 py-2 rounded-2 ${currentPage === "aiConfig" ? "bg-primary-subtle text-primary fw-medium" : "text-body-secondary"}`}
+                      style={{ textDecoration: "none", fontSize: "13px" }}
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        onNavigate?.("aiConfig");
+                      }}
+                    >
+                      Cấu hình AI
+                    </a>
+                  </li>
+                )}
+
+                <li className="menu-item mb-1">
+                  <a
+                    className={`menu-link d-block px-3 py-2 rounded-2 ${currentPage === "aiPending" ? "bg-primary-subtle text-primary fw-medium" : "text-body-secondary"}`}
+                    style={{ textDecoration: "none", fontSize: "13px" }}
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      onNavigate?.("aiPending");
+                    }}
+                  >
+                    Câu hỏi AI pending
+                  </a>
+                </li>
+
+                {["admin", "bangiamdoc", "hethong"].includes(currentUser?.role) && (
+                  <li className="menu-item mb-1">
+                    <a
+                      className={`menu-link d-block px-3 py-2 rounded-2 ${currentPage === "aiHistory" ? "bg-primary-subtle text-primary fw-medium" : "text-body-secondary"}`}
+                      style={{ textDecoration: "none", fontSize: "13px" }}
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        onNavigate?.("aiHistory");
+                      }}
+                    >
+                      Thống kê lịch sử AI
+                    </a>
+                  </li>
+                )}
+              </ul>
+            </li>
+          )}
 
           {/* --- 8. QUẢN LÝ TÀI KHOẢN --- */}
           <li className="menu-item mb-2 border-top pt-3 mt-3">
