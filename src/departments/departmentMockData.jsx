@@ -1,6 +1,7 @@
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL ||
-  (import.meta.env.PROD ? "/api/v1" : "http://qlnb-api.hto.edu.vn/api/v1");
+// const API_BASE_URL =
+//   import.meta.env.VITE_API_BASE_URL ||
+//   (import.meta.env.PROD ? "/api/v1" : "http://qlnb-api.hto.edu.vn/api/v1");
+const API_BASE_URL = "http://localhost:3000/api/v1";
 
 const LOCAL_DEPARTMENTS_KEY = "hto_departments_mock";
 const LOCAL_USERS_KEY = "hto_department_users_mock";
@@ -135,24 +136,35 @@ export async function deleteDepartment(departmentId) {
 
 export async function getDepartmentMembers(departmentId) {
   return await withLocalFallback(
-    () => apiRequest(`/departments/${departmentId}/members`),
+    async () => {
+      const searchParams = new URLSearchParams({ departmentId });
+      const users = await apiRequest(`/users?${searchParams.toString()}`);
+
+      return normalizeUsers(users).filter((user) => user.departmentId === departmentId);
+    },
     () => readUsers().filter((user) => user.departmentId === departmentId),
   );
 }
 
 export async function getAssignableUsers() {
   return await withLocalFallback(
-    () => apiRequest("/departments/available-users"),
+    async () => {
+      const users = await apiRequest("/users");
+
+      return normalizeUsers(users);
+    },
     () => readUsers(),
   );
 }
 
 export async function assignUserToDepartment(departmentId, userId) {
   return await withLocalFallback(
-    () => apiRequest(`/departments/${departmentId}/members`, {
-      method: "POST",
-      body: { userId },
-    }),
+    async () => normalizeUser(
+      await apiRequest(`/users/${userId}`, {
+        method: "PATCH",
+        body: { departmentId },
+      }),
+    ),
     () => {
       const nextUsers = readUsers().map((user) =>
         user.id === userId ? { ...user, departmentId } : user,
@@ -165,7 +177,12 @@ export async function assignUserToDepartment(departmentId, userId) {
 
 export async function removeUserFromDepartment(departmentId, userId) {
   return await withLocalFallback(
-    () => apiRequest(`/departments/${departmentId}/members/${userId}`, { method: "DELETE" }),
+    async () => normalizeUser(
+      await apiRequest(`/users/${userId}`, {
+        method: "PATCH",
+        body: { departmentId: null },
+      }),
+    ),
     () => {
       const nextUsers = readUsers().map((user) =>
         user.id === userId && user.departmentId === departmentId
@@ -215,6 +232,27 @@ async function withLocalFallback(apiCall, localCall) {
 
 function normalizeApiData(payload) {
   return payload?.data ?? payload ?? [];
+}
+
+function normalizeUsers(payload) {
+  const users = Array.isArray(payload)
+    ? payload
+    : payload?.items || payload?.users || [];
+
+  return users.map(normalizeUser).filter((user) => user.id);
+}
+
+function normalizeUser(user) {
+  const data = user?.data ?? user;
+
+  return {
+    id: data.id || data._id,
+    fullName: data.fullName || data.name || "",
+    email: data.email || "",
+    role: data.role || data.roleName || data.roleId || "",
+    departmentId: data.departmentId || data.department?.id || data.department?._id || null,
+    status: data.status || "active",
+  };
 }
 
 function getApiErrorMessage(payload, status) {
