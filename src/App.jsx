@@ -21,6 +21,7 @@ import { AIConfigPage } from "./AIConfig/AIConfigPage";
 import { AIPendingQuestionsPage } from "./AIPendingQuestions/AIPendingQuestionsPage";
 import { AIHistoryPage } from "./AIHistory/AIHistoryPage";
 import { JobDescriptionsPage } from "./jobDescriptions/JobDescriptionsPage";
+import { NotificationsPage } from "./notifications/NotificationsPage";
 import { ProductsPage } from "./products/ProductsPage";
 
 const ROLE_IDS = {
@@ -161,6 +162,7 @@ const resetAuthUrl = () => {
 
 function App() {
   const [currentPage, setCurrentPage] = useState(() => getStoredPage());
+  const [selectedNotificationId, setSelectedNotificationId] = useState(null);
   const [user, setUser] = useState(() => getStoredUser());
   const [authMode, setAuthMode] = useState(() => getAuthModeFromLocation()); // 'login', 'register', 'forgot', 'reset-password'
   const [theme, setTheme] = useState(() => {
@@ -261,6 +263,13 @@ function App() {
     setTheme((currentTheme) => (currentTheme === "light" ? "dark" : "light"));
   };
 
+  const handleNavigate = (page, options = {}) => {
+    setCurrentPage(page);
+    setSelectedNotificationId(
+      page === "notifications" ? options.notificationId || null : null,
+    );
+  };
+
   const handleLogin = (userData) => {
     if (!hasStoredSession()) {
       setUser(null);
@@ -350,14 +359,14 @@ function App() {
     <div className="page-layout bg-body-tertiary d-flex flex-column min-vh-100">
       <Header
         user={user}
-        onToggleSidebar={handleToggleSidebar}
-        onToggleTheme={handleToggleTheme}
+        onToggleSidebar={handleToggleSidebar} 
+        onToggleTheme={handleToggleTheme} 
         onLogout={handleLogout}
       />
 
       <Sidebar
         currentUser={user}
-        onNavigate={setCurrentPage}
+        onNavigate={handleNavigate}
         currentPage={currentPage}
         onToggleSidebar={handleToggleSidebar}
       />
@@ -386,6 +395,11 @@ function App() {
           <AIHistoryPage currentUser={user} />
         ) : currentPage === "jobDescriptions" ? (
           <JobDescriptionsPage currentUser={user} />
+        ) : currentPage === "notifications" ? (
+          <NotificationsPage
+            currentUser={user}
+            selectedNotificationId={selectedNotificationId}
+          />
         ) : currentPage === "documents" ? (
           <DocumentsPage currentUser={user} />
         ) : currentPage === "nghiepvu" ? (
