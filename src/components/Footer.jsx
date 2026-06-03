@@ -9,7 +9,7 @@ export const Footer = () => {
             <div className="col-md-4">
               <ul className="d-flex list-inline mb-0 gap-4 flex-wrap justify-content-center justify-content-md-end">
                 <li>
-                  <a className="text-body" href="index-2.html">Home</a>
+                  <a className="text-body" href="#">Home</a>
                 </li>
                 <li>
                   <a className="text-body" href="pages/faq.html">Faq's</a>

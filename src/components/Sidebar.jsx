@@ -116,6 +116,9 @@ export const Sidebar = ({ currentUser, onNavigate, currentPage, onToggleSidebar 
   const isProductPage =
     ["duhocduc", "dinhcu", "visa", "daotaongonngu", "nophosoonline", "sanpham"].includes(currentPage) ||
     currentPage.startsWith("product:");
+  const handleGoHome = () => {
+    onNavigate?.("dashboard");
+  };
 
   return (
     <aside className="app-menubar" id="menubar">
@@ -123,19 +126,24 @@ export const Sidebar = ({ currentUser, onNavigate, currentPage, onToggleSidebar 
         <i className="fi fi-br-angle-small-left"></i>
       </button>
       <div className="app-navbar-brand">
-        <a className="navbar-brand-logo" href="/index-2.html">
+        <button
+          className="navbar-brand-logo border-0 bg-transparent p-0"
+          type="button"
+          onClick={handleGoHome}
+        >
           <img
             src="/assets/images/logo-HTO.png"
             alt="UrbanHub Admin Dashboard"
             width="40"
             height="40"
           />
-        </a>
+        </button>
         
-        <a
+        <button
           className="navbar-brand-mini visible-light"
-          href="/index-2.html"
-          style={{ textDecoration: "none" }}
+          type="button"
+          onClick={handleGoHome}
+          style={{ textDecoration: "none", border: 0, background: "transparent", padding: 0 }}
         >
           <span
             style={{
@@ -148,7 +156,7 @@ export const Sidebar = ({ currentUser, onNavigate, currentPage, onToggleSidebar 
           >
             HT OCEAN GROUP
           </span>
-        </a>
+        </button>
       </div>
       
       <nav className="app-navbar" data-simplebar>
@@ -172,7 +180,7 @@ export const Sidebar = ({ currentUser, onNavigate, currentPage, onToggleSidebar 
                   <polyline points="9 22 9 12 15 12 15 22"></polyline>
                 </svg>
               </div>
-              <span className="menu-label" style={{ flex: 1, fontSize: "14px" }}>Dashboard</span>
+              <span className="menu-label" style={{ flex: 1, fontSize: "14px" }}>Trang chủ</span>
             </a>
           </li>
 

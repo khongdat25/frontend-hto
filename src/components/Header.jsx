@@ -143,6 +143,10 @@ export const Header = ({ user, onNavigate, onToggleSidebar, onToggleTheme, onLog
     };
   }, [applyNotificationChange, refreshUnreadCount]);
 
+  const handleGoHome = () => {
+    onNavigate?.("dashboard");
+  };
+
   return (
     <header className="app-header">
       <div className="app-header-inner">
@@ -155,18 +159,23 @@ export const Header = ({ user, onNavigate, onToggleSidebar, onToggleTheme, onLog
             <i className="fi fi-br-angle-small-left"></i>
           </button>
           <div className="app-header-brand">
-            <a className="navbar-brand-logo" href="index-2.html">
+            <button
+              className="navbar-brand-logo border-0 bg-transparent p-0"
+              type="button"
+              onClick={handleGoHome}
+            >
               <img
                 src="/assets/images/logo-HTO.png"
                 alt="UrbanHub Admin Dashboard"
                 width="40"
                 height="40"
               />
-            </a>
-            <a
+            </button>
+            <button
               className="navbar-brand-mini visible-light"
-              href="index-2.html"
-              style={{ textDecoration: "none" }}
+              type="button"
+              onClick={handleGoHome}
+              style={{ textDecoration: "none", border: 0, background: "transparent", padding: 0 }}
             >
               <span
                 style={{
@@ -179,7 +188,7 @@ export const Header = ({ user, onNavigate, onToggleSidebar, onToggleTheme, onLog
               >
                 HT OCEAN GROUP
               </span>
-            </a>
+            </button>
           </div>
           <form
             className="d-none d-xl-flex align-items-center h-100 w-lg-250px w-xxl-300px position-relative"
