@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
+import { TailwindDropdown } from "../components/ui/TailwindDropdown";
 
 import { API_BASE_URL } from "../config/api";
 
@@ -7,6 +8,16 @@ const GMAIL_PATTERN = /^[a-zA-Z0-9._%+-]+@gmail\.com$/;
 
 const PASSWORD_PATTERN =
   /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).{8,}$/;
+
+const getRegisteredUserFromResponse = (response, fallback) => {
+  const user = response?.data?.user || response?.data || response?.user || {};
+
+  return {
+    id: user.id || user._id || user.sub || "",
+    name: user.fullName || user.name || fallback.name,
+    email: user.email || fallback.email,
+  };
+};
 
 const LOCATION_OPTIONS = [
   {
@@ -122,11 +133,7 @@ export const RegisterPage = ({ onSwitchToLogin, onRegister }) => {
         throw new Error(response?.message || "Đăng ký thất bại");
       }
 
-      setRegisteredUser({
-        id: response?.data?.user?.id || response?.data?.id || response?.user?.id || "",
-        name: data.name,
-        email: data.email,
-      });
+      setRegisteredUser(getRegisteredUserFromResponse(response, { name: data.name, email: data.email }));
       setRegistrationStep("profile");
     } catch (err) {
       setApiError(err instanceof Error ? err.message : "Đăng ký thất bại");
@@ -135,22 +142,40 @@ export const RegisterPage = ({ onSwitchToLogin, onRegister }) => {
     }
   };
 
-  const handleProfileComplete = (profileData) => {
+  const handleProfileComplete = async (profileData) => {
+    setApiError("");
+    setLoading(true);
+
     try {
-      window.localStorage.setItem(
-        `hto_registration_profile_${registeredUser?.email || Date.now()}`,
-        JSON.stringify({
-          ...profileData,
+      const res = await fetch(`${API_BASE_URL}/auth/register-profile`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
           userId: registeredUser?.id || "",
           email: registeredUser?.email || "",
-          updatedAt: new Date().toISOString(),
+          phone: profileData.phone,
+          city: profileData.city,
+          ward: profileData.ward,
+          addressDetail: profileData.addressDetail,
+          address: profileData.address,
+          socialLink: profileData.socialLink,
+          socialUrl: profileData.socialLink,
+          referralCode: profileData.referralCode || "",
+          referral_code: profileData.referralCode || "",
         }),
-      );
-    } catch {
-      // Profile data is best-effort until backend supports these fields.
-    }
+      });
+      const response = await res.json().catch(() => null);
 
-    setRegistrationStep("success");
+      if (!res.ok) {
+        throw new Error(response?.message || "Không thể cập nhật thông tin bổ sung.");
+      }
+
+      setRegistrationStep("success");
+    } catch (err) {
+      setApiError(err instanceof Error ? err.message : "Không thể cập nhật thông tin bổ sung.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (registrationStep === "profile") {
@@ -158,6 +183,7 @@ export const RegisterPage = ({ onSwitchToLogin, onRegister }) => {
       <RegistrationProfilePage
         inputClass={inputClass}
         loading={loading}
+        profileError={apiError}
         onComplete={handleProfileComplete}
         referralFromUrl={referralFromUrl}
         userName={registeredUser?.name}
@@ -333,7 +359,7 @@ export const RegisterPage = ({ onSwitchToLogin, onRegister }) => {
   );
 };
 
-function RegistrationProfilePage({ inputClass, loading, onComplete, referralFromUrl, userName }) {
+function RegistrationProfilePage({ inputClass, loading, onComplete, profileError, referralFromUrl, userName }) {
   const {
     register,
     handleSubmit,
@@ -352,10 +378,11 @@ function RegistrationProfilePage({ inputClass, loading, onComplete, referralFrom
     },
   });
   const selectedCity = watch("city");
+  const selectedWard = watch("ward");
   const wardOptions = LOCATION_OPTIONS.find((option) => option.city === selectedCity)?.wards || [];
 
-  const submitProfile = (data) => {
-    onComplete({
+  const submitProfile = async (data) => {
+    await onComplete({
       ...data,
       address: [data.addressDetail, data.ward, data.city].filter(Boolean).join(", "),
     });
@@ -370,6 +397,12 @@ function RegistrationProfilePage({ inputClass, loading, onComplete, referralFrom
       <p className="mb-2.5 text-center text-[13px] leading-[1.35] text-[#6b7280]">
         {userName ? `${userName}, ` : ""}vui lòng hoàn tất thông tin liên hệ để tiếp tục.
       </p>
+
+      {profileError && (
+        <div className="mb-2.5 rounded-xl border border-[#fecdd3] bg-[#fff1f2] px-3 py-2 text-[13px] text-[#be123c] app-dark:border-[#7f1d1d] app-dark:bg-[#2a1215] app-dark:text-[#fecdd3]">
+          {profileError}
+        </div>
+      )}
 
       <form noValidate onSubmit={handleSubmit(submitProfile)}>
         <div className="mb-2.5 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
@@ -402,35 +435,49 @@ function RegistrationProfilePage({ inputClass, loading, onComplete, referralFrom
         <div className="mb-2.5 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
           <div>
             <label className="mb-1 block text-[13px] font-semibold text-[#374151] app-dark:text-[#e5e7eb]" htmlFor="city">Thành phố/Tỉnh</label>
-            <select
-              id="city"
-              className={inputClass}
+            <input
+              type="hidden"
+              {...register("city", { required: "Vui lòng chọn thành phố/tỉnh." })}
+            />
+            <TailwindDropdown
+              buttonClassName={`!rounded-[8px] border bg-[#f9fafb] app-dark:border-[#4b5563] app-dark:bg-[#374151] ${
+                errors.city ? "border-[#f5365c]" : "border-[#d1d5db]"
+              }`}
               disabled={loading}
-              {...register("city", {
-                required: "Vui lòng chọn thành phố/tỉnh.",
-                onChange: () => setValue("ward", ""),
-              })}
-            >
-              <option value="">-- Chọn thành phố/tỉnh --</option>
-              {LOCATION_OPTIONS.map((option) => (
-                <option key={option.city} value={option.city}>{option.city}</option>
-              ))}
-            </select>
+              error={Boolean(errors.city)}
+              onChange={(value) => {
+                setValue("city", value, { shouldDirty: true, shouldValidate: true });
+                setValue("ward", "", { shouldDirty: true, shouldValidate: true });
+              }}
+              options={[
+                { label: "-- Chọn thành phố/tỉnh --", value: "" },
+                ...LOCATION_OPTIONS.map((option) => ({ label: option.city, value: option.city })),
+              ]}
+              placeholder="-- Chọn thành phố/tỉnh --"
+              value={selectedCity}
+            />
             {errors.city && <div className="mt-1 text-[11px] font-medium text-[#f5365c]">{errors.city.message}</div>}
           </div>
           <div>
             <label className="mb-1 block text-[13px] font-semibold text-[#374151] app-dark:text-[#e5e7eb]" htmlFor="ward">Phường/Xã</label>
-            <select
-              id="ward"
-              className={inputClass}
-              disabled={loading || !selectedCity}
+            <input
+              type="hidden"
               {...register("ward", { required: "Vui lòng chọn phường/xã." })}
-            >
-              <option value="">{selectedCity ? "-- Chọn phường/xã --" : "Chọn thành phố trước"}</option>
-              {wardOptions.map((ward) => (
-                <option key={ward} value={ward}>{ward}</option>
-              ))}
-            </select>
+            />
+            <TailwindDropdown
+              buttonClassName={`!rounded-[8px] border bg-[#f9fafb] app-dark:border-[#4b5563] app-dark:bg-[#374151] ${
+                errors.ward ? "border-[#f5365c]" : "border-[#d1d5db]"
+              }`}
+              disabled={loading || !selectedCity}
+              error={Boolean(errors.ward)}
+              onChange={(value) => setValue("ward", value, { shouldDirty: true, shouldValidate: true })}
+              options={[
+                { label: selectedCity ? "-- Chọn phường/xã --" : "Chọn thành phố trước", value: "" },
+                ...wardOptions.map((ward) => ({ label: ward, value: ward })),
+              ]}
+              placeholder={selectedCity ? "-- Chọn phường/xã --" : "Chọn thành phố trước"}
+              value={selectedWard}
+            />
             {errors.ward && <div className="mt-1 text-[11px] font-medium text-[#f5365c]">{errors.ward.message}</div>}
           </div>
         </div>
@@ -472,7 +519,7 @@ function RegistrationProfilePage({ inputClass, loading, onComplete, referralFrom
           className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-[8px] border-0 bg-[#111827] px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-[#1f2937] disabled:cursor-not-allowed disabled:opacity-70 app-dark:bg-[#4f46e5] app-dark:hover:bg-[#4338ca]"
           disabled={loading}
         >
-          Hoàn tất thông tin
+          {loading ? <div className="h-[18px] w-[18px] animate-spin rounded-full border-2 border-[rgba(255,255,255,0.3)] border-t-white"></div> : "Hoàn tất thông tin"}
         </button>
       </form>
     </>

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
+import { TailwindDropdown } from "../components/ui/TailwindDropdown";
 import {
   assignUserToDepartment,
   createDepartment,
@@ -28,6 +29,7 @@ export const DepartmentsPage = ({ currentUser }) => {
   const [apiError, setApiError] = useState("");
   const [memberError, setMemberError] = useState("");
   const [modalMode, setModalMode] = useState(null);
+  const [assignUserValue, setAssignUserValue] = useState("");
 
   const {
     register,
@@ -221,8 +223,7 @@ export const DepartmentsPage = ({ currentUser }) => {
     }
   };
 
-  const handleAssignUser = async (event) => {
-    const userId = event.target.value;
+  const handleAssignUser = async (userId) => {
 
     if (!selectedDepartmentId || !userId || isDepartmentHidden(selectedDepartment)) {
       return;
@@ -233,7 +234,7 @@ export const DepartmentsPage = ({ currentUser }) => {
 
     try {
       await assignUserToDepartment(selectedDepartmentId, userId);
-      event.target.value = "";
+      setAssignUserValue("");
       await Promise.all([loadMembers(selectedDepartmentId), loadDepartments()]);
     } catch (error) {
       setMemberError(error instanceof Error ? error.message : "Không thể thêm nhân sự vào phòng ban.");
@@ -450,25 +451,35 @@ export const DepartmentsPage = ({ currentUser }) => {
                 <label className="form-label fw-semibold" style={{ fontSize: "14px" }}>
                   Thêm nhân sự vào phòng ban
                 </label>
-                <select
-                  className="form-select"
-                  onChange={handleAssignUser}
-                  disabled={actionLoading || selectedDepartmentHidden || assignableUsers.length === 0}
-                  defaultValue=""
-                >
-                  <option value="">
-                    {selectedDepartmentHidden
+                <TailwindDropdown
+                  onChange={(value) => {
+                    setAssignUserValue(value);
+                    void handleAssignUser(value);
+                  }}
+                  options={[
+                    {
+                      label: selectedDepartmentHidden
+                        ? "Phòng ban đang ẩn"
+                        : assignableUsers.length === 0
+                          ? "Không còn nhân sự để thêm"
+                          : "-- Chọn nhân sự --",
+                      value: "",
+                    },
+                    ...assignableUsers.map((user) => ({
+                      label: `${user.fullName} - ${user.email}`,
+                      value: user.id,
+                    })),
+                  ]}
+                  placeholder={
+                    selectedDepartmentHidden
                       ? "Phòng ban đang ẩn"
                       : assignableUsers.length === 0
                         ? "Không còn nhân sự để thêm"
-                        : "-- Chọn nhân sự --"}
-                  </option>
-                  {assignableUsers.map((user) => (
-                    <option key={user.id} value={user.id}>
-                      {user.fullName} - {user.email}
-                    </option>
-                  ))}
-                </select>
+                        : "-- Chọn nhân sự --"
+                  }
+                  disabled={actionLoading || selectedDepartmentHidden || assignableUsers.length === 0}
+                  value={assignUserValue}
+                />
               </div>
             )}
 

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { TailwindDropdown } from "../components/ui/TailwindDropdown";
 import { AUDIT_ACTION_OPTIONS, getAuditActors, getAuditLogs } from "./auditLogMockData.jsx";
 
 const ADMIN_ROLE_ID = "69fc5af582ef85451120772a";
@@ -91,32 +92,34 @@ export const AuditLogPage = ({ currentUser }) => {
           <div className="grid grid-cols-1 items-end gap-3 xl:grid-cols-[minmax(180px,1fr)_minmax(170px,0.8fr)_minmax(170px,0.8fr)_minmax(170px,0.8fr)_auto]">
             <div>
               <label className="form-label fw-semibold" style={{ fontSize: "13px" }}>Người thao tác</label>
-              <select
-                className="form-select"
+              <TailwindDropdown
+                onChange={(value) => updateFilter("userId", value)}
+                options={[
+                  { label: "Tất cả người dùng", value: "" },
+                  ...actors.map((actor) => ({
+                    label: `${actor.fullName} - ${actor.email}`,
+                    value: actor.id,
+                  })),
+                ]}
+                placeholder="Tất cả người dùng"
                 value={filters.userId}
-                onChange={(event) => updateFilter("userId", event.target.value)}
-              >
-                <option value="">Tất cả người dùng</option>
-                {actors.map((actor) => (
-                  <option key={actor.id} value={actor.id}>
-                    {actor.fullName} - {actor.email}
-                  </option>
-                ))}
-              </select>
+              />
             </div>
 
             <div>
               <label className="form-label fw-semibold" style={{ fontSize: "13px" }}>Hành động</label>
-              <select
-                className="form-select"
+              <TailwindDropdown
+                onChange={(value) => updateFilter("action", value)}
+                options={[
+                  { label: "Tất cả action", value: "" },
+                  ...AUDIT_ACTION_OPTIONS.map((action) => ({
+                    label: action.label,
+                    value: action.value,
+                  })),
+                ]}
+                placeholder="Tất cả action"
                 value={filters.action}
-                onChange={(event) => updateFilter("action", event.target.value)}
-              >
-                <option value="">Tất cả action</option>
-                {AUDIT_ACTION_OPTIONS.map((action) => (
-                  <option key={action.value} value={action.value}>{action.label}</option>
-                ))}
-              </select>
+              />
             </div>
 
             <div>

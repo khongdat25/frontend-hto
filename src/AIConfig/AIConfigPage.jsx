@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { TailwindDropdown } from "../components/ui/TailwindDropdown";
 import "./AIConfigPage.css";
 
 const API_BASE_URL = "http://localhost:3000/api/v1";
@@ -276,11 +277,7 @@ export const AIConfigPage = ({ currentUser }) => {
 
             <div className="mb-3">
               <label className="form-label">Chế độ trả lời</label>
-              <select className="form-select" value={config.answerMode} onChange={(event) => handleConfigChange("answerMode", event.target.value)}>
-                <option value="strict">Chặt chẽ theo tài liệu</option>
-                <option value="balanced">Cân bằng</option>
-                <option value="creative">Linh hoạt có kiểm soát</option>
-              </select>
+              <TailwindDropdown onChange={(value) => handleConfigChange("answerMode", value)} options={[{ label: "Chặt chẽ theo tài liệu", value: "strict" }, { label: "Cân bằng", value: "balanced" }, { label: "Linh hoạt có kiểm soát", value: "creative" }]} placeholder="Chọn chế độ" value={config.answerMode} />
             </div>
 
             <div className="row g-3">
@@ -297,11 +294,7 @@ export const AIConfigPage = ({ currentUser }) => {
 
             <div className="mt-3">
               <label className="form-label">Khi AI chưa đủ thông tin</label>
-              <select className="form-select" value={config.fallbackAction} onChange={(event) => handleConfigChange("fallbackAction", event.target.value)}>
-                <option value="create_pending_question">Tạo câu hỏi pending</option>
-                <option value="answer_with_warning">Trả lời kèm cảnh báo</option>
-                <option value="refuse_answer">Từ chối trả lời</option>
-              </select>
+              <TailwindDropdown onChange={(value) => handleConfigChange("fallbackAction", value)} options={[{ label: "Tạo câu hỏi pending", value: "create_pending_question" }, { label: "Trả lời kèm cảnh báo", value: "answer_with_warning" }, { label: "Từ chối trả lời", value: "refuse_answer" }]} placeholder="Chọn cách xử lý" value={config.fallbackAction} />
             </div>
 
             <div className="mt-4">

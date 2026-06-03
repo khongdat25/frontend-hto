@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { TailwindDropdown } from "../components/ui/TailwindDropdown";
 
 const ADMIN_ROLE_ID = "69fc5af582ef85451120772a";
 const DIRECTOR_ROLE_ID = "69fc5af582ef85451120772b";
@@ -545,10 +546,7 @@ function NewsEventModal({ editingArticle, form, onCancel, onChange, onSubmit }) 
                 <input className="form-control" value={form.title} onChange={(event) => onChange({ ...form, title: event.target.value })} required />
               </Field>
               <Field label="Loại">
-                <select className="form-select" value={form.type} onChange={(event) => onChange({ ...form, type: event.target.value })}>
-                  <option value="news">Tin tức</option>
-                  <option value="event">Sự kiện</option>
-                </select>
+                <TailwindDropdown onChange={(value) => onChange({ ...form, type: value })} options={[{ label: "Tin tức", value: "news" }, { label: "Sự kiện", value: "event" }]} placeholder="Chọn loại" value={form.type} />
               </Field>
               <Field label="Danh mục">
                 <input className="form-control" value={form.category} onChange={(event) => onChange({ ...form, category: event.target.value })} required />

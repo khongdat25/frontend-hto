@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { authFetch, getAuthHeaders } from "../auth/session";
 import { API_BASE_URL } from "../config/api";
+import { TailwindDropdown } from "../components/ui/TailwindDropdown";
 
 const ADMIN_ROLE_ID = "69fc5af582ef85451120772a";
 const DIRECTOR_ROLE_ID = "69fc5af582ef85451120772b";
@@ -615,32 +616,32 @@ export const JobDescriptionsPage = ({ currentUser }) => {
           </div>
         </div>
         <div className="col-12 col-md-6 col-lg-3">
-          <select
-            className="form-select bg-body"
+          <TailwindDropdown
+            onChange={setDepartmentFilter}
+            options={[
+              { label: "Tất cả phòng ban", value: "all" },
+              ...departments.map((department) => ({
+                label: department.name,
+                value: department.id,
+              })),
+            ]}
+            placeholder="Tất cả phòng ban"
             value={departmentFilter}
-            onChange={(event) => setDepartmentFilter(event.target.value)}
-          >
-            <option value="all">Tất cả phòng ban</option>
-            {departments.map((department) => (
-              <option key={department.id} value={department.id}>
-                {department.name}
-              </option>
-            ))}
-          </select>
+          />
         </div>
         <div className="col-12 col-md-6 col-lg-3">
-          <select
-            className="form-select bg-body"
+          <TailwindDropdown
+            onChange={setStatusFilter}
+            options={[
+              { label: "Tất cả trạng thái", value: "all" },
+              ...STATUS_OPTIONS.map((status) => ({
+                label: status.label,
+                value: status.id,
+              })),
+            ]}
+            placeholder="Tất cả trạng thái"
             value={statusFilter}
-            onChange={(event) => setStatusFilter(event.target.value)}
-          >
-            <option value="all">Tất cả trạng thái</option>
-            {STATUS_OPTIONS.map((status) => (
-              <option key={status.id} value={status.id}>
-                {status.label}
-              </option>
-            ))}
-          </select>
+          />
         </div>
       </div>
 
@@ -823,19 +824,19 @@ export const JobDescriptionsPage = ({ currentUser }) => {
                     />
                   </Field>
                   <Field label="Phòng ban" required>
-                    <select
-                      className="form-select"
-                      value={form.departmentId}
+                    <TailwindDropdown
                       disabled={actionLoading}
-                      onChange={(event) => updateForm("departmentId", event.target.value)}
-                    >
-                      <option value="">Chọn phòng ban</option>
-                      {departments.map((department) => (
-                        <option key={department.id} value={department.id}>
-                          {department.name}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(value) => updateForm("departmentId", value)}
+                      options={[
+                        { label: "Chọn phòng ban", value: "" },
+                        ...departments.map((department) => ({
+                          label: department.name,
+                          value: department.id,
+                        })),
+                      ]}
+                      placeholder="Chọn phòng ban"
+                      value={form.departmentId}
+                    />
                   </Field>
                   <Field label="Địa điểm">
                     <input
@@ -847,18 +848,16 @@ export const JobDescriptionsPage = ({ currentUser }) => {
                     />
                   </Field>
                   <Field label="Hình thức làm việc">
-                    <select
-                      className="form-select"
-                      value={form.workingType}
+                    <TailwindDropdown
                       disabled={actionLoading}
-                      onChange={(event) => updateForm("workingType", event.target.value)}
-                    >
-                      {WORKING_TYPE_OPTIONS.map((option) => (
-                        <option key={option.id} value={option.id}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(value) => updateForm("workingType", value)}
+                      options={WORKING_TYPE_OPTIONS.map((option) => ({
+                        label: option.label,
+                        value: option.id,
+                      }))}
+                      placeholder="Chọn hình thức"
+                      value={form.workingType}
+                    />
                   </Field>
                   <Field label="Lương tối thiểu">
                     <input
@@ -889,18 +888,16 @@ export const JobDescriptionsPage = ({ currentUser }) => {
                     />
                   </Field>
                   <Field label="Trạng thái">
-                    <select
-                      className="form-select"
-                      value={form.status}
+                    <TailwindDropdown
                       disabled={actionLoading}
-                      onChange={(event) => updateForm("status", event.target.value)}
-                    >
-                      {STATUS_OPTIONS.map((option) => (
-                        <option key={option.id} value={option.id}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(value) => updateForm("status", value)}
+                      options={STATUS_OPTIONS.map((option) => ({
+                        label: option.label,
+                        value: option.id,
+                      }))}
+                      placeholder="Chọn trạng thái"
+                      value={form.status}
+                    />
                   </Field>
                   <Field label="Mô tả công việc" required wide>
                     <textarea

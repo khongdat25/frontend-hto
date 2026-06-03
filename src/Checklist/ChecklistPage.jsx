@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { TailwindDropdown } from "../components/ui/TailwindDropdown";
 import "./ChecklistPage.css";
 
 const API_BASE_URL = "http://localhost:3000/api/v1";
@@ -463,41 +464,9 @@ export const ChecklistPage = ({ currentUser }) => {
           />
         </div>
 
-        <select
-          className="form-select form-select-sm bg-body checklist-filter-select"
-          value={statusFilter}
-          onChange={(event) => setStatusFilter(event.target.value)}
-        >
-          <option value="all">Tất cả trạng thái</option>
-          <option value="todo">Chưa làm</option>
-          <option value="in_progress">Đang xử lý</option>
-          <option value="completed">Hoàn thành</option>
-          <option value="overdue">Quá hạn</option>
-        </select>
-
-        <select
-          className="form-select form-select-sm bg-body checklist-filter-select"
-          value={categoryFilter}
-          onChange={(event) => setCategoryFilter(event.target.value)}
-        >
-          <option value="all">Tất cả nhóm việc</option>
-          {categories.map((category) => (
-            <option key={category} value={category}>
-              {category}
-            </option>
-          ))}
-        </select>
-
-        <select
-          className="form-select form-select-sm bg-body checklist-filter-select"
-          value={priorityFilter}
-          onChange={(event) => setPriorityFilter(event.target.value)}
-        >
-          <option value="all">Tất cả ưu tiên</option>
-          <option value="high">Cao</option>
-          <option value="medium">Trung bình</option>
-          <option value="low">Thấp</option>
-        </select>
+        <div className="checklist-filter-select"><TailwindDropdown onChange={setStatusFilter} options={[{ label: "Tất cả trạng thái", value: "all" }, { label: "Chưa làm", value: "todo" }, { label: "Đang xử lý", value: "in_progress" }, { label: "Hoàn thành", value: "completed" }, { label: "Quá hạn", value: "overdue" }]} placeholder="Tất cả trạng thái" value={statusFilter} /></div>
+        <div className="checklist-filter-select"><TailwindDropdown onChange={setCategoryFilter} options={[{ label: "Tất cả nhóm việc", value: "all" }, ...categories.map((category) => ({ label: category, value: category }))]} placeholder="Tất cả nhóm việc" value={categoryFilter} /></div>
+        <div className="checklist-filter-select"><TailwindDropdown onChange={setPriorityFilter} options={[{ label: "Tất cả ưu tiên", value: "all" }, { label: "Cao", value: "high" }, { label: "Trung bình", value: "medium" }, { label: "Thấp", value: "low" }]} placeholder="Tất cả ưu tiên" value={priorityFilter} /></div>
 
         {hasActiveFilters && (
           <button className="btn btn-outline-secondary btn-sm checklist-reset-btn" onClick={resetFilters}>

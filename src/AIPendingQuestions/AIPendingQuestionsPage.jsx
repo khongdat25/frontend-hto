@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { TailwindDropdown } from "../components/ui/TailwindDropdown";
 import "./AIPendingQuestionsPage.css";
 
 const API_BASE_URL = "http://localhost:3000/api/v1";
@@ -320,22 +321,9 @@ export const AIPendingQuestionsPage = ({ currentUser }) => {
           <input className="form-control form-control-sm bg-body" value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Tìm theo câu hỏi, người hỏi hoặc email..." />
         </div>
 
-        <select className="form-select form-select-sm bg-body ai-pending-filter-select" value={topicFilter} onChange={(event) => setTopicFilter(event.target.value)}>
-          <option value="all">Tất cả chủ đề</option>
-          {topics.map((topic) => <option key={topic} value={topic}>{topic}</option>)}
-        </select>
-
-        <select className="form-select form-select-sm bg-body ai-pending-filter-select" value={sourceFilter} onChange={(event) => setSourceFilter(event.target.value)}>
-          <option value="all">Tất cả source</option>
-          {sources.map((source) => <option key={source} value={source}>{source}</option>)}
-        </select>
-
-        <select className="form-select form-select-sm bg-body ai-pending-filter-select" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
-          <option value="all">Tất cả trạng thái</option>
-          <option value="pending">Chờ xử lý</option>
-          <option value="reviewing">Đang xem</option>
-          <option value="answered">Đã phản hồi</option>
-        </select>
+        <div className="ai-pending-filter-select"><TailwindDropdown onChange={setTopicFilter} options={[{ label: "Tất cả chủ đề", value: "all" }, ...topics.map((topic) => ({ label: topic, value: topic }))]} placeholder="Tất cả chủ đề" value={topicFilter} /></div>
+        <div className="ai-pending-filter-select"><TailwindDropdown onChange={setSourceFilter} options={[{ label: "Tất cả source", value: "all" }, ...sources.map((source) => ({ label: source, value: source }))]} placeholder="Tất cả source" value={sourceFilter} /></div>
+        <div className="ai-pending-filter-select"><TailwindDropdown onChange={setStatusFilter} options={[{ label: "Tất cả trạng thái", value: "all" }, { label: "Chờ xử lý", value: "pending" }, { label: "Đang xem", value: "reviewing" }, { label: "Đã phản hồi", value: "answered" }]} placeholder="Tất cả trạng thái" value={statusFilter} /></div>
       </div>
 
       <div className="row g-3 align-items-start">

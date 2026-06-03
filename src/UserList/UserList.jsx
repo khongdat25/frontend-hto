@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { authFetch, getAuthHeaders } from "../auth/session";
 import { API_BASE_URL } from "../config/api";
+import { TailwindDropdown } from "../components/ui/TailwindDropdown";
 import "./UserList.css";
 
 // --- CẤU HÌNH DANH SÁCH ROLE VÀ LINK CHỨC NĂNG TƯƠNG ỨNG ---
@@ -124,6 +125,19 @@ const normalizeApiData = (payload) => {
   return [];
 };
 
+const normalizeDepartment = (department) => {
+  const data = department?.data ?? department ?? {};
+
+  return {
+    id: String(data.id || data._id || ""),
+    name: data.name || data.title || "Phòng ban",
+    isHidden: Boolean(data.isHidden || data.hidden),
+  };
+};
+
+const normalizeDepartmentsData = (payload) =>
+  normalizeApiData(payload).map(normalizeDepartment).filter((department) => department.id);
+
 const normalizeUsersPayload = (payload) => {
   const data = payload?.data ?? payload;
   const users = normalizeApiData(payload);
@@ -160,9 +174,29 @@ async function usersRequest(path = "", options = {}) {
   return payload;
 }
 
+async function departmentsRequest(path = "", options = {}) {
+  const response = await authFetch(`${API_BASE_URL}/departments${path}`, {
+    method: options.method || "GET",
+    headers: {
+      "Content-Type": "application/json",
+      ...getAuthHeaders(),
+    },
+    ...(options.body ? { body: JSON.stringify(options.body) } : {}),
+  });
+  const payload = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    throw new Error(getApiErrorMessage(payload, "Không thể tải danh sách phòng ban."));
+  }
+
+  return payload;
+}
+
 export const UserList = ({ currentUser }) => {
   // States quản lý Data
   const [users, setUsers] = useState([]);
+  const [departmentOptions, setDepartmentOptions] = useState([]);
+  const [departmentsLoading, setDepartmentsLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -183,9 +217,11 @@ export const UserList = ({ currentUser }) => {
   const [permissionUser, setPermissionUser] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm({
+  const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm({
     mode: "onTouched"
   });
+  const selectedRoleValue = watch("role");
+  const selectedDepartmentValue = watch("departmentId");
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
@@ -219,6 +255,23 @@ export const UserList = ({ currentUser }) => {
   useEffect(() => {
     void Promise.resolve().then(() => fetchUsers());
   }, [fetchUsers]);
+
+  const fetchDepartments = useCallback(async () => {
+    setDepartmentsLoading(true);
+
+    try {
+      const payload = await departmentsRequest("?includeHidden=true");
+      setDepartmentOptions(normalizeDepartmentsData(payload));
+    } catch {
+      setDepartmentOptions([]);
+    } finally {
+      setDepartmentsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void Promise.resolve().then(() => fetchDepartments());
+  }, [fetchDepartments]);
 
   // 3. Xử lý mở đóng Modal
   const openCreateModal = () => {
@@ -333,13 +386,18 @@ export const UserList = ({ currentUser }) => {
   }, [currentPage, totalPages]);
 
   // Lấy danh sách phòng ban unique (dùng cho bộ lọc)
-  const departments = Array.from(
-    new Map(
-      users
-        .filter((user) => user.departmentId)
-        .map((user) => [user.departmentId, user.department || user.departmentId]),
-    ),
-  );
+  const departments = departmentOptions.length > 0
+    ? departmentOptions.map((department) => [
+        department.id,
+        `${department.name}${department.isHidden ? " (đang ẩn)" : ""}`,
+      ])
+    : Array.from(
+        new Map(
+          users
+            .filter((user) => user.departmentId)
+            .map((user) => [user.departmentId, user.department || user.departmentId]),
+        ),
+      );
 
   const getUserFeaturePermissions = (user) => {
     const customPermissions = featurePermissionsByUserId[user.id];
@@ -431,27 +489,36 @@ export const UserList = ({ currentUser }) => {
           />
         </div>
         
-        <select 
-          className="form-select form-select-sm bg-body filter-select"
-          value={filterRole}
-          onChange={(e) => setFilterRole(e.target.value)}
-        >
-          <option value="">Tất cả vai trò</option>
-          {Object.entries(ROLE_MAP).map(([key, data]) => (
-            <option key={key} value={key}>{data.label}</option>
-          ))}
-        </select>
+        <div className="filter-select min-w-[170px]">
+          <TailwindDropdown
+            onChange={setFilterRole}
+            options={[
+              { label: "Tất cả vai trò", value: "" },
+              ...Object.entries(ROLE_MAP).map(([key, data]) => ({
+                label: data.label,
+                value: key,
+              })),
+            ]}
+            placeholder="Tất cả vai trò"
+            value={filterRole}
+          />
+        </div>
 
-        <select 
-          className="form-select form-select-sm bg-body filter-select"
-          value={filterDepartment}
-          onChange={(e) => setFilterDepartment(e.target.value)}
-        >
-          <option value="">Tất cả phòng ban</option>
-          {departments.map(([departmentId, departmentName]) => (
-            <option key={departmentId} value={departmentId}>{departmentName}</option>
-          ))}
-        </select>
+        <div className="filter-select min-w-[190px]">
+          <TailwindDropdown
+            disabled={departmentsLoading}
+            onChange={setFilterDepartment}
+            options={[
+              { label: "Tất cả phòng ban", value: "" },
+              ...departments.map(([departmentId, departmentName]) => ({
+                label: departmentName,
+                value: departmentId,
+              })),
+            ]}
+            placeholder={departmentsLoading ? "Đang tải phòng ban..." : "Tất cả phòng ban"}
+            value={filterDepartment}
+          />
+        </div>
       </div>
 
       {/* Main Table Card */}
@@ -790,27 +857,36 @@ export const UserList = ({ currentUser }) => {
                 <div className="row">
                   <div className="col-md-6 mb-3">
                     <label className="form-label" style={{ fontSize: "14px", fontWeight: "600" }}>Vai trò <span className="text-danger">*</span></label>
-                    <select 
-                      className={`form-select ${errors.role ? 'is-invalid' : ''}`}
+                    <input type="hidden" {...register("role", { required: "Vui lòng chọn vai trò" })} />
+                    <TailwindDropdown
                       disabled={actionLoading}
-                      {...register("role", { required: "Vui lòng chọn vai trò" })}
-                    >
-                      <option value="">-- Chọn vai trò --</option>
-                      {Object.entries(ROLE_MAP).map(([key, data]) => (
-                        <option key={key} value={key}>{data.label}</option>
-                      ))}
-                    </select>
+                      error={Boolean(errors.role)}
+                      onChange={(value) => setValue("role", value, { shouldDirty: true, shouldValidate: true })}
+                      options={Object.entries(ROLE_MAP).map(([key, data]) => ({
+                        label: data.label,
+                        value: key,
+                      }))}
+                      placeholder="-- Chọn vai trò --"
+                      value={selectedRoleValue}
+                    />
                     {errors.role && <div className="invalid-feedback">{errors.role.message}</div>}
                   </div>
 
                   <div className="col-md-6 mb-3">
-                    <label className="form-label" style={{ fontSize: "14px", fontWeight: "600" }}>ID phòng ban</label>
-                    <input 
-                      type="text" 
-                      className="form-control" 
-                      placeholder="Nhập departmentId nếu có"
-                      disabled={actionLoading}
-                      {...register("departmentId")}
+                    <label className="form-label" style={{ fontSize: "14px", fontWeight: "600" }}>Phòng ban</label>
+                    <input type="hidden" {...register("departmentId")} />
+                    <TailwindDropdown
+                      disabled={actionLoading || departmentsLoading}
+                      onChange={(value) => setValue("departmentId", value, { shouldDirty: true })}
+                      options={[
+                        { label: "-- Không gán phòng ban --", value: "" },
+                        ...departmentOptions.map((department) => ({
+                          label: `${department.name}${department.isHidden ? " (đang ẩn)" : ""}`,
+                          value: department.id,
+                        })),
+                      ]}
+                      placeholder={departmentsLoading ? "Đang tải phòng ban..." : "-- Không gán phòng ban --"}
+                      value={selectedDepartmentValue}
                     />
                   </div>
                 </div>

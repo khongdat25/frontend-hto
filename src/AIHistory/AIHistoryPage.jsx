@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { TailwindDropdown } from "../components/ui/TailwindDropdown";
 import "./AIHistoryPage.css";
 
 const API_BASE_URL = "http://localhost:3000/api/v1";
@@ -308,26 +309,10 @@ export const AIHistoryPage = ({ currentUser }) => {
           <input className="form-control form-control-sm bg-body" value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Tìm theo câu hỏi, email user hoặc tài liệu nguồn..." />
         </div>
 
-        <select className="form-select form-select-sm bg-body ai-history-filter-select" value={userFilter} onChange={(event) => setUserFilter(event.target.value)}>
-          <option value="all">Tất cả user</option>
-          {users.map((userName) => <option key={userName} value={userName}>{userName}</option>)}
-        </select>
-
-        <select className="form-select form-select-sm bg-body ai-history-filter-select" value={topicFilter} onChange={(event) => setTopicFilter(event.target.value)}>
-          <option value="all">Tất cả chủ đề</option>
-          {topics.map((topic) => <option key={topic} value={topic}>{topic}</option>)}
-        </select>
-
-        <select className="form-select form-select-sm bg-body ai-history-filter-select" value={sourceFilter} onChange={(event) => setSourceFilter(event.target.value)}>
-          <option value="all">Tất cả source</option>
-          {sources.map((source) => <option key={source} value={source}>{source}</option>)}
-        </select>
-
-        <select className="form-select form-select-sm bg-body ai-history-filter-select" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
-          <option value="all">Tất cả trạng thái</option>
-          <option value="answered">Đã trả lời</option>
-          <option value="pending">Pending</option>
-        </select>
+        <div className="ai-history-filter-select"><TailwindDropdown onChange={setUserFilter} options={[{ label: "Tất cả user", value: "all" }, ...users.map((userName) => ({ label: userName, value: userName }))]} placeholder="Tất cả user" value={userFilter} /></div>
+        <div className="ai-history-filter-select"><TailwindDropdown onChange={setTopicFilter} options={[{ label: "Tất cả chủ đề", value: "all" }, ...topics.map((topic) => ({ label: topic, value: topic }))]} placeholder="Tất cả chủ đề" value={topicFilter} /></div>
+        <div className="ai-history-filter-select"><TailwindDropdown onChange={setSourceFilter} options={[{ label: "Tất cả source", value: "all" }, ...sources.map((source) => ({ label: source, value: source }))]} placeholder="Tất cả source" value={sourceFilter} /></div>
+        <div className="ai-history-filter-select"><TailwindDropdown onChange={setStatusFilter} options={[{ label: "Tất cả trạng thái", value: "all" }, { label: "Đã trả lời", value: "answered" }, { label: "Pending", value: "pending" }]} placeholder="Tất cả trạng thái" value={statusFilter} /></div>
 
         <input type="date" className="form-control form-control-sm bg-body ai-history-date-input" value={dateFrom} max={dateTo || undefined} onChange={(event) => setDateFrom(event.target.value)} title="Từ ngày" />
         <input type="date" className="form-control form-control-sm bg-body ai-history-date-input" value={dateTo} min={dateFrom || undefined} onChange={(event) => setDateTo(event.target.value)} title="Đến ngày" />
