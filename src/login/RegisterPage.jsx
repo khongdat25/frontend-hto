@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { TailwindDropdown } from "../components/ui/TailwindDropdown";
+import { RegisterSuccessPopup } from "./components/RegisterSuccessPopup";
+
 
 import { API_BASE_URL } from "../config/api";
 
@@ -178,43 +180,32 @@ export const RegisterPage = ({ onSwitchToLogin, onRegister }) => {
     }
   };
 
-  if (registrationStep === "profile") {
-    return (
-      <RegistrationProfilePage
-        inputClass={inputClass}
-        loading={loading}
-        profileError={apiError}
-        onComplete={handleProfileComplete}
-        referralFromUrl={referralFromUrl}
-        userName={registeredUser?.name}
-      />
-    );
-  }
+  const isProfileStep = registrationStep === "profile";
+  const isSuccessStep = registrationStep === "success";
 
-  if (registrationStep === "success") {
+  if (isProfileStep || isSuccessStep) {
+    const customerName =
+      registeredUser?.name ||
+      registeredUser?.fullName ||
+      registeredUser?.email ||
+      "khách hàng";
+
     return (
       <>
-        <div className="mb-4 flex justify-center">
-          <img src="/assets/images/logo-HTO.png" alt="HTO Logo" className="h-[60px] w-auto" />
-        </div>
-        <div className="rounded-2xl border border-[#bbf7d0] bg-[#f0fdf4] p-5 text-center app-dark:border-[#14532d] app-dark:bg-[#052e16]">
-          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-[#22c55e] text-white">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M20 6 9 17l-5-5"></path>
-            </svg>
-          </div>
-          <h2 className="mb-2 text-[22px] font-bold text-[#166534] app-dark:text-[#bbf7d0]">Chúc mừng!</h2>
-          <p className="mb-4 text-sm leading-6 text-[#166534] app-dark:text-[#dcfce7]">
-            Tài khoản của {registeredUser?.name || "bạn"} đã được đăng ký thành công. Vui lòng đăng nhập để tiếp tục.
-          </p>
-          <button
-            type="button"
-            className="w-full rounded-[8px] border-0 bg-[#111827] px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-[#1f2937] app-dark:bg-[#4f46e5] app-dark:hover:bg-[#4338ca]"
-            onClick={onSwitchToLogin}
-          >
-            Đến trang đăng nhập
-          </button>
-        </div>
+        <RegistrationProfilePage
+          inputClass={inputClass}
+          loading={loading}
+          profileError={apiError}
+          onComplete={handleProfileComplete}
+          referralFromUrl={referralFromUrl}
+          userName={registeredUser?.name}
+        />
+        {isSuccessStep && (
+          <RegisterSuccessPopup
+            customerName={customerName}
+            onBackToLogin={onSwitchToLogin}
+          />
+        )}
       </>
     );
   }
