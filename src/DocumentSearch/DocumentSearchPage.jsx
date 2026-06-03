@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { TailwindDropdown } from "../components/ui/TailwindDropdown";
 import "./DocumentSearchPage.css";
 
 const API_BASE_URL = "http://localhost:3000/api/v1";
@@ -314,34 +315,60 @@ export const DocumentSearchPage = ({ currentUser }) => {
           />
         </div>
 
-        <select className="form-select form-select-sm bg-body document-filter-select" value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
-          <option value="all">Tất cả nhóm</option>
-          {categories.map((category) => <option key={category} value={category}>{category}</option>)}
-        </select>
+        <div className="document-filter-select">
+          <TailwindDropdown
+            onChange={setCategoryFilter}
+            options={[{ label: "Tất cả nhóm", value: "all" }, ...categories.map((category) => ({ label: category, value: category }))]}
+            placeholder="Tất cả nhóm"
+            value={categoryFilter}
+          />
+        </div>
 
-        <select className="form-select form-select-sm bg-body document-filter-select" value={departmentFilter} onChange={(event) => setDepartmentFilter(event.target.value)}>
-          <option value="all">Tất cả phòng ban</option>
-          {departments.map((department) => <option key={department} value={department}>{department}</option>)}
-        </select>
+        <div className="document-filter-select">
+          <TailwindDropdown
+            onChange={setDepartmentFilter}
+            options={[{ label: "Tất cả phòng ban", value: "all" }, ...departments.map((department) => ({ label: department, value: department }))]}
+            placeholder="Tất cả phòng ban"
+            value={departmentFilter}
+          />
+        </div>
 
-        <select className="form-select form-select-sm bg-body document-filter-select" value={fileTypeFilter} onChange={(event) => setFileTypeFilter(event.target.value)}>
-          <option value="all">Tất cả loại file</option>
-          {fileTypes.map((fileType) => <option key={fileType} value={fileType}>{fileType}</option>)}
-        </select>
+        <div className="document-filter-select">
+          <TailwindDropdown
+            onChange={setFileTypeFilter}
+            options={[{ label: "Tất cả loại file", value: "all" }, ...fileTypes.map((fileType) => ({ label: fileType, value: fileType }))]}
+            placeholder="Tất cả loại file"
+            value={fileTypeFilter}
+          />
+        </div>
 
-        <select className="form-select form-select-sm bg-body document-filter-select" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
-          <option value="all">Tất cả trạng thái</option>
-          <option value="active">Đang dùng</option>
-          <option value="draft">Bản nháp</option>
-          <option value="archived">Lưu trữ</option>
-        </select>
+        <div className="document-filter-select">
+          <TailwindDropdown
+            onChange={setStatusFilter}
+            options={[
+              { label: "Tất cả trạng thái", value: "all" },
+              { label: "Đang dùng", value: "active" },
+              { label: "Bản nháp", value: "draft" },
+              { label: "Lưu trữ", value: "archived" },
+            ]}
+            placeholder="Tất cả trạng thái"
+            value={statusFilter}
+          />
+        </div>
 
-        <select className="form-select form-select-sm bg-body document-filter-select" value={sortBy} onChange={(event) => setSortBy(event.target.value)}>
-          <option value="updatedAt_desc">Mới cập nhật nhất</option>
-          <option value="updatedAt_asc">Cũ nhất trước</option>
-          <option value="title_asc">Tên A-Z</option>
-          <option value="download_desc">Tải nhiều nhất</option>
-        </select>
+        <div className="document-filter-select">
+          <TailwindDropdown
+            onChange={setSortBy}
+            options={[
+              { label: "Mới cập nhật nhất", value: "updatedAt_desc" },
+              { label: "Cũ nhất trước", value: "updatedAt_asc" },
+              { label: "Tên A-Z", value: "title_asc" },
+              { label: "Tải nhiều nhất", value: "download_desc" },
+            ]}
+            placeholder="Sắp xếp"
+            value={sortBy}
+          />
+        </div>
 
         {hasActiveFilters && (
           <button className="btn btn-outline-secondary btn-sm document-reset-btn" onClick={resetFilters}>

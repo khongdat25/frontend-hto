@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { authFetch, getAuthHeaders } from "../auth/session";
 import { API_BASE_URL } from "../config/api";
+import { TailwindDropdown } from "./ui/TailwindDropdown";
 
 const ADMIN_ROLE_ID = "69fc5af582ef85451120772a";
 const DEPARTMENT_HEAD_ROLE_ID = "69fc5af582ef85451120772c";
@@ -52,54 +53,6 @@ const initialDepartments = [
   { id: "dept-ke-toan", name: "Kế toán" },
   { id: "dept-ho-so", name: "Hồ sơ" },
   { id: "dept-tuyen-sinh", name: "Tuyển sinh" },
-];
-
-const initialDocuments = [
-  {
-    id: 1,
-    title: "Đơn xin nghỉ phép",
-    categoryId: 2,
-    departmentId: "dept-nhan-su",
-    updatedAt: "2026-05-05",
-    status: "Đang dùng",
-    sourceType: "file",
-    sourceName: "don-xin-nghi-phep.docx",
-    permissions: {
-      view: { groups: ["all"], roles: [], departments: [] },
-      download: { groups: ["all"], roles: [], departments: [] },
-      edit: { groups: ["manager"], roles: ["admin", "truongbophan"], departments: [] },
-    },
-  },
-  {
-    id: 2,
-    title: "Phiếu đề nghị thanh toán",
-    categoryId: 3,
-    departmentId: "dept-ke-toan",
-    updatedAt: "2026-05-02",
-    status: "Đang dùng",
-    sourceType: "file",
-    sourceName: "phieu-de-nghi-thanh-toan.pdf",
-    permissions: {
-      view: { groups: ["all"], roles: [], departments: [] },
-      download: { groups: ["internal"], roles: [], departments: ["dept-ke-toan"] },
-      edit: { groups: ["manager"], roles: ["admin", "truongbophan"], departments: [] },
-    },
-  },
-  {
-    id: 3,
-    title: "Biên bản bàn giao",
-    categoryId: 1,
-    departmentId: "dept-hanh-chinh",
-    updatedAt: "2026-05-01",
-    status: "Nháp",
-    sourceType: "link",
-    sourceName: "https://drive.google.com/bien-ban-ban-giao",
-    permissions: {
-      view: { groups: ["internal"], roles: [], departments: ["dept-hanh-chinh"] },
-      download: { groups: ["internal"], roles: [], departments: ["dept-hanh-chinh"] },
-      edit: { groups: ["manager"], roles: ["admin", "truongbophan"], departments: [] },
-    },
-  },
 ];
 
 const emptyForm = { name: "", description: "" };
@@ -881,8 +834,8 @@ const toggleDocumentCategoryVisibility = async (categoryId) => {
 
 export const DocumentsPage = ({ currentUser }) => {
   const [categories, setCategories] = useState([]);
-  const [documents, setDocuments] = useState(() => applyStoredPermissions(initialDocuments));
-  const [documentTotal, setDocumentTotal] = useState(initialDocuments.length);
+  const [documents, setDocuments] = useState([]);
+  const [documentTotal, setDocumentTotal] = useState(0);
   const [documentLoading, setDocumentLoading] = useState(false);
   const [documentDetailLoading, setDocumentDetailLoading] = useState(false);
   const [documentError, setDocumentError] = useState("");
@@ -891,9 +844,7 @@ export const DocumentsPage = ({ currentUser }) => {
   const [activeCategory, setActiveCategory] = useState("all");
   const [categoryPage, setCategoryPage] = useState(1);
   const [editingId, setEditingId] = useState(null);
-  const [selectedPermissionDocId, setSelectedPermissionDocId] = useState(
-    () => String(initialDocuments[0]?.id || ""),
-  );
+  const [selectedPermissionDocId, setSelectedPermissionDocId] = useState("");
   const [form, setForm] = useState(emptyForm);
   const [categoryLoading, setCategoryLoading] = useState(false);
   const [categoryActionLoading, setCategoryActionLoading] = useState(false);
@@ -1033,14 +984,11 @@ export const DocumentsPage = ({ currentUser }) => {
           categoryId: activeCategory,
           limit: REMOTE_DOCUMENT_PAGE_SIZE,
         });
-        const nextDocuments =
-          documentData.items.length > 0
-            ? documentData.items
-            : applyStoredPermissions(initialDocuments);
+        const nextDocuments = documentData.items;
 
         if (isMounted) {
           setDocuments(nextDocuments);
-          setDocumentTotal(documentData.items.length > 0 ? documentData.total : nextDocuments.length);
+          setDocumentTotal(documentData.total || nextDocuments.length);
           setSelectedPermissionDocId((currentId) => {
             if (nextDocuments.some((document) => String(document.id) === currentId)) {
               return currentId;
@@ -1918,20 +1866,21 @@ export const DocumentsPage = ({ currentUser }) => {
                   <label className="form-label">
                     Danh mục <span className="text-danger">*</span>
                   </label>
-                  <select
-                    className={`form-select ${uploadErrors.categoryId ? "is-invalid" : ""}`}
-                    value={uploadForm.categoryId}
-                    onChange={(e) =>
-                      setUploadForm((prev) => ({ ...prev, categoryId: e.target.value }))
+                  <TailwindDropdown
+                    error={Boolean(uploadErrors.categoryId)}
+                    onChange={(value) =>
+                      setUploadForm((prev) => ({ ...prev, categoryId: value }))
                     }
-                  >
-                    <option value="">Chọn danh mục</option>
-                    {visibleCategories.map((category) => (
-                      <option key={category.id} value={category.id}>
-                        {category.name}
-                      </option>
-                    ))}
-                  </select>
+                    options={[
+                      { label: "Chọn danh mục", value: "" },
+                      ...visibleCategories.map((category) => ({
+                        label: category.name,
+                        value: category.id,
+                      })),
+                    ]}
+                    placeholder="Chọn danh mục"
+                    value={uploadForm.categoryId}
+                  />
                   {uploadErrors.categoryId && (
                     <div className="invalid-feedback">{uploadErrors.categoryId}</div>
                   )}
@@ -1941,20 +1890,21 @@ export const DocumentsPage = ({ currentUser }) => {
                   <label className="form-label">
                     Phòng ban nhận <span className="text-danger">*</span>
                   </label>
-                  <select
-                    className={`form-select ${uploadErrors.departmentId ? "is-invalid" : ""}`}
-                    value={uploadForm.departmentId}
-                    onChange={(e) =>
-                      setUploadForm((prev) => ({ ...prev, departmentId: e.target.value }))
+                  <TailwindDropdown
+                    error={Boolean(uploadErrors.departmentId)}
+                    onChange={(value) =>
+                      setUploadForm((prev) => ({ ...prev, departmentId: value }))
                     }
-                  >
-                    <option value="">Chọn phòng ban</option>
-                    {initialDepartments.map((department) => (
-                      <option key={department.id} value={department.id}>
-                        {department.name}
-                      </option>
-                    ))}
-                  </select>
+                    options={[
+                      { label: "Chọn phòng ban", value: "" },
+                      ...initialDepartments.map((department) => ({
+                        label: department.name,
+                        value: department.id,
+                      })),
+                    ]}
+                    placeholder="Chọn phòng ban"
+                    value={uploadForm.departmentId}
+                  />
                   {uploadErrors.departmentId && (
                     <div className="invalid-feedback">{uploadErrors.departmentId}</div>
                   )}
@@ -2122,28 +2072,28 @@ export const DocumentsPage = ({ currentUser }) => {
             <div className="row g-3">
               <div className="col-lg-4">
                 <label className="form-label">Tài liệu</label>
-                <select
-                  className="form-select"
+                <TailwindDropdown
+                  onChange={setSelectedPermissionDocId}
+                  options={documents.map((document) => ({
+                    label: document.title,
+                    value: String(document.id),
+                  }))}
+                  placeholder="Chọn tài liệu"
                   value={String(selectedPermissionDocument?.id || "")}
-                  onChange={(e) => setSelectedPermissionDocId(e.target.value)}
-                >
-                  {documents.map((document) => (
-                    <option key={document.id} value={document.id}>
-                      {document.title}
-                    </option>
-                  ))}
-                </select>
+                />
                 {selectedPermissionDocument && (
-                  <DocumentPreview
-                    categoryName={
-                      categoryMap.get(String(selectedPermissionDocument.categoryId))?.name ||
-                      "Danh mục ẩn"
-                    }
-                    departmentName={
-                      departmentMap.get(selectedPermissionDocument.departmentId)?.name || "-"
-                    }
-                    document={selectedPermissionDocument}
-                  />
+                  <div className="mt-3">
+                    <DocumentPreview
+                      categoryName={
+                        categoryMap.get(String(selectedPermissionDocument.categoryId))?.name ||
+                        "Danh mục ẩn"
+                      }
+                      departmentName={
+                        departmentMap.get(selectedPermissionDocument.departmentId)?.name || "-"
+                      }
+                      document={selectedPermissionDocument}
+                    />
+                  </div>
                 )}
               </div>
 
@@ -2440,43 +2390,44 @@ export const DocumentsPage = ({ currentUser }) => {
                         </div>
                         <div className="col-md-6">
                           <label className="form-label">Danh mục</label>
-                          <select
-                            className={`form-select ${documentEditErrors.categoryId ? "is-invalid" : ""}`}
-                            value={documentEditForm.categoryId}
-                            onChange={(e) =>
-                              setDocumentEditForm((prev) => ({ ...prev, categoryId: e.target.value }))
+                          <TailwindDropdown
+                            error={Boolean(documentEditErrors.categoryId)}
+                            onChange={(value) =>
+                              setDocumentEditForm((prev) => ({ ...prev, categoryId: value }))
                             }
-                          >
-                            <option value="">Chọn danh mục</option>
-                            {visibleCategories.map((category) => (
-                              <option key={category.id} value={category.id}>
-                                {category.name}
-                              </option>
-                            ))}
-                          </select>
+                            options={[
+                              { label: "Chọn danh mục", value: "" },
+                              ...visibleCategories.map((category) => ({
+                                label: category.name,
+                                value: category.id,
+                              })),
+                            ]}
+                            placeholder="Chọn danh mục"
+                            value={documentEditForm.categoryId}
+                          />
                           {documentEditErrors.categoryId && (
                             <div className="invalid-feedback">{documentEditErrors.categoryId}</div>
                           )}
                         </div>
                         <div className="col-md-6">
                           <label className="form-label">Phòng ban nhận</label>
-                          <select
-                            className="form-select"
-                            value={documentEditForm.departmentId}
-                            onChange={(e) =>
+                          <TailwindDropdown
+                            onChange={(value) =>
                               setDocumentEditForm((prev) => ({
                                 ...prev,
-                                departmentId: e.target.value,
+                                departmentId: value,
                               }))
                             }
-                          >
-                            <option value="">Không chọn</option>
-                            {initialDepartments.map((department) => (
-                              <option key={department.id} value={department.id}>
-                                {department.name}
-                              </option>
-                            ))}
-                          </select>
+                            options={[
+                              { label: "Không chọn", value: "" },
+                              ...initialDepartments.map((department) => ({
+                                label: department.name,
+                                value: department.id,
+                              })),
+                            ]}
+                            placeholder="Không chọn"
+                            value={documentEditForm.departmentId}
+                          />
                         </div>
                         <div className="col-md-3">
                           <label className="form-label">Loại file</label>
@@ -2491,19 +2442,17 @@ export const DocumentsPage = ({ currentUser }) => {
                         </div>
                         <div className="col-md-3">
                           <label className="form-label">Trạng thái</label>
-                          <select
-                            className="form-select"
-                            value={documentEditForm.status}
-                            onChange={(e) =>
-                              setDocumentEditForm((prev) => ({ ...prev, status: e.target.value }))
+                          <TailwindDropdown
+                            onChange={(value) =>
+                              setDocumentEditForm((prev) => ({ ...prev, status: value }))
                             }
-                          >
-                            {DOCUMENT_STATUS_OPTIONS.map((status) => (
-                              <option key={status} value={status}>
-                                {status}
-                              </option>
-                            ))}
-                          </select>
+                            options={DOCUMENT_STATUS_OPTIONS.map((status) => ({
+                              label: status,
+                              value: status,
+                            }))}
+                            placeholder="Chọn trạng thái"
+                            value={documentEditForm.status}
+                          />
                         </div>
                         <div className="col-12">
                           <label className="form-label">Link file</label>
@@ -2714,18 +2663,20 @@ export const DocumentsPage = ({ currentUser }) => {
               </div>
             )}
           </div>
-          <select
-            className="form-select w-auto"
+          <div className="min-w-[220px]">
+            <TailwindDropdown
+              onChange={setActiveCategory}
+              options={[
+                { label: "Tất cả danh mục", value: "all" },
+                ...visibleCategories.map((category) => ({
+                  label: category.name,
+                  value: category.id,
+                })),
+              ]}
+              placeholder="Tất cả danh mục"
             value={activeCategory}
-            onChange={(e) => setActiveCategory(e.target.value)}
-          >
-            <option value="all">Tất cả danh mục</option>
-            {visibleCategories.map((category) => (
-              <option key={category.id} value={category.id}>
-                {category.name}
-              </option>
-            ))}
-          </select>
+            />
+          </div>
         </div>
         <div className="card-body">
           <div className="d-none d-lg-block table-responsive">
@@ -2754,11 +2705,7 @@ export const DocumentsPage = ({ currentUser }) => {
                   return (
                     <tr
                       key={doc.id}
-                      className={
-                        selectedDocument && String(selectedDocument.id) === String(doc.id)
-                          ? "table-active"
-                          : ""
-                      }
+                      className=""
                     >
                       <td>
                         <div className="fw-semibold text-body-emphasis">{doc.title}</div>
@@ -3022,18 +2969,15 @@ function DocumentStatusControl({ canEdit, document, onUpdateStatus }) {
   }
 
   return (
-    <select
-      className="form-select form-select-sm"
+    <TailwindDropdown
+      onChange={(value) => onUpdateStatus(document.id, value)}
+      options={DOCUMENT_STATUS_OPTIONS.map((status) => ({
+        label: status,
+        value: status,
+      }))}
+      placeholder="Chọn trạng thái"
       value={document.status}
-      onChange={(e) => onUpdateStatus(document.id, e.target.value)}
-      aria-label={`Cập nhật trạng thái ${document.title}`}
-    >
-      {DOCUMENT_STATUS_OPTIONS.map((status) => (
-        <option key={status} value={status}>
-          {status}
-        </option>
-      ))}
-    </select>
+    />
   );
 }
 
@@ -3206,6 +3150,8 @@ function DocumentPreview({ categoryName, departmentName, document }) {
               title={`Preview ${document.title}`}
               className="h-100 w-100 border-0 bg-white"
               style={{ minHeight: "260px" }}
+              allow="autoplay; encrypted-media"
+              referrerPolicy="no-referrer-when-downgrade"
             />
           ) : (
             <div className="text-center px-3">

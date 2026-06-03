@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { authFetch, getAuthHeaders } from "../auth/session";
 import { API_BASE_URL } from "../config/api";
+import { TailwindDropdown } from "../components/ui/TailwindDropdown";
 
 const ADMIN_ROLE_ID = "69fc5af582ef85451120772a";
 const DEPARTMENT_HEAD_ROLE_ID = "69fc5af582ef85451120772c";
@@ -455,18 +456,16 @@ export const NotificationsPage = ({ currentUser, selectedNotificationId }) => {
                   </div>
                   <div className="mb-3">
                     <label className="form-label">Mức độ</label>
-                    <select
-                      className="form-select"
-                      value={form.priority}
+                    <TailwindDropdown
                       disabled={actionLoading}
-                      onChange={(e) => setForm((currentForm) => ({ ...currentForm, priority: e.target.value }))}
-                    >
-                      {PRIORITY_OPTIONS.map((option) => (
-                        <option key={option.id} value={option.id}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(value) => setForm((currentForm) => ({ ...currentForm, priority: value }))}
+                      options={PRIORITY_OPTIONS.map((option) => ({
+                        label: option.label,
+                        value: option.id,
+                      }))}
+                      placeholder="Chọn mức độ"
+                      value={form.priority}
+                    />
                   </div>
 
                   <NotificationTargetGroup

@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { TailwindDropdown } from "../components/ui/TailwindDropdown";
 import "./LeadFormPage.css";
 
 const API_BASE_URL = "http://localhost:3000/api/v1";
@@ -220,9 +221,7 @@ export const LeadFormPage = () => {
 
                 <div className="col-12 col-md-6">
                   <label className="form-label">Nguồn lead</label>
-                  <select className="form-select" value={form.source} onChange={(event) => handleChange("source", event.target.value)}>
-                    {SOURCE_OPTIONS.map((item) => <option key={item} value={item}>{item}</option>)}
-                  </select>
+                  <TailwindDropdown onChange={(value) => handleChange("source", value)} options={SOURCE_OPTIONS.map((item) => ({ label: item, value: item }))} placeholder="Chọn nguồn lead" value={form.source} />
                 </div>
               </div>
             </div>
@@ -233,21 +232,13 @@ export const LeadFormPage = () => {
               <div className="row g-3">
                 <div className="col-12 col-md-6">
                   <label className="form-label">Dịch vụ quan tâm <span className="text-danger">*</span></label>
-                  <select
-                    className={`form-select ${errors.productInterest ? "is-invalid" : ""}`}
-                    value={form.productInterest}
-                    onChange={(event) => handleChange("productInterest", event.target.value)}
-                  >
-                    {PRODUCT_OPTIONS.map((item) => <option key={item} value={item}>{item}</option>)}
-                  </select>
+                  <TailwindDropdown error={Boolean(errors.productInterest)} onChange={(value) => handleChange("productInterest", value)} options={PRODUCT_OPTIONS.map((item) => ({ label: item, value: item }))} placeholder="Chọn dịch vụ" value={form.productInterest} />
                   {errors.productInterest && <div className="invalid-feedback">{errors.productInterest}</div>}
                 </div>
 
                 <div className="col-12 col-md-6">
                   <label className="form-label">Quốc gia quan tâm</label>
-                  <select className="form-select" value={form.countryInterest} onChange={(event) => handleChange("countryInterest", event.target.value)}>
-                    {COUNTRY_OPTIONS.map((item) => <option key={item} value={item}>{item}</option>)}
-                  </select>
+                  <TailwindDropdown onChange={(value) => handleChange("countryInterest", value)} options={COUNTRY_OPTIONS.map((item) => ({ label: item, value: item }))} placeholder="Chọn quốc gia" value={form.countryInterest} />
                 </div>
 
                 <div className="col-12 col-md-6">
@@ -262,16 +253,12 @@ export const LeadFormPage = () => {
 
                 <div className="col-12 col-md-6">
                   <label className="form-label">Thời gian dự kiến triển khai</label>
-                  <select className="form-select" value={form.urgency} onChange={(event) => handleChange("urgency", event.target.value)}>
-                    {URGENCY_OPTIONS.map((item) => <option key={item} value={item}>{item}</option>)}
-                  </select>
+                  <TailwindDropdown onChange={(value) => handleChange("urgency", value)} options={URGENCY_OPTIONS.map((item) => ({ label: item, value: item }))} placeholder="Chọn thời gian" value={form.urgency} />
                 </div>
 
                 <div className="col-12 col-md-6">
                   <label className="form-label">Kênh liên hệ ưu tiên</label>
-                  <select className="form-select" value={form.preferredContact} onChange={(event) => handleChange("preferredContact", event.target.value)}>
-                    {CONTACT_OPTIONS.map((item) => <option key={item} value={item}>{item}</option>)}
-                  </select>
+                  <TailwindDropdown onChange={(value) => handleChange("preferredContact", value)} options={CONTACT_OPTIONS.map((item) => ({ label: item, value: item }))} placeholder="Chọn kênh liên hệ" value={form.preferredContact} />
                 </div>
 
                 <div className="col-12">

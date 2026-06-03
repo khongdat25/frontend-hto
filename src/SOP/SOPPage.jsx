@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { TailwindDropdown } from "../components/ui/TailwindDropdown";
 import "./SOPPage.css";
 
 const API_BASE_URL = "http://localhost:3000/api/v1";
@@ -379,43 +380,9 @@ export const SOPPage = ({ currentUser }) => {
           />
         </div>
 
-        <select
-          className="form-select form-select-sm bg-body sop-filter-select"
-          value={categoryFilter}
-          onChange={(event) => setCategoryFilter(event.target.value)}
-        >
-          <option value="all">Tất cả nhóm SOP</option>
-          {categories.map((category) => (
-            <option key={category} value={category}>
-              {category}
-            </option>
-          ))}
-        </select>
-
-        <select
-          className="form-select form-select-sm bg-body sop-filter-select"
-          value={departmentFilter}
-          onChange={(event) => setDepartmentFilter(event.target.value)}
-        >
-          <option value="all">Tất cả phòng ban</option>
-          {departments.map((department) => (
-            <option key={department} value={department}>
-              {department}
-            </option>
-          ))}
-        </select>
-
-        <select
-          className="form-select form-select-sm bg-body sop-filter-select"
-          value={statusFilter}
-          onChange={(event) => setStatusFilter(event.target.value)}
-        >
-          <option value="all">Tất cả trạng thái</option>
-          <option value="published">Đã phát hành</option>
-          <option value="reviewing">Đang duyệt</option>
-          <option value="draft">Bản nháp</option>
-          <option value="archived">Lưu trữ</option>
-        </select>
+        <div className="sop-filter-select"><TailwindDropdown onChange={setCategoryFilter} options={[{ label: "Tất cả nhóm SOP", value: "all" }, ...categories.map((category) => ({ label: category, value: category }))]} placeholder="Tất cả nhóm SOP" value={categoryFilter} /></div>
+        <div className="sop-filter-select"><TailwindDropdown onChange={setDepartmentFilter} options={[{ label: "Tất cả phòng ban", value: "all" }, ...departments.map((department) => ({ label: department, value: department }))]} placeholder="Tất cả phòng ban" value={departmentFilter} /></div>
+        <div className="sop-filter-select"><TailwindDropdown onChange={setStatusFilter} options={[{ label: "Tất cả trạng thái", value: "all" }, { label: "Đã phát hành", value: "published" }, { label: "Đang duyệt", value: "reviewing" }, { label: "Bản nháp", value: "draft" }, { label: "Lưu trữ", value: "archived" }]} placeholder="Tất cả trạng thái" value={statusFilter} /></div>
 
         {hasActiveFilters && (
           <button className="btn btn-outline-secondary btn-sm sop-reset-btn" onClick={resetFilters}>
