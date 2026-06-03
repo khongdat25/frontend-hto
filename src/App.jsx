@@ -23,6 +23,7 @@ import { AIHistoryPage } from "./AIHistory/AIHistoryPage";
 import { JobDescriptionsPage } from "./jobDescriptions/JobDescriptionsPage";
 import { NotificationsPage } from "./notifications/NotificationsPage";
 import { ProductsPage } from "./products/ProductsPage";
+import { HomePage } from "./home/HomePage";
 import { AUTH_EVENTS } from "./auth/session";
 
 const ROLE_IDS = {
@@ -196,6 +197,16 @@ function App() {
       ? "dark"
       : "light";
   });
+
+  useEffect(() => {
+    if (window.location.pathname === "/index-2.html") {
+      window.history.replaceState(
+        {},
+        "",
+        `/${window.location.search}${window.location.hash}`,
+      );
+    }
+  }, []);
 
   useEffect(() => {
     document.documentElement.setAttribute("data-bs-theme", theme);
@@ -387,6 +398,7 @@ function App() {
     <div className="page-layout bg-body-tertiary d-flex flex-column min-vh-100">
       <Header
         user={user}
+        onNavigate={handleNavigate}
         onToggleSidebar={handleToggleSidebar} 
         onToggleTheme={handleToggleTheme} 
         onLogout={handleLogout}
@@ -438,6 +450,8 @@ function App() {
           <AccountingPlaceholderPage />
         ) : currentPage === "qna" ? (
           <AiChatPage currentUser={user} />
+        ) : currentPage === "dashboard" ? (
+          <HomePage theme={theme} />
         ) : ["sanpham", "duhocduc", "dinhcu", "visa", "daotaongonngu", "nophosoonline"].includes(currentPage) || currentPage.startsWith("product:") ? (
           <ProductsPage currentUser={user} currentPage={currentPage} onNavigate={setCurrentPage} />
         ) : (
