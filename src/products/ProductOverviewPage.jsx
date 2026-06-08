@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 
 // ==========================================
 // INITIAL MOCK CATEGORIES AND PROGRAMS
@@ -449,6 +449,91 @@ const getUserRoleKey = (user) => {
   return normalizeRoleKey(roleFromObject || roleFromId || "user");
 };
 
+// ==========================================
+// CUSTOM DROPDOWN COMPONENT
+// ==========================================
+function CustomDropdown({ value, options, onChange }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    }
+    if (isOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isOpen]);
+
+  const selectedOption = options.find(opt => opt.value === value) || options[0];
+
+  return (
+    <div className="relative w-full" ref={dropdownRef}>
+      <button
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+        className={`w-full h-10 bg-white border ${
+          isOpen ? "border-cyan-400 ring-2 ring-cyan-500/20" : "border-slate-200"
+        } rounded-xl px-3 text-sm text-slate-700 flex items-center justify-between shadow-sm transition-all duration-200 cursor-pointer focus:outline-none`}
+        onClick={() => setIsOpen(!isOpen)}
+      >
+        <span className="truncate pr-2">{selectedOption?.label}</span>
+        <svg
+          className={`w-4 h-4 text-slate-400 transition-transform duration-200 flex-shrink-0 ${
+            isOpen ? "rotate-180" : ""
+          }`}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+
+      {isOpen && (
+        <div className="absolute left-0 right-0 z-[100] mt-1.5 max-h-[280px] overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-xl p-1 animate-fade-in">
+          <div role="listbox" className="flex flex-col gap-0.5">
+            {options.map((opt) => {
+              const isSelected = opt.value === value;
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  role="option"
+                  aria-selected={isSelected}
+                  className={`w-full rounded-lg px-3 py-2 text-left text-sm transition-colors duration-150 flex items-center justify-between cursor-pointer ${
+                    isSelected
+                      ? "bg-cyan-100 text-cyan-800 font-semibold"
+                      : "text-slate-700 hover:bg-cyan-50 hover:text-cyan-700"
+                  }`}
+                  onClick={() => {
+                    onChange(opt.value);
+                    setIsOpen(false);
+                  }}
+                >
+                  <span className="truncate pr-2">{opt.label}</span>
+                  {isSelected && (
+                    <svg className="w-4 h-4 text-cyan-700 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ProductOverviewPage({ currentUser }) {
   // 1. Phân quyền người dùng thật từ currentUser
   const userRole = getUserRoleKey(currentUser);
@@ -617,6 +702,21 @@ export function ProductOverviewPage({ currentUser }) {
   const categoryNames = useMemo(() => {
     return ["Tất cả", ...categories.map(c => c.name)];
   }, [categories]);
+
+  const categoryOptions = useMemo(() => {
+    return categoryNames.map(name => ({ label: name, value: name }));
+  }, [categoryNames]);
+
+  const countryOptions = useMemo(() => {
+    return ALL_COUNTRIES_MOCK.map(c => ({ label: c, value: c }));
+  }, []);
+
+  const statusOptions = useMemo(() => [
+    { label: "Tất cả", value: "all" },
+    { label: "Đang hoạt động", value: "active" },
+    { label: "Sắp mở", value: "coming_soon" },
+    { label: "Tạm ngưng", value: "expired" }
+  ], []);
 
   // Tính toán thống kê dashboard
   const stats = useMemo(() => {
@@ -1451,19 +1551,19 @@ export function ProductOverviewPage({ currentUser }) {
 
       {/* 2. BỘ LỌC TÌM KIẾM (Chỉ hiện ở view tổng quan) */}
       {viewMode === "overview" && (
-        <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+        <div className="bg-white rounded-2xl border border-slate-100 p-4 md:p-5 shadow-sm mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
             <div className="md:col-span-12 xl:col-span-6">
-              <label className="block font-semibold text-xs text-slate-500 mb-1.5">Tìm kiếm chương trình</label>
+              <label className="block font-semibold text-xs text-slate-500 mb-1">Tìm kiếm chương trình</label>
               <div className="relative flex items-center">
-                <span className="absolute left-3.5 text-slate-400 flex items-center justify-center pointer-events-none">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <span className="absolute left-3 text-slate-400 flex items-center justify-center pointer-events-none">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
                 </span>
                 <input
                   type="text"
-                  className="w-full h-11 bg-white border border-slate-200 rounded-xl pl-11 pr-4 text-sm md:text-base text-slate-700 placeholder-slate-400 focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 focus:outline-none transition-all duration-200"
+                  className="w-full h-10 bg-white border border-slate-200 rounded-xl pl-9 pr-3 text-sm text-slate-700 placeholder-slate-400 focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 focus:outline-none transition-all duration-200"
                   placeholder="Nhập tên chương trình, quốc gia, tag..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -1472,68 +1572,30 @@ export function ProductOverviewPage({ currentUser }) {
             </div>
 
             <div className="md:col-span-4 xl:col-span-2">
-              <label className="block font-semibold text-xs text-slate-500 mb-1.5">Danh mục lớn</label>
-              <div className="relative flex items-center">
-                <select
-                  className="w-full h-11 appearance-none bg-white border border-slate-200 rounded-xl pl-4 pr-10 text-sm md:text-base text-slate-700 focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 focus:outline-none transition-all duration-200 cursor-pointer"
-                  value={selectedCategoryName}
-                  onChange={(e) => setSelectedCategoryName(e.target.value)}
-                >
-                  {categoryNames.map((name, i) => (
-                    <option key={i} value={name} className="py-2 bg-white text-slate-700 hover:bg-slate-50">
-                      {name}
-                    </option>
-                  ))}
-                </select>
-                <span className="absolute right-3.5 pointer-events-none text-slate-400 flex items-center justify-center">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </span>
-              </div>
+              <label className="block font-semibold text-xs text-slate-500 mb-1">Danh mục lớn</label>
+              <CustomDropdown
+                value={selectedCategoryName}
+                options={categoryOptions}
+                onChange={setSelectedCategoryName}
+              />
             </div>
 
             <div className="md:col-span-4 xl:col-span-2">
-              <label className="block font-semibold text-xs text-slate-500 mb-1.5">Quốc gia</label>
-              <div className="relative flex items-center">
-                <select
-                  className="w-full h-11 appearance-none bg-white border border-slate-200 rounded-xl pl-4 pr-10 text-sm md:text-base text-slate-700 focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 focus:outline-none transition-all duration-200 cursor-pointer"
-                  value={selectedCountry}
-                  onChange={(e) => setSelectedCountry(e.target.value)}
-                >
-                  {ALL_COUNTRIES_MOCK.map((country, i) => (
-                    <option key={i} value={country} className="py-2 bg-white text-slate-700 hover:bg-slate-50">
-                      {country}
-                    </option>
-                  ))}
-                </select>
-                <span className="absolute right-3.5 pointer-events-none text-slate-400 flex items-center justify-center">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </span>
-              </div>
+              <label className="block font-semibold text-xs text-slate-500 mb-1">Quốc gia</label>
+              <CustomDropdown
+                value={selectedCountry}
+                options={countryOptions}
+                onChange={setSelectedCountry}
+              />
             </div>
 
             <div className="md:col-span-4 xl:col-span-2">
-              <label className="block font-semibold text-xs text-slate-500 mb-1.5">Trạng thái</label>
-              <div className="relative flex items-center">
-                <select
-                  className="w-full h-11 appearance-none bg-white border border-slate-200 rounded-xl pl-4 pr-10 text-sm md:text-base text-slate-700 focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 focus:outline-none transition-all duration-200 cursor-pointer"
-                  value={selectedStatus}
-                  onChange={(e) => setSelectedStatus(e.target.value)}
-                >
-                  <option value="all" className="py-2 bg-white text-slate-700 hover:bg-slate-50">Tất cả</option>
-                  <option value="active" className="py-2 bg-white text-slate-700 hover:bg-slate-50">Đang hoạt động</option>
-                  <option value="coming_soon" className="py-2 bg-white text-slate-700 hover:bg-slate-50">Sắp mở</option>
-                  <option value="expired" className="py-2 bg-white text-slate-700 hover:bg-slate-50">Tạm ngưng</option>
-                </select>
-                <span className="absolute right-3.5 pointer-events-none text-slate-400 flex items-center justify-center">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </span>
-              </div>
+              <label className="block font-semibold text-xs text-slate-500 mb-1">Trạng thái</label>
+              <CustomDropdown
+                value={selectedStatus}
+                options={statusOptions}
+                onChange={setSelectedStatus}
+              />
             </div>
           </div>
         </div>
