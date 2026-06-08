@@ -9,7 +9,7 @@ const INITIAL_CATEGORIES = [
     name: "Du học hè",
     description: "Các chương trình du học hè ngắn hạn kết hợp học tập, rèn luyện kỹ năng và giao lưu văn hóa tại nhiều quốc gia phát triển.",
     status: "active",
-    imageGradient: "linear-gradient(135deg, #FF9900 0%, #FF5E36 100%)",
+    coverImageUrl: "https://images.unsplash.com/photo-1544717305-2782549b5136?auto=format&fit=crop&w=800&q=80",
     programs: [
       {
         id: "prod-1-1",
@@ -113,7 +113,7 @@ const INITIAL_CATEGORIES = [
     name: "Du học nghề",
     description: "Lộ trình du học nghề kép vừa học vừa làm có hưởng lương. Miễn 100% học phí, nhận trợ cấp thực hành và cam kết việc làm sau tốt nghiệp.",
     status: "active",
-    imageGradient: "linear-gradient(135deg, #10B981 0%, #059669 100%)",
+    coverImageUrl: "https://images.unsplash.com/photo-1581092921461-eab62e97a780?auto=format&fit=crop&w=800&q=80",
     programs: [
       {
         id: "prod-2-1",
@@ -186,7 +186,7 @@ const INITIAL_CATEGORIES = [
     name: "Visa",
     description: "Dịch vụ tư vấn, thẩm định hồ sơ, luyện phỏng vấn và hoàn thiện thủ tục xin Visa du học, du lịch, định cư và công tác các nước.",
     status: "active",
-    imageGradient: "linear-gradient(135deg, #003366 0%, #002244 100%)",
+    coverImageUrl: "https://images.unsplash.com/photo-1569336415962-a4bd9f69cd83?auto=format&fit=crop&w=800&q=80",
     programs: [
       {
         id: "prod-3-1",
@@ -225,7 +225,7 @@ const INITIAL_CATEGORIES = [
     name: "Định cư",
     description: "Giải pháp định cư an toàn cho cả gia đình thông qua các chương trình lao động tay nghề cao, đầu tư kinh doanh hoặc bảo lãnh nhân thân.",
     status: "active",
-    imageGradient: "linear-gradient(135deg, #8B5CF6 0%, #6D28D9 100%)",
+    coverImageUrl: "https://images.unsplash.com/photo-1507608869274-d3177c8bb4c7?auto=format&fit=crop&w=800&q=80",
     programs: [
       {
         id: "prod-4-1",
@@ -265,7 +265,7 @@ const INITIAL_CATEGORIES = [
     name: "Đào tạo ngôn ngữ",
     description: "Khóa đào tạo ngoại ngữ cấp tốc chất lượng cao (Tiếng Đức, Anh, Hàn, Nhật) cam kết chuẩn đầu ra phục vụ làm việc và xin visa.",
     status: "active",
-    imageGradient: "linear-gradient(135deg, #EC4899 0%, #BE185D 100%)",
+    coverImageUrl: "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&w=800&q=80",
     programs: [
       {
         id: "prod-5-1",
@@ -304,7 +304,7 @@ const INITIAL_CATEGORIES = [
     name: "TTS Quốc tế",
     description: "Chương trình thực tập sinh, làm việc ngắn hạn có lương dành cho sinh viên các trường Đại học, Cao đẳng tích lũy kinh nghiệm nước ngoài.",
     status: "coming_soon",
-    imageGradient: "linear-gradient(135deg, #06B6D4 0%, #0891B2 100%)",
+    coverImageUrl: "https://images.unsplash.com/photo-1521791136064-7986c2920216?auto=format&fit=crop&w=800&q=80",
     programs: [
       {
         id: "prod-6-1",
@@ -343,7 +343,7 @@ const INITIAL_CATEGORIES = [
     name: "Du học hè Thụy Sĩ (Quản trị Khách sạn) - Bản nháp",
     description: "Chương trình trại hè cao cấp trải nghiệm làm bánh, quản trị du lịch, khách sạn chuẩn Thụy Sĩ. Đang trong tiến trình kiểm duyệt.",
     status: "hidden",
-    imageGradient: "linear-gradient(135deg, #64748B 0%, #475569 100%)",
+    coverImageUrl: "https://images.unsplash.com/photo-1502602898657-3e91760cbb34?auto=format&fit=crop&w=800&q=80",
     programs: [
       {
         id: "prod-7-1",
@@ -407,17 +407,6 @@ const saveMockData = (data) => {
   }
 };
 
-// ==========================================
-// PREDEFINED PALETTES FOR CARD BG
-// ==========================================
-const BG_PALETTES = [
-  { value: "linear-gradient(135deg, #003366 0%, #002244 100%)", label: "Xanh dương HTO" },
-  { value: "linear-gradient(135deg, #10B981 0%, #059669 100%)", label: "Xanh lá cây" },
-  { value: "linear-gradient(135deg, #FF9900 0%, #FF5E36 100%)", label: "Cam mùa hè" },
-  { value: "linear-gradient(135deg, #8B5CF6 0%, #6D28D9 100%)", label: "Tím du học" },
-  { value: "linear-gradient(135deg, #06B6D4 0%, #0891B2 100%)", label: "Xanh ngọc TTS" },
-  { value: "custom", label: "Màu tùy chỉnh (Nhập mã gradient)" }
-];
 
 const ALL_COUNTRIES_MOCK = [
   "Tất cả", "Đức", "Hàn Quốc", "Nhật Bản", "Đài Loan", "Úc", "Mỹ", "Canada", "Singapore", "Philippines", "Anh Quốc", "Thụy Sĩ"
@@ -579,6 +568,8 @@ export function ProductOverviewPage({ currentUser }) {
   // Drag & drop visual states
   const [isBrochureDragging, setIsBrochureDragging] = useState(false);
   const [isDocsDragging, setIsDocsDragging] = useState(false);
+  const [isCategoryCoverDragging, setIsCategoryCoverDragging] = useState(false);
+  const categoryCoverInputRef = useRef(null);
 
   // Form states
   const [formCategory, setFormCategory] = useState({
@@ -586,8 +577,7 @@ export function ProductOverviewPage({ currentUser }) {
     name: "",
     description: "",
     status: "active",
-    imagePalette: "linear-gradient(135deg, #003366 0%, #002244 100%)",
-    customGradient: "",
+    coverImageUrl: "",
     programs: []
   });
 
@@ -799,8 +789,7 @@ export function ProductOverviewPage({ currentUser }) {
       name: "",
       description: "",
       status: "active",
-      imagePalette: "linear-gradient(135deg, #003366 0%, #002244 100%)",
-      customGradient: "",
+      coverImageUrl: "",
       programs: []
     });
     setActiveCategoryTab("info");
@@ -814,8 +803,7 @@ export function ProductOverviewPage({ currentUser }) {
       name: cat.name,
       description: cat.description || "",
       status: cat.status || "active",
-      imagePalette: BG_PALETTES.some(p => p.value === cat.imageGradient) ? cat.imageGradient : "custom",
-      customGradient: BG_PALETTES.some(p => p.value === cat.imageGradient) ? "" : cat.imageGradient,
+      coverImageUrl: cat.coverImageUrl || "",
       programs: cat.programs || []
     });
     setActiveCategoryTab("info");
@@ -849,10 +837,6 @@ export function ProductOverviewPage({ currentUser }) {
       return;
     }
 
-    const imageGradient = formCategory.imagePalette === "custom"
-      ? (formCategory.customGradient || "linear-gradient(135deg, #64748B 0%, #475569 100%)")
-      : formCategory.imagePalette;
-
     try {
       let updated;
       if (editingCategory === "new") {
@@ -861,7 +845,7 @@ export function ProductOverviewPage({ currentUser }) {
           name: formCategory.name,
           description: formCategory.description,
           status: formCategory.status,
-          imageGradient,
+          coverImageUrl: formCategory.coverImageUrl,
           programs: []
         };
         updated = [...categories, newCat];
@@ -874,7 +858,7 @@ export function ProductOverviewPage({ currentUser }) {
               name: formCategory.name,
               description: formCategory.description,
               status: formCategory.status,
-              imageGradient
+              coverImageUrl: formCategory.coverImageUrl
             };
           }
           return cat;
@@ -1613,67 +1597,86 @@ export function ProductOverviewPage({ currentUser }) {
               return (
                 <div key={cat.id} className="flex flex-col">
                   <div className="relative bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-100 transition-shadow duration-200 hover:shadow-md flex flex-col h-full">
-                    {/* Header Card với Nền Gradient */}
-                    <div
-                      className="p-5 text-white flex flex-col justify-between min-h-[140px]"
-                      style={{
-                        background: cat.imageGradient || "linear-gradient(135deg, #003366 0%, #002244 100%)",
-                        opacity: isHidden ? 0.75 : 1
-                      }}
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        {canManageProducts ? (
-                          <div className="flex items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                handleEditCategory(cat);
-                              }}
-                              className="flex h-9 w-9 items-center justify-center rounded-full border border-white/60 bg-white/90 text-amber-500 shadow-sm transition hover:scale-105 hover:bg-white force-rounded-full cursor-pointer"
-                              aria-label="Sửa danh mục"
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15.232 5.232l3.536 3.536m-2.036-2.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                              </svg>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                handleToggleCategoryStatus(cat.id, cat.status);
-                              }}
-                              className="flex h-9 w-9 items-center justify-center rounded-full border border-white/60 bg-white/90 text-cyan-700 shadow-sm transition hover:scale-105 hover:bg-white force-rounded-full cursor-pointer"
-                              aria-label="Ẩn hoặc hiện danh mục"
-                            >
-                              {isHidden ? (
-                                <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.542-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18" />
-                                </svg>
-                              ) : (
-                                <svg className="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                </svg>
-                              )}
-                            </button>
-                          </div>
-                        ) : (
-                          <div />
-                        )}
-
-                        <span className="bg-white/20 px-3 py-1 rounded-full text-xs font-semibold border border-white/15">
-                          {displayPrograms.length} Chương trình
-                        </span>
+                    {/* Header Card với Ảnh Nền */}
+                    <div className={`relative overflow-hidden rounded-t-2xl h-[180px] md:h-[190px] ${isHidden ? "opacity-75" : ""}`}>
+                      {/* Fallback pattern in case image fails or is empty */}
+                      <div className="absolute inset-0 bg-slate-100 flex flex-col items-center justify-center text-slate-400 gap-1.5 force-rounded-t-2xl">
+                        <svg className="w-10 h-10 text-slate-350" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        <span className="text-[11px] font-medium tracking-wide">Chưa có ảnh bìa</span>
                       </div>
 
-                      <div>
-                        <h5 className="text-xl font-bold m-0 [text-shadow:0_2px_4px_rgba(0,0,0,0.15)] leading-tight flex items-center flex-wrap gap-2">
-                          {cat.name}
-                          {isHidden && (
-                            <span className="bg-red-650 text-white font-bold px-1.5 py-0.5 rounded text-[9px] uppercase tracking-wider">ĐÃ ẨN</span>
+                      {/* Actual Image */}
+                      {cat.coverImageUrl && (
+                        <img
+                          src={cat.coverImageUrl}
+                          alt={cat.name}
+                          className="absolute inset-0 h-full w-full object-cover force-rounded-t-2xl"
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                          }}
+                        />
+                      )}
+                      
+                      {/* Overlay */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-slate-950/65 via-slate-900/25 to-slate-900/15" />
+
+                      <div className="relative z-10 flex h-full flex-col p-5 justify-between">
+                        <div className="flex items-start justify-between gap-3">
+                          {canManageProducts ? (
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  handleEditCategory(cat);
+                                }}
+                                className="flex h-9 w-9 items-center justify-center rounded-full border border-white/60 bg-white/90 text-amber-500 shadow-sm transition hover:scale-105 hover:bg-white force-rounded-full cursor-pointer"
+                                aria-label="Sửa danh mục"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15.232 5.232l3.536 3.536m-2.036-2.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                </svg>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  handleToggleCategoryStatus(cat.id, cat.status);
+                                }}
+                                className="flex h-9 w-9 items-center justify-center rounded-full border border-white/60 bg-white/90 text-cyan-700 shadow-sm transition hover:scale-105 hover:bg-white force-rounded-full cursor-pointer"
+                                aria-label="Ẩn hoặc hiện danh mục"
+                              >
+                                {isHidden ? (
+                                  <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.542-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18" />
+                                  </svg>
+                                ) : (
+                                  <svg className="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                  </svg>
+                                )}
+                              </button>
+                            </div>
+                          ) : (
+                            <div />
                           )}
-                        </h5>
+
+                          <span className="bg-white/20 px-3 py-1 rounded-full text-xs font-semibold border border-white/15 text-white">
+                            {displayPrograms.length} Chương trình
+                          </span>
+                        </div>
+
+                        <div>
+                          <h5 className="text-xl font-bold m-0 [text-shadow:0_2px_4px_rgba(0,0,0,0.15)] leading-tight flex items-center flex-wrap gap-2 text-white">
+                            {cat.name}
+                            {isHidden && (
+                              <span className="bg-red-650 text-white font-bold px-1.5 py-0.5 rounded text-[9px] uppercase tracking-wider">ĐÃ ẨN</span>
+                            )}
+                          </h5>
+                        </div>
                       </div>
                     </div>
 
@@ -2066,48 +2069,160 @@ export function ProductOverviewPage({ currentUser }) {
                     </div>
 
                     <div>
-                      <label className="block font-semibold text-xs text-slate-500 mb-1.5">Nền Gradient danh mục (Chọn bảng màu hoặc điền mã màu)</label>
-                      <div className="flex flex-wrap gap-2 mb-3">
-                        {BG_PALETTES.slice(0, 5).map((palette, i) => (
-                          <div
-                            key={i}
-                            className={`w-10 h-10 rounded-lg cursor-pointer border-2 transition-all duration-200 [box-shadow:inset_0_2px_4px_rgba(0,0,0,0.1)] hover:scale-105 ${
-                              formCategory.imagePalette === palette.value 
-                                ? "border-slate-900 scale-110 shadow-md" 
-                                : "border-transparent"
-                            }`}
-                            style={{ background: palette.value }}
-                            title={palette.label}
-                            onClick={() => setFormCategory({ ...formCategory, imagePalette: palette.value, customGradient: "" })}
-                          />
-                        ))}
-                        <button
-                          type="button"
-                          className={`border rounded-xl text-xs px-3.5 py-2 font-semibold transition-all ${
-                            formCategory.imagePalette === "custom" 
-                              ? "bg-slate-800 text-white border-slate-800" 
-                              : "bg-transparent text-slate-650 border-slate-250 hover:bg-slate-50"
+                      <label className="block font-semibold text-xs text-slate-500 mb-1.5">Ảnh bìa danh mục</label>
+                      
+                      {!formCategory.coverImageUrl ? (
+                        <div
+                          className={`border-2 border-dashed rounded-2xl p-6 text-center cursor-pointer transition-all ${
+                            isCategoryCoverDragging ? "border-cyan-500 bg-cyan-50/30" : "border-slate-200 hover:border-slate-350 bg-slate-50/50"
                           }`}
-                          onClick={() => setFormCategory({ ...formCategory, imagePalette: "custom" })}
+                          onDragOver={(e) => {
+                            e.preventDefault();
+                            setIsCategoryCoverDragging(true);
+                          }}
+                          onDragLeave={() => setIsCategoryCoverDragging(false)}
+                          onDrop={(e) => {
+                            e.preventDefault();
+                            setIsCategoryCoverDragging(false);
+                            const file = e.dataTransfer.files?.[0];
+                            if (file) {
+                              if (!file.type.startsWith("image/")) {
+                                alert("Vui lòng chọn file ảnh hợp lệ!");
+                                return;
+                              }
+                              if (file.size > 2 * 1024 * 1024) {
+                                alert("Kích thước ảnh không được vượt quá 2MB!");
+                                return;
+                              }
+                              const reader = new FileReader();
+                              reader.onload = () => {
+                                setFormCategory(prev => ({ ...prev, coverImageUrl: reader.result }));
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                          onClick={() => categoryCoverInputRef.current?.click()}
                         >
-                          Tự điền mã màu
-                        </button>
-                      </div>
-
-                      {formCategory.imagePalette === "custom" && (
-                        <div className="animate-[fadeIn_0.2s_ease-out]">
                           <input
-                            type="text"
-                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-[13px] text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-900/10 focus:border-cyan-900 transition-all"
-                            placeholder="Ví dụ: linear-gradient(135deg, #FF0000 0%, #000000 100%)"
-                            value={formCategory.customGradient}
-                            onChange={(e) => setFormCategory({ ...formCategory, customGradient: e.target.value })}
+                            type="file"
+                            ref={categoryCoverInputRef}
+                            className="hidden"
+                            accept="image/*"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                if (!file.type.startsWith("image/")) {
+                                  alert("Vui lòng chọn file ảnh hợp lệ!");
+                                  return;
+                                }
+                                if (file.size > 2 * 1024 * 1024) {
+                                  alert("Kích thước ảnh không được vượt quá 2MB!");
+                                  return;
+                                }
+                                const reader = new FileReader();
+                                reader.onload = () => {
+                                  setFormCategory(prev => ({ ...prev, coverImageUrl: reader.result }));
+                                };
+                                reader.readAsDataURL(file);
+                              }
+                            }}
                           />
-                          <span className="text-slate-400 block mt-1.5 text-[11px]">
-                            Điền mã CSS Gradient hợp lệ. Định dạng: linear-gradient(...)
-                          </span>
+                          <svg className="mx-auto h-8 w-8 text-slate-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                          <p className="text-xs font-semibold text-slate-600 mb-1">
+                            Kéo thả ảnh vào đây hoặc nhấp để chọn ảnh
+                          </p>
+                          <p className="text-[10px] text-slate-400">
+                            Hỗ trợ PNG, JPG, JPEG, WEBP lên đến 2MB
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="relative border border-slate-200 rounded-2xl overflow-hidden bg-slate-50">
+                          <div className="h-[140px] w-full relative">
+                            {/* Fallback pattern in case the URL is invalid or broken */}
+                            <div className="absolute inset-0 bg-slate-100 flex flex-col items-center justify-center text-slate-400 gap-1.5">
+                              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                              </svg>
+                              <span className="text-[10px] font-medium tracking-wide">Đường dẫn ảnh không khả dụng</span>
+                            </div>
+                            
+                            <img
+                              src={formCategory.coverImageUrl}
+                              alt="Preview"
+                              className="absolute inset-0 w-full h-full object-cover"
+                              onError={(e) => {
+                                e.target.style.display = 'none';
+                              }}
+                            />
+                          </div>
+                          <div className="p-3 bg-white border-t border-slate-100 flex items-center justify-between gap-2">
+                            <div className="text-[11px] text-slate-500 truncate max-w-[65%]" title={formCategory.coverImageUrl}>
+                              Link: {formCategory.coverImageUrl}
+                            </div>
+                            <div className="flex gap-2">
+                              <button
+                                type="button"
+                                className="px-2.5 py-1.5 text-[11.5px] font-semibold border border-slate-250 hover:bg-slate-50 text-slate-650 rounded-xl transition-colors cursor-pointer"
+                                onClick={() => categoryCoverInputRef.current?.click()}
+                              >
+                                Thay đổi
+                              </button>
+                              <button
+                                type="button"
+                                className="px-2.5 py-1.5 text-[11.5px] font-semibold bg-red-50 hover:bg-red-100 text-red-650 rounded-xl transition-colors cursor-pointer"
+                                onClick={() => setFormCategory({ ...formCategory, coverImageUrl: "" })}
+                              >
+                                Xóa ảnh
+                              </button>
+                            </div>
+                          </div>
+                          
+                          <input
+                            type="file"
+                            ref={categoryCoverInputRef}
+                            className="hidden"
+                            accept="image/*"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                if (!file.type.startsWith("image/")) {
+                                  alert("Vui lòng chọn file ảnh hợp lệ!");
+                                  return;
+                                }
+                                if (file.size > 2 * 1024 * 1024) {
+                                  alert("Kích thước ảnh không được vượt quá 2MB!");
+                                  return;
+                                }
+                                const reader = new FileReader();
+                                reader.onload = () => {
+                                  setFormCategory(prev => ({ ...prev, coverImageUrl: reader.result }));
+                                };
+                                reader.readAsDataURL(file);
+                              }
+                            }}
+                          />
                         </div>
                       )}
+                      
+                      <div className="mt-3">
+                        <input
+                          type="text"
+                          placeholder="Dán hoặc nhập trực tiếp link ảnh bìa (URL)..."
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-[13px] text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-900/10 focus:border-cyan-900 transition-all"
+                          value={formCategory.coverImageUrl}
+                          onChange={(e) => {
+                            let value = e.target.value;
+                            if (value && !/^https?:\/\//i.test(value) && !value.startsWith("data:")) {
+                              if (value.includes(".") && value.length > 3) {
+                                value = "https://" + value;
+                              }
+                            }
+                            setFormCategory({ ...formCategory, coverImageUrl: value });
+                          }}
+                        />
+                      </div>
                     </div>
 
                     <div>
