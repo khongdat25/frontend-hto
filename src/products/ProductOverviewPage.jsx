@@ -1,6 +1,411 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
-import { productService } from "./services/productService";
-import "./ProductOverviewPage.css";
+
+// ==========================================
+// INITIAL MOCK CATEGORIES AND PROGRAMS
+// ==========================================
+const INITIAL_CATEGORIES = [
+  {
+    id: "cat-1",
+    name: "Du học hè",
+    description: "Các chương trình du học hè ngắn hạn kết hợp học tập, rèn luyện kỹ năng và giao lưu văn hóa tại nhiều quốc gia phát triển.",
+    status: "active",
+    imageGradient: "linear-gradient(135deg, #FF9900 0%, #FF5E36 100%)",
+    programs: [
+      {
+        id: "prod-1-1",
+        name: "Du học hè Philippines (Mô hình Sparta)",
+        categoryId: "cat-1",
+        categoryName: "Du học hè",
+        country: "Philippines",
+        region: "Châu Á",
+        status: "active",
+        description: "Trại hè tiếng Anh cường độ cao tại Philippines giúp học viên nâng cao kỹ năng nhanh chóng.",
+        detailDescription: "Chương trình trại hè Anh ngữ tại các thành phố học thuật lớn của Philippines như Cebu, Baguio. Áp dụng mô hình Sparta học tập 10-12 tiếng mỗi ngày, kết hợp hoạt động dã ngoại cuối tuần bổ ích.",
+        targetAudience: "Học sinh từ 7 đến 17 tuổi muốn cải thiện tiếng Anh cấp tốc trong kỳ nghỉ hè.",
+        highlights: [
+          "Học tập mô hình 1 kèm 1 và 1 kèm 4 với giáo viên bản xứ",
+          "Môi trường bắt buộc sử dụng 100% tiếng Anh (EOP)",
+          "Hệ thống quản lý và chăm sóc học viên 24/7 từ quản lý người Việt",
+          "Hoạt động dã ngoại cuối tuần tại bãi biển, resort cao cấp"
+        ],
+        processSteps: [
+          "Đăng ký tư vấn và kiểm tra trình độ đầu vào",
+          "Chọn trường, khóa học và thời gian học tập",
+          "Đóng phí ghi danh và nhận thư mời nhập học (LOA)",
+          "Chuẩn bị hồ sơ du học, mua vé máy bay và ủy quyền giám hộ",
+          "Xuất cảnh và bắt đầu chương trình học tập tại Philippines"
+        ],
+        tags: ["Tiếng Anh cấp tốc", "Mô hình Sparta", "Học 1-kèm-1", "Phù hợp mọi trình độ"],
+        websiteUrl: "https://htocean.edu.vn/du-hoc-he-philippines",
+        brochure: { name: "Brochure_SummerCamp_Philippines_2026.pdf", size: "3.2 MB", type: "PDF", sourceType: "file", fileType: "PDF", url: "" },
+        documents: [
+          { id: "doc-1-1-1", name: "Checklist hồ sơ ủy quyền giám hộ WEG.docx", type: "DOCX", sourceType: "file", fileType: "DOCX", size: "120 KB", updatedAt: "2026-05-15" },
+          { id: "doc-1-1-2", name: "Bảng chi phí chi tiết trại hè Philippines 4 tuần.pdf", type: "PDF", sourceType: "file", fileType: "PDF", size: "850 KB", updatedAt: "2026-05-15" },
+          { id: "doc-1-1-3", name: "Nội quy và cẩm nang chuẩn bị hành lý.pdf", type: "PDF", sourceType: "file", fileType: "PDF", size: "1.4 MB", updatedAt: "2026-05-15" }
+        ],
+        updatedAt: "2026-05-15"
+      },
+      {
+        id: "prod-1-2",
+        name: "Trại hè Tiếng Anh Singapore (2 tuần)",
+        categoryId: "cat-1",
+        categoryName: "Du học hè",
+        country: "Singapore",
+        region: "Châu Á",
+        status: "active",
+        description: "Trải nghiệm môi trường sống văn minh an toàn bậc nhất kết hợp học tiếng Anh và kỹ năng lãnh đạo.",
+        detailDescription: "Khóa học ngắn hạn 2 tuần kết hợp giảng dạy tiếng Anh chuẩn quốc tế và các hoạt động teambuilding, tham quan các địa danh nổi tiếng tại Singapore như Universal Studios, Marina Bay Sands.",
+        targetAudience: "Học sinh từ 8 đến 16 tuổi muốn phát triển kỹ năng mềm tự lập.",
+        highlights: [
+          "Môi trường sống văn minh an toàn bậc nhất thế giới",
+          "Tham quan và giao lưu tại Đại học Quốc gia Singapore (NUS)",
+          "Rèn luyện kỹ năng sinh hoạt độc lập và làm việc nhóm"
+        ],
+        processSteps: [
+          "Tư vấn chọn lịch trình và khóa học",
+          "Đóng chi phí trọn gói",
+          "Hoàn tất tờ khai nhập cảnh trực tuyến",
+          "Xuất phát cùng trưởng đoàn HTO"
+        ],
+        tags: ["Sinh hoạt tự lập", "Quốc tế hóa", "An toàn cao"],
+        websiteUrl: "https://htocean.edu.vn/du-hoc-he-singapore",
+        brochure: { name: "Brochure_Singapore_Summer_2026.pdf", size: "2.8 MB", type: "PDF", sourceType: "file", fileType: "PDF", url: "" },
+        documents: [
+          { id: "doc-1-2-1", name: "Quy chế bảo hiểm du lịch quốc tế.pdf", type: "PDF", sourceType: "file", fileType: "PDF", size: "1.1 MB", updatedAt: "2026-05-18" },
+          { id: "doc-1-2-2", name: "Lịch trình sinh hoạt 14 ngày chi tiết.pdf", type: "PDF", sourceType: "file", fileType: "PDF", size: "1.9 MB", updatedAt: "2026-05-18" }
+        ],
+        updatedAt: "2026-05-18"
+      },
+      {
+        id: "prod-1-3",
+        name: "Trải nghiệm văn hóa Hàn Quốc",
+        categoryId: "cat-1",
+        categoryName: "Du học hè",
+        country: "Hàn Quốc",
+        region: "Châu Á",
+        status: "active",
+        description: "Tìm hiểu văn hóa xứ sở Kim Chi, giao lưu ngôn ngữ và tham quan các trường đại học nổi tiếng.",
+        detailDescription: "Học tiếng Hàn cơ bản kết hợp tham quan các cung điện cổ kính, lớp học nhảy K-pop và trải nghiệm giảng đường thực tế tại các trường Đại học danh tiếng ở Seoul.",
+        targetAudience: "Học sinh THPT yêu thích văn hóa Hàn Quốc và có định hướng du học tương lai.",
+        highlights: [
+          "Trải nghiệm văn hóa nghệ thuật ẩm thực độc đáo",
+          "Thực hành giao tiếp tiếng Hàn cơ bản với sinh viên bản địa",
+          "Định hướng chọn trường đại học phù hợp tại Seoul"
+        ],
+        processSteps: [
+          "Tư vấn & Nhận hồ sơ",
+          "Xin Visa du lịch ngắn hạn C-3",
+          "Hướng dẫn chuẩn bị trang phục & đồ cá nhân",
+          "Xuất phát đoàn bay"
+        ],
+        tags: ["Văn hóa K-Pop", "Học tiếng Hàn", "Hướng nghiệp"],
+        websiteUrl: "https://htocean.edu.vn/du-hoc-he-han-quoc",
+        brochure: { name: "Brochure_Trai_Nghiem_Han_Quoc.pdf", size: "4.1 MB", type: "PDF", sourceType: "file", fileType: "PDF", url: "" },
+        documents: [
+          { id: "doc-1-3-1", name: "Checklist xin Visa du lịch Hàn Quốc tự túc.docx", type: "DOCX", sourceType: "file", fileType: "DOCX", size: "90 KB", updatedAt: "2026-05-20" }
+        ],
+        updatedAt: "2026-05-20"
+      }
+    ]
+  },
+  {
+    id: "cat-2",
+    name: "Du học nghề",
+    description: "Lộ trình du học nghề kép vừa học vừa làm có hưởng lương. Miễn 100% học phí, nhận trợ cấp thực hành và cam kết việc làm sau tốt nghiệp.",
+    status: "active",
+    imageGradient: "linear-gradient(135deg, #10B981 0%, #059669 100%)",
+    programs: [
+      {
+        id: "prod-2-1",
+        name: "Du học nghề Đức (Điều dưỡng, Nhà hàng, Cơ khí)",
+        categoryId: "cat-2",
+        categoryName: "Du học nghề",
+        country: "Đức",
+        region: "Châu Âu",
+        status: "active",
+        description: "Chương trình vừa học vừa làm miễn 100% học phí và nhận lương thực hành từ 1.100 - 1.300 Euro/tháng.",
+        detailDescription: "Lộ trình định cư bền vững tại Đức thông qua học nghề kép. Thời gian đào tạo 3 năm kết hợp 30% lý thuyết và 70% thực hành trực tiếp tại các bệnh viện, nhà hàng, xưởng cơ khí đối tác của HTO.",
+        targetAudience: "Học sinh tốt nghiệp THPT tuổi từ 18 - 30, sức khỏe tốt, mong muốn lập nghiệp lâu dài tại Châu Âu.",
+        highlights: [
+          "Miễn 100% học phí trong suốt 3 năm học học nghề",
+          "Trợ cấp sinh hoạt phí thực hành hàng tháng đảm bảo tự trang trải cuộc sống",
+          "Cam kết hợp đồng lao động chính thức ngay sau khi tốt nghiệp",
+          "Cơ hội định cư vĩnh viễn sau 5 năm học tập và làm việc tại Đức"
+        ],
+        processSteps: [
+          "Học tiếng Đức tại Việt Nam đạt chứng chỉ B1/B2",
+          "Thẩm định hồ sơ và phỏng vấn với doanh nghiệp đối tác tại Đức",
+          "Nhận hợp đồng học nghề và hợp đồng thực hành từ bên Đức",
+          "Chuẩn bị hồ sơ xin Visa và chứng minh tài chính nếu cần",
+          "Nhập cảnh Đức, bắt đầu học tiếng bổ trợ và học chuyên môn"
+        ],
+        tags: ["Miễn học phí", "Trợ cấp cao", "Định cư Châu Âu", "Cam kết việc làm"],
+        websiteUrl: "https://htocean.edu.vn/du-hoc-nghe-duc",
+        brochure: { name: "Cam_nang_Nghe_Duc_HTO_2026.pdf", size: "5.5 MB", type: "PDF", sourceType: "file", fileType: "PDF", url: "" },
+        documents: [
+          { id: "doc-2-1-1", name: "Mẫu hợp đồng đào tạo nghề song ngữ Đức-Việt.pdf", type: "PDF", sourceType: "file", fileType: "PDF", size: "2.1 MB", updatedAt: "2026-05-15" },
+          { id: "doc-2-1-2", name: "Checklist hồ sơ xin Visa Đại sứ quán Đức.docx", type: "DOCX", sourceType: "file", fileType: "DOCX", size: "130 KB", updatedAt: "2026-05-15" },
+          { id: "doc-2-1-3", name: "Quy trình chuyển đổi bằng cấp và thẩm định Defa.pdf", type: "PDF", sourceType: "file", fileType: "PDF", size: "980 KB", updatedAt: "2026-05-15" }
+        ],
+        updatedAt: "2026-05-15"
+      },
+      {
+        id: "prod-2-2",
+        name: "Du học nghề Hàn Quốc (Visa D4-6)",
+        categoryId: "cat-2",
+        categoryName: "Du học nghề",
+        country: "Hàn Quốc",
+        region: "Châu Á",
+        status: "active",
+        description: "Học nghề kết hợp làm thêm có thu nhập tốt. Visa linh hoạt chuyển đổi sang E-7 sau khi ra trường.",
+        detailDescription: "Học nghề tại các trường Cao đẳng/Đại học Hàn Quốc đào tạo các ngành Làm đẹp (Beauty), Nấu ăn, Công nghệ thông tin, Thiết kế. Lịch học linh động cho phép sinh viên đi làm thêm trang trải chi phí.",
+        targetAudience: "Nam/nữ tốt nghiệp THPT, điểm GPA từ 6.0 trở lên.",
+        highlights: [
+          "Học tập thời gian ngắn (chỉ từ 1.5 - 2 năm)",
+          "Quy định làm thêm thông thoáng giúp tự lập tài chính",
+          "Cơ hội chuyển đổi sang Visa lao động chuyên môn E-7 dễ dàng"
+        ],
+        processSteps: [
+          "Nộp hồ sơ phỏng vấn chọn trường",
+          "Học tiếng Hàn sơ cấp đạt Topik 1 hoặc 2",
+          "Nộp hồ sơ xin mã code Visa từ Cục xuất nhập cảnh Hàn Quốc",
+          "Nhận Visa và xuất cảnh học tập"
+        ],
+        tags: ["Học phí ưu đãi", "Làm thêm 30h/tuần", "Visa D4-6"],
+        websiteUrl: "https://htocean.edu.vn/du-hoc-nghe-han-quoc",
+        brochure: { name: "Cam_nang_Nghe_Han_Quoc.pdf", size: "3.7 MB", type: "PDF", sourceType: "file", fileType: "PDF", url: "" },
+        documents: [
+          { id: "doc-2-2-1", name: "Danh sách các trường Cao đẳng liên kết Visa D4-6.pdf", type: "PDF", sourceType: "file", fileType: "PDF", size: "640 KB", updatedAt: "2026-05-22" }
+        ],
+        updatedAt: "2026-05-22"
+      }
+    ]
+  },
+  {
+    id: "cat-3",
+    name: "Visa",
+    description: "Dịch vụ tư vấn, thẩm định hồ sơ, luyện phỏng vấn và hoàn thiện thủ tục xin Visa du học, du lịch, định cư và công tác các nước.",
+    status: "active",
+    imageGradient: "linear-gradient(135deg, #003366 0%, #002244 100%)",
+    programs: [
+      {
+        id: "prod-3-1",
+        name: "Dịch vụ Visa du học & thăm thân Đức",
+        categoryId: "cat-3",
+        categoryName: "Visa",
+        country: "Đức",
+        region: "Châu Âu",
+        status: "active",
+        description: "Tư vấn hồ sơ và xử lý visa thăm thân, visa du học tự túc đạt tỷ lệ đỗ cao.",
+        detailDescription: "Dịch vụ hỗ trợ điền tờ khai, chuẩn bị checklist giấy tờ pháp lý, dịch thuật công chứng, mở tài khoản phong tỏa và mua bảo hiểm du lịch đúng chuẩn của Đại Sứ Quán Đức.",
+        targetAudience: "Khách hàng cần xin visa du học tự túc hoặc có người thân bảo lãnh sang Đức.",
+        highlights: [
+          "Tỷ lệ đỗ visa đạt trên 98% nhờ đội ngũ thẩm định hồ sơ dày dặn kinh nghiệm",
+          "Xử lý nhanh chóng các trường hợp hồ sơ khó, khoảng trống học tập dài",
+          "Tư vấn lộ trình chứng minh tài chính tối ưu nhất"
+        ],
+        processSteps: [
+          "Tiếp nhận thông tin hồ sơ và đánh giá sơ bộ tỷ lệ đỗ",
+          "Ký hợp đồng dịch vụ và hoàn thiện checklist giấy tờ",
+          "Đặt lịch hẹn nộp hồ sơ tại VFS Global",
+          "Nhận kết quả Visa bàn giao khách hàng"
+        ],
+        tags: ["Tỷ lệ đỗ 98%", "Xử lý nhanh", "Tài khoản phong tỏa"],
+        websiteUrl: "https://htocean.edu.vn/visa-du-hoc-duc",
+        brochure: { name: "Cam_nang_Visa_Duc_HTO.pdf", size: "1.9 MB", type: "PDF", sourceType: "file", fileType: "PDF", url: "" },
+        documents: [
+          { id: "doc-3-1-1", name: "Checklist giấy tờ xin Visa du học Đức tự túc.pdf", type: "PDF", sourceType: "file", fileType: "PDF", size: "750 KB", updatedAt: "2026-05-20" }
+        ],
+        updatedAt: "2026-05-20"
+      }
+    ]
+  },
+  {
+    id: "cat-4",
+    name: "Định cư",
+    description: "Giải pháp định cư an toàn cho cả gia đình thông qua các chương trình lao động tay nghề cao, đầu tư kinh doanh hoặc bảo lãnh nhân thân.",
+    status: "active",
+    imageGradient: "linear-gradient(135deg, #8B5CF6 0%, #6D28D9 100%)",
+    programs: [
+      {
+        id: "prod-4-1",
+        name: "Định cư Canada Express Entry (PR)",
+        categoryId: "cat-4",
+        categoryName: "Định cư",
+        country: "Canada",
+        region: "Châu Mỹ",
+        status: "active",
+        description: "Hỗ trợ nộp hồ sơ định cư tay nghề cao nhanh nhất để nhận thẻ Thường trú nhân (PR) Canada.",
+        detailDescription: "Tư vấn tối ưu hóa điểm số CRS, thẩm định bằng cấp ECA, chuẩn bị chứng chỉ ngôn ngữ IELTS/CELPIP và nộp hồ sơ Express Entry vào các luồng định cư liên bang.",
+        targetAudience: "Khách hàng có trình độ đại học trở lên, khả năng tiếng Anh tốt và kinh nghiệm làm việc chuyên môn.",
+        highlights: [
+          "Nhận trực tiếp thẻ Thường trú nhân PR cho cả gia đình",
+          "Được hưởng đầy đủ phúc lợi y tế, giáo dục miễn phí của Canada",
+          "Thời gian xét duyệt hồ sơ nhanh từ 6 - 8 tháng sau khi nhận thư mời ITA"
+        ],
+        processSteps: [
+          "Đánh giá điểm số CRS sơ bộ",
+          "Thẩm định bằng cấp nước ngoài (ECA) và thi chứng chỉ tiếng Anh",
+          "Tạo hồ sơ Express Entry trên hệ thống IRCC",
+          "Nhận thư mời nộp hồ sơ (ITA) và hoàn tất nộp giấy tờ",
+          "Nhận COPR và nhập cảnh Canada nhận thẻ PR"
+        ],
+        tags: ["Thẻ PR định cư", "Express Entry", "Xét duyệt nhanh"],
+        websiteUrl: "https://htocean.edu.vn/dinh-cu-canada",
+        brochure: { name: "Cam_nang_Dinh_cu_Canada_PR.pdf", size: "4.8 MB", type: "PDF", sourceType: "file", fileType: "PDF", url: "" },
+        documents: [
+          { id: "doc-4-1-1", name: "Hướng dẫn tính điểm CRS định cư Canada.pdf", type: "PDF", sourceType: "file", fileType: "PDF", size: "1.2 MB", updatedAt: "2026-05-25" }
+        ],
+        updatedAt: "2026-05-25"
+      }
+    ]
+  },
+  {
+    id: "cat-5",
+    name: "Đào tạo ngôn ngữ",
+    description: "Khóa đào tạo ngoại ngữ cấp tốc chất lượng cao (Tiếng Đức, Anh, Hàn, Nhật) cam kết chuẩn đầu ra phục vụ làm việc và xin visa.",
+    status: "active",
+    imageGradient: "linear-gradient(135deg, #EC4899 0%, #BE185D 100%)",
+    programs: [
+      {
+        id: "prod-5-1",
+        name: "Tiếng Đức sơ cấp & trung cấp (A1 - B1/B2)",
+        categoryId: "cat-5",
+        categoryName: "Đào tạo ngôn ngữ",
+        country: "Đức",
+        region: "Châu Âu",
+        status: "active",
+        description: "Khóa đào tạo tiếng Đức bài bản từ con số 0 giúp học viên tự tin thi đạt B1/B2.",
+        detailDescription: "Chương trình học tiếng Đức chất lượng cao tại HTO. Đội ngũ giáo viên bản xứ và giáo viên Việt Nam giàu kinh nghiệm, lộ trình cá nhân hóa kết hợp các bài thi thử Goethe/Telc hàng tuần.",
+        targetAudience: "Học viên chuẩn bị đi du học nghề Đức hoặc làm việc định cư tại Đức.",
+        highlights: [
+          "Lớp học sĩ số vàng tối đa 12 học viên đảm bảo tương tác liên tục",
+          "Luyện phản xạ nghe nói hàng tuần với giáo viên người Đức bản địa",
+          "Cam kết đào tạo lại miễn phí nếu không đạt đầu ra đúng tiến độ"
+        ],
+        processSteps: [
+          "Kiểm tra trình độ đầu vào miễn phí",
+          "Đăng ký lớp học theo khung giờ sáng / chiều / tối",
+          "Học tập chuyên sâu theo giáo trình chuẩn quốc tế",
+          "Thi thử và tham gia kỳ thi chứng chỉ chính thức tại viện Goethe"
+        ],
+        tags: ["Luyện thi B1/B2", "Cam kết đầu ra", "Sĩ số 12 học viên"],
+        websiteUrl: "https://htocean.edu.vn/hoc-tieng-duc",
+        brochure: { name: "Lich_Khai_Giang_Tieng_Duc_HTO.pdf", size: "2.5 MB", type: "PDF", sourceType: "file", fileType: "PDF", url: "" },
+        documents: [
+          { id: "doc-5-1-1", name: "Đề thi mẫu Goethe B1 có đáp án chi tiết.pdf", type: "PDF", sourceType: "file", fileType: "PDF", size: "3.2 MB", updatedAt: "2026-05-28" }
+        ],
+        updatedAt: "2026-05-28"
+      }
+    ]
+  },
+  {
+    id: "cat-6",
+    name: "TTS Quốc tế",
+    description: "Chương trình thực tập sinh, làm việc ngắn hạn có lương dành cho sinh viên các trường Đại học, Cao đẳng tích lũy kinh nghiệm nước ngoài.",
+    status: "coming_soon",
+    imageGradient: "linear-gradient(135deg, #06B6D4 0%, #0891B2 100%)",
+    programs: [
+      {
+        id: "prod-6-1",
+        name: "TTS ngành dịch vụ & du học nghề Nhật Bản",
+        categoryId: "cat-6",
+        categoryName: "TTS Quốc tế",
+        country: "Nhật Bản",
+        region: "Châu Á",
+        status: "active",
+        description: "Cơ hội làm việc tại hệ thống khách sạn, nhà hàng Nhật Bản với mức lương hấp dẫn.",
+        detailDescription: "Chương trình Internship quốc tế 1 năm dành cho sinh viên ngành Khách sạn, Nhà hàng, Quản trị du lịch. Làm việc thực tế nhận lương như nhân viên chính thức, tích lũy chứng chỉ quốc tế.",
+        targetAudience: "Sinh viên năm 3 hoặc năm cuối các trường Đại học, Cao đẳng trên toàn quốc.",
+        highlights: [
+          "Mức lương thực tập sinh từ 130.000 - 150.000 Yên/tháng",
+          "Hỗ trợ chỗ ở ký túc xá và bữa ăn trong ca làm việc",
+          "Nhận chứng nhận thực tập quốc tế thuận lợi xin việc sau tốt nghiệp"
+        ],
+        processSteps: [
+          "Nộp bảng điểm và CV tiếng Nhật theo mẫu HTO",
+          "Phỏng vấn trực tiếp qua Zoom với quản lý nghiệp đoàn Nhật Bản",
+          "Xin COE và hoàn tất thủ tục cấp Visa Internship",
+          "Nhập cảnh thực tập 1 năm"
+        ],
+        tags: ["Internship 1 năm", "Lương 150k Yên", "Ngành Khách sạn"],
+        websiteUrl: "https://htocean.edu.vn/thuc-tap-sinh-nhat-ban",
+        brochure: { name: "Thong_Tin_TTS_Nhat_Ban_HTO.pdf", size: "3.9 MB", type: "PDF", sourceType: "file", fileType: "PDF", url: "" },
+        documents: [
+          { id: "doc-6-1-1", name: "Mẫu sơ yếu lý lịch CV tiếng Nhật tiêu chuẩn.docx", type: "DOCX", sourceType: "file", fileType: "DOCX", size: "110 KB", updatedAt: "2026-05-20" }
+        ],
+        updatedAt: "2026-05-20"
+      }
+    ]
+  },
+  {
+    id: "cat-7",
+    name: "Du học hè Thụy Sĩ (Quản trị Khách sạn) - Bản nháp",
+    description: "Chương trình trại hè cao cấp trải nghiệm làm bánh, quản trị du lịch, khách sạn chuẩn Thụy Sĩ. Đang trong tiến trình kiểm duyệt.",
+    status: "hidden",
+    imageGradient: "linear-gradient(135deg, #64748B 0%, #475569 100%)",
+    programs: [
+      {
+        id: "prod-7-1",
+        name: "Trại hè Quản trị du lịch học viện BHMS Thụy Sĩ",
+        categoryId: "cat-7",
+        categoryName: "Du học hè Thụy Sĩ (Quản trị Khách sạn) - Bản nháp",
+        country: "Thụy Sĩ",
+        region: "Châu Âu",
+        status: "active",
+        description: "Khóa trải nghiệm cuộc sống sinh viên Thụy Sĩ và tham gia các hội thảo chuyên ngành du lịch.",
+        detailDescription: "Hành trình 10 ngày tại học viện BHMS Lucerne. Học sinh được học về văn hóa giao tiếp Âu Châu, quy trình vận hành khách sạn 5 sao, tham quan các xưởng sản xuất chocolate truyền thống.",
+        targetAudience: "Học sinh khá giả có định hướng du học Thụy Sĩ.",
+        highlights: [
+          "Trực tiếp sinh hoạt tại campus hiện đại của BHMS tại Lucerne",
+          "Chứng chỉ hoàn thành khóa trại hè cấp bởi BHMS Thụy Sĩ",
+          "Gặp gỡ và chia sẻ kinh nghiệm cùng cựu học sinh thành đạt"
+        ],
+        processSteps: [
+          "Xét duyệt điều kiện hồ sơ và phỏng vấn ngoại ngữ",
+          "Xin Visa Schengen qua Đại sứ quán Thụy Sĩ",
+          "Hoàn thiện học phí và xuất cảnh theo đoàn"
+        ],
+        tags: ["Trại hè Thụy Sĩ", "Học viện BHMS", "Định hướng Quản trị"],
+        brochure: { name: "Brochure_Summer_Camp_Swiss_BHMS.pdf", size: "5.1 MB", type: "PDF", sourceType: "file", fileType: "PDF", url: "" },
+        documents: [
+          { id: "doc-7-1-1", name: "Lịch trình hoạt động 10 ngày Thụy Sĩ.pdf", type: "PDF", sourceType: "file", fileType: "PDF", size: "2.3 MB", updatedAt: "2026-06-01" }
+        ],
+        updatedAt: "2026-06-01"
+      }
+    ]
+  }
+];
+
+const PRODUCT_STORAGE_KEY = "hto_products_categories_data";
+
+// Fallback & validation helpers for mock data
+const getMockData = () => {
+  try {
+    const stored = localStorage.getItem(PRODUCT_STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        // Validate basic keys of the first item to ensure correct structure
+        const first = parsed[0];
+        if (first && typeof first === "object" && "id" in first && "name" in first && "programs" in first) {
+          return parsed;
+        }
+      }
+    }
+  } catch (e) {
+    console.warn("[LocalStorage] Error parsing mock categories data, using defaults:", e);
+  }
+  return INITIAL_CATEGORIES;
+};
+
+const saveMockData = (data) => {
+  try {
+    localStorage.setItem(PRODUCT_STORAGE_KEY, JSON.stringify(data));
+  } catch (e) {
+    console.error("[LocalStorage] Error writing mock categories data:", e);
+  }
+};
 
 // ==========================================
 // PREDEFINED PALETTES FOR CARD BG
@@ -133,14 +538,14 @@ export function ProductOverviewPage({ currentUser }) {
     return currentUser?.name || currentUser?.username || "CTV/Đại lý HTO";
   }, [currentUser]);
 
-  // Load danh sách dữ liệu từ Service
-  const loadData = useCallback(async () => {
+  // Load danh sách dữ liệu từ localStorage
+  const loadData = useCallback(() => {
     setLoading(true);
     setError("");
     try {
-      const res = await productService.getProductCategories();
-      setCategories(res.data);
-      setApiMode(res.apiMode);
+      const data = getMockData();
+      setCategories(data);
+      setApiMode("mock");
     } catch (err) {
       console.error(err);
       setError("Không thể tải danh sách sản phẩm.");
@@ -152,6 +557,19 @@ export function ProductOverviewPage({ currentUser }) {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // Reset Mock Data về mặc định
+  const handleResetMockData = useCallback(() => {
+    if (confirm("Bạn có chắc chắn muốn khôi phục dữ liệu danh mục & sản phẩm về mặc định ban đầu không? Mọi thay đổi bạn đã lưu sẽ bị xóa.")) {
+      try {
+        localStorage.setItem(PRODUCT_STORAGE_KEY, JSON.stringify(INITIAL_CATEGORIES));
+        setCategories(INITIAL_CATEGORIES);
+        alert("Đã khôi phục dữ liệu mặc định thành công!");
+      } catch (err) {
+        alert("Lỗi khi khôi phục dữ liệu: " + err.message);
+      }
+    }
+  }, []);
 
   // Toggle Collapse
   const toggleProgramsAccordion = (catId) => {
@@ -287,12 +705,6 @@ export function ProductOverviewPage({ currentUser }) {
   const handleSubmitInterest = async (e) => {
     e.preventDefault();
     try {
-      await productService.createProductInterestLead({
-        ...interestForm,
-        productProgramId: selectedProduct.id,
-        productProgramName: selectedProduct.name,
-        sourceUser: currentUserName
-      });
       alert(`Gửi yêu cầu tư vấn thành công!\nKhách hàng: ${interestForm.customerName}\nSản phẩm: ${selectedProduct.name}`);
       setShowInterestModal(false);
     } catch (err) {
@@ -337,9 +749,12 @@ export function ProductOverviewPage({ currentUser }) {
     const statusText = newStatus === "active" ? "hiện" : "ẩn";
     if (confirm(`Bạn có chắc chắn muốn ${statusText} danh mục này không?`)) {
       try {
-        await productService.toggleProductCategoryStatus(catId, newStatus);
+        const updated = categories.map(cat => 
+          cat.id === catId ? { ...cat, status: newStatus } : cat
+        );
+        saveMockData(updated);
+        setCategories(updated);
         alert(`Đã ${statusText} danh mục!`);
-        loadData();
       } catch (err) {
         alert("Lỗi khi thay đổi trạng thái danh mục: " + err.message);
       }
@@ -359,23 +774,37 @@ export function ProductOverviewPage({ currentUser }) {
       ? (formCategory.customGradient || "linear-gradient(135deg, #64748B 0%, #475569 100%)")
       : formCategory.imagePalette;
 
-    const payload = {
-      name: formCategory.name,
-      description: formCategory.description,
-      status: formCategory.status,
-      imageGradient
-    };
-
     try {
+      let updated;
       if (editingCategory === "new") {
-        await productService.createProductCategory(payload);
+        const newCat = {
+          id: `cat-${Date.now()}`,
+          name: formCategory.name,
+          description: formCategory.description,
+          status: formCategory.status,
+          imageGradient,
+          programs: []
+        };
+        updated = [...categories, newCat];
         alert("Đã thêm danh mục mới thành công!");
       } else {
-        await productService.updateProductCategory(editingCategory, payload);
+        updated = categories.map(cat => {
+          if (cat.id === editingCategory) {
+            return {
+              ...cat,
+              name: formCategory.name,
+              description: formCategory.description,
+              status: formCategory.status,
+              imageGradient
+            };
+          }
+          return cat;
+        });
         alert("Đã cập nhật danh mục thành công!");
       }
+      saveMockData(updated);
+      setCategories(updated);
       setEditingCategory(null);
-      loadData();
     } catch (err) {
       alert("Lỗi khi lưu danh mục: " + err.message);
     }
@@ -443,24 +872,19 @@ export function ProductOverviewPage({ currentUser }) {
     if (!canManageProducts) return;
     if (confirm("Bạn có chắc chắn muốn xóa sản phẩm con này không?")) {
       try {
-        // Mock remove by updating category programs list directly via update
-        const data = categories;
-        let success = false;
-        for (let cat of data) {
-          const pIdx = cat.programs?.findIndex(p => p.id === prodId);
-          if (pIdx !== -1 && pIdx !== undefined) {
-            cat.programs = cat.programs.filter(p => p.id !== prodId);
-            await productService.updateProductCategory(cat.id, { programs: cat.programs });
-            success = true;
-            break;
+        const updated = categories.map(cat => {
+          const hasProg = cat.programs?.some(p => p.id === prodId);
+          if (hasProg) {
+            return {
+              ...cat,
+              programs: cat.programs.filter(p => p.id !== prodId)
+            };
           }
-        }
-        if (success) {
-          alert("Đã xóa sản phẩm con!");
-          loadData();
-        } else {
-          throw new Error("Không tìm thấy sản phẩm");
-        }
+          return cat;
+        });
+        saveMockData(updated);
+        setCategories(updated);
+        alert("Đã xóa sản phẩm con!");
       } catch (err) {
         alert("Lỗi khi xóa sản phẩm con: " + err.message);
       }
@@ -497,24 +921,64 @@ export function ProductOverviewPage({ currentUser }) {
       tags,
       websiteUrl: formProduct.websiteUrl,
       brochure: formProduct.brochure,
-      documents: formProduct.documents
+      documents: formProduct.documents,
+      updatedAt: new Date().toISOString().split("T")[0]
     };
 
     try {
+      let updated;
+      let savedProd = null;
       if (editingProduct === "new") {
-        await productService.createProductChild(editingProductParentCatId, payload);
+        const newProd = {
+          ...payload,
+          id: `prod-${Date.now()}`,
+          categoryId: editingProductParentCatId,
+          categoryName: categories.find(c => c.id === editingProductParentCatId)?.name || ""
+        };
+        savedProd = newProd;
+        updated = categories.map(cat => {
+          if (cat.id === editingProductParentCatId) {
+            return {
+              ...cat,
+              programs: [...(cat.programs || []), newProd]
+            };
+          }
+          return cat;
+        });
         alert("Đã thêm sản phẩm con mới thành công!");
       } else {
-        await productService.updateProductChild(editingProduct, payload);
+        updated = categories.map(cat => {
+          const hasProg = cat.programs?.some(p => p.id === editingProduct);
+          if (hasProg) {
+            return {
+              ...cat,
+              programs: cat.programs.map(p => {
+                if (p.id === editingProduct) {
+                  const updatedP = {
+                    ...p,
+                    ...payload,
+                    id: editingProduct,
+                    categoryId: editingProductParentCatId,
+                    categoryName: categories.find(c => c.id === editingProductParentCatId)?.name || ""
+                  };
+                  savedProd = updatedP;
+                  return updatedP;
+                }
+                return p;
+              })
+            };
+          }
+          return cat;
+        });
         alert("Đã cập nhật sản phẩm con thành công!");
       }
+      saveMockData(updated);
+      setCategories(updated);
       setEditingProduct(null);
-      loadData();
       
       // Update selected view details if active
       if (selectedProduct && selectedProduct.id === editingProduct) {
-        const detailRes = await productService.getProductDetail(editingProduct);
-        setSelectedProduct(detailRes.data);
+        setSelectedProduct(savedProd);
       }
     } catch (err) {
       alert("Lỗi khi lưu sản phẩm con: " + err.message);
@@ -559,7 +1023,20 @@ export function ProductOverviewPage({ currentUser }) {
           setFormProduct(prev => ({ ...prev, brochure: brochureData }));
         } else {
           try {
-            await productService.uploadProductBrochure(editingProduct, { file, ...brochureData });
+            const updated = categories.map(cat => {
+              const hasProg = cat.programs?.some(p => p.id === editingProduct);
+              if (hasProg) {
+                return {
+                  ...cat,
+                  programs: cat.programs.map(p => 
+                    p.id === editingProduct ? { ...p, brochure: brochureData } : p
+                  )
+                };
+              }
+              return cat;
+            });
+            saveMockData(updated);
+            setCategories(updated);
             setFormProduct(prev => ({ ...prev, brochure: brochureData }));
             alert(`Đã tải brochure: ${file.name}`);
           } catch (err) {
@@ -610,7 +1087,20 @@ export function ProductOverviewPage({ currentUser }) {
           setFormProduct(prev => ({ ...prev, brochure: brochureData }));
         } else {
           try {
-            await productService.uploadProductBrochure(editingProduct, { file, ...brochureData });
+            const updated = categories.map(cat => {
+              const hasProg = cat.programs?.some(p => p.id === editingProduct);
+              if (hasProg) {
+                return {
+                  ...cat,
+                  programs: cat.programs.map(p => 
+                    p.id === editingProduct ? { ...p, brochure: brochureData } : p
+                  )
+                };
+              }
+              return cat;
+            });
+            saveMockData(updated);
+            setCategories(updated);
             setFormProduct(prev => ({ ...prev, brochure: brochureData }));
             alert(`Đã tải brochure: ${file.name}`);
           } catch (err) {
@@ -646,7 +1136,20 @@ export function ProductOverviewPage({ currentUser }) {
         setFormProduct(prev => ({ ...prev, brochure: brochureData }));
       } else {
         try {
-          await productService.uploadProductBrochure(editingProduct, brochureData);
+          const updated = categories.map(cat => {
+            const hasProg = cat.programs?.some(p => p.id === editingProduct);
+            if (hasProg) {
+              return {
+                ...cat,
+                programs: cat.programs.map(p => 
+                  p.id === editingProduct ? { ...p, brochure: brochureData } : p
+                )
+              };
+            }
+            return cat;
+          });
+          saveMockData(updated);
+          setCategories(updated);
           setFormProduct(prev => ({ ...prev, brochure: brochureData }));
           alert("Đã gắn link Brochure thành công!");
         } catch (err) {
@@ -697,7 +1200,20 @@ export function ProductOverviewPage({ currentUser }) {
         }));
       } else {
         try {
-          await productService.uploadProductDocuments(editingProduct, { files: validFiles, newDocs });
+          const updated = categories.map(cat => {
+            const hasProg = cat.programs?.some(p => p.id === editingProduct);
+            if (hasProg) {
+              return {
+                ...cat,
+                programs: cat.programs.map(p => 
+                  p.id === editingProduct ? { ...p, documents: [...(p.documents || []), ...newDocs] } : p
+                )
+              };
+            }
+            return cat;
+          });
+          saveMockData(updated);
+          setCategories(updated);
           setFormProduct(prev => ({
             ...prev,
             documents: [...(prev.documents || []), ...newDocs]
@@ -757,7 +1273,20 @@ export function ProductOverviewPage({ currentUser }) {
         }));
       } else {
         try {
-          await productService.uploadProductDocuments(editingProduct, { files: validFiles, newDocs });
+          const updated = categories.map(cat => {
+            const hasProg = cat.programs?.some(p => p.id === editingProduct);
+            if (hasProg) {
+              return {
+                ...cat,
+                programs: cat.programs.map(p => 
+                  p.id === editingProduct ? { ...p, documents: [...(p.documents || []), ...newDocs] } : p
+                )
+              };
+            }
+            return cat;
+          });
+          saveMockData(updated);
+          setCategories(updated);
           setFormProduct(prev => ({
             ...prev,
             documents: [...(prev.documents || []), ...newDocs]
@@ -811,7 +1340,20 @@ export function ProductOverviewPage({ currentUser }) {
         }));
       } else {
         try {
-          await productService.removeProductDocument(editingProduct, docId);
+          const updated = categories.map(cat => {
+            const hasProg = cat.programs?.some(p => p.id === editingProduct);
+            if (hasProg) {
+              return {
+                ...cat,
+                programs: cat.programs.map(p => 
+                  p.id === editingProduct ? { ...p, documents: (p.documents || []).filter(d => d.id !== docId) } : p
+                )
+              };
+            }
+            return cat;
+          });
+          saveMockData(updated);
+          setCategories(updated);
           setFormProduct(prev => ({
             ...prev,
             documents: (prev.documents || []).filter(d => d.id !== docId)
@@ -823,6 +1365,7 @@ export function ProductOverviewPage({ currentUser }) {
       }
     }
   };
+
   if (loading) {
     return (
       <div className="w-full py-20 text-center flex flex-col items-center justify-center">
@@ -847,21 +1390,29 @@ export function ProductOverviewPage({ currentUser }) {
                   ? "bg-emerald-50 text-emerald-700 border-emerald-200" 
                   : "bg-amber-50 text-amber-700 border-amber-200"
               }`}>
-                {apiMode === "real" ? "API Live" : "Mock Data Mode"}
+                {apiMode === "real" ? "API Live" : "Mock Local Storage"}
               </span>
             </div>
             <p className="text-slate-500 text-sm m-0 mt-1">
               Kho danh mục chương trình và tài liệu tư vấn dành cho cộng tác viên, đại lý và nhân viên tư vấn.
             </p>
           </div>
-          {canManageProducts && (
+          <div className="flex items-center gap-2">
             <button
-              className="bg-cyan-900 hover:bg-cyan-950 text-white text-sm font-semibold px-4 py-2 flex items-center gap-2 shadow-sm rounded-xl force-rounded-xl transition-all duration-200"
-              onClick={handleOpenNewCategory}
+              className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold px-4 py-2 flex items-center gap-2 border border-slate-350 shadow-sm rounded-xl force-rounded-xl transition-all duration-200 cursor-pointer"
+              onClick={handleResetMockData}
             >
-              <i className="fa fa-folder-plus text-base"></i> + Thêm danh mục
+              🔄 Reset Dữ liệu
             </button>
-          )}
+            {canManageProducts && (
+              <button
+                className="bg-cyan-900 hover:bg-cyan-950 text-white text-sm font-semibold px-4 py-2 flex items-center gap-2 shadow-sm rounded-xl force-rounded-xl transition-all duration-200 cursor-pointer"
+                onClick={handleOpenNewCategory}
+              >
+                <i className="fa fa-folder-plus text-base"></i> + Thêm danh mục
+              </button>
+            )}
+          </div>
         </div>
       ) : (
         <div className="mb-6">
