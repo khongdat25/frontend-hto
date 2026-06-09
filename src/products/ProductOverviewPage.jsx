@@ -1951,7 +1951,7 @@ export function ProductOverviewPage({ currentUser }) {
                       {/* Overlay */}
                       <div className="absolute inset-0 bg-gradient-to-t from-slate-950/65 via-slate-900/25 to-slate-900/15" />
 
-                      <div className="relative z-10 flex h-full flex-col p-5 justify-between">
+                      <div className="relative flex h-full flex-col p-5 justify-between">
                         <div className="flex items-start justify-between gap-3">
                           {canManageProducts ? (
                             <div className="flex items-center gap-2">
