@@ -54,6 +54,12 @@ const canViewAIManagement = (user) => {
   return ["admin", "bangiamdoc", "truongbophan", "hethong"].includes(roleKey);
 };
 
+const canManageNewsEvents = (user) => {
+  const roleKey = getUserRoleKey(user);
+
+  return ["admin", "bangiamdoc", "truongbophan"].includes(roleKey);
+};
+
 const normalizeProductType = (typeValue) => {
   const typeKey = String(typeValue || "").trim();
 
@@ -110,12 +116,14 @@ const getSidebarProducts = () => {
 };
 export const Sidebar = ({ currentUser, onNavigate, currentPage, onToggleSidebar }) => {
   // State quản lý việc đóng/mở menu con (mặc định mở 'sanpham' cho giống hình mẫu)
-  const [openMenu, setOpenMenu] = useState("sanpham");
+  const [openMenu, setOpenMenu] = useState(() => ["tintuc", "newsEventsManage"].includes(currentPage) ? "newsEvents" : "sanpham");
   const [openProductCategory, setOpenProductCategory] = useState("duhocduc");
   const sidebarProducts = getSidebarProducts();
   const isProductPage =
     ["duhocduc", "dinhcu", "visa", "daotaongonngu", "nophosoonline", "sanpham", "productOverview"].includes(currentPage) ||
     currentPage.startsWith("product:");
+  const isNewsPage = ["tintuc", "newsEventsManage"].includes(currentPage);
+  const canManageNews = canManageNewsEvents(currentUser);
   const handleGoHome = () => {
     onNavigate?.("dashboard");
   };
@@ -246,52 +254,11 @@ export const Sidebar = ({ currentUser, onNavigate, currentPage, onToggleSidebar 
                   Tổng quan sản phẩm
                 </a>
               </li>
-              {PRODUCT_TYPES.map((type) => {
-                const products = sidebarProducts.filter((product) => product.type === type.id);
-                const isTypeActive =
-                  currentPage === type.id ||
-                  products.some((product) => currentPage === `product:${product.id}`);
-
-                return (
-                  <li className="menu-item mb-1" key={type.id}>
-                    <a className={`menu-link d-flex align-items-center px-3 py-2 rounded-2 ${isTypeActive ? "bg-primary-subtle text-primary fw-medium" : "text-body-secondary"}`} style={{ textDecoration: "none", fontSize: "13px" }} href="#" onClick={(e) => { e.preventDefault(); onNavigate?.(type.id); }}>
-                      <span style={{ flex: 1 }}>{type.label}</span>
-                      <span
-                        className="d-inline-flex"
-                        style={{ cursor: "pointer", padding: "2px" }}
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          setOpenProductCategory(openProductCategory === type.id ? "" : type.id);
-                        }}
-                      >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: openProductCategory === type.id || isTypeActive ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s ease" }}>
-                          <polyline points="6 9 12 15 18 9"></polyline>
-                        </svg>
-                      </span>
-                    </a>
-                    {products.length > 0 && (openProductCategory === type.id || isTypeActive) && (
-                      <ul className="list-unstyled mb-1" style={{ paddingLeft: "14px" }}>
-                        {products.map((product) => (
-                          <li className="menu-item" key={product.id}>
-                            <a
-                              className={`menu-link d-block px-3 py-1 rounded-2 ${currentPage === `product:${product.id}` ? "text-primary fw-semibold" : "text-body-secondary"}`}
-                              style={{ textDecoration: "none", fontSize: "12px" }}
-                              href="#"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                onNavigate?.(`product:${product.id}`);
-                              }}
-                            >
-                              {product.name}
-                            </a>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </li>
-                );
-              })}
+              <li className="menu-item mb-1">
+                <a className={`menu-link d-block px-3 py-2 rounded-2 ${currentPage === "nophosoonline" ? "bg-primary-subtle text-primary fw-medium" : "text-body-secondary"}`} style={{ textDecoration: "none", fontSize: "13px" }} href="#" onClick={(e) => { e.preventDefault(); onNavigate?.("nophosoonline"); }}>
+                  Nộp hồ sơ online
+                </a>
+              </li>
             </ul>
           </li>
 
@@ -402,10 +369,18 @@ export const Sidebar = ({ currentUser, onNavigate, currentPage, onToggleSidebar 
           {/* --- 6. TIN TỨC & SỰ KIỆN --- */}
           <li className="menu-item mb-2">
             <a
-              className={`menu-link d-flex align-items-center px-2 py-2 rounded-2 ${currentPage === "tintuc" ? "text-primary fw-bold" : "text-body-secondary"}`}
+              className={`menu-link d-flex align-items-center px-2 py-2 rounded-2 ${isNewsPage ? "text-primary fw-bold" : "text-body-secondary"}`}
               href="#"
               style={{ textDecoration: "none" }}
-              onClick={(e) => { e.preventDefault(); onNavigate?.("tintuc"); }}
+              role="button"
+              onClick={(e) => {
+                e.preventDefault();
+                if (canManageNews) {
+                  setOpenMenu(openMenu === "newsEvents" ? "" : "newsEvents");
+                } else {
+                  onNavigate?.("tintuc");
+                }
+              }}
             >
               <div className="d-flex align-items-center justify-content-center rounded-3 bg-body-secondary me-3 flex-shrink-0" style={{ width: "36px", height: "36px" }}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -416,7 +391,34 @@ export const Sidebar = ({ currentUser, onNavigate, currentPage, onToggleSidebar 
                 </svg>
               </div>
               <span className="menu-label" style={{ flex: 1, fontSize: "14px" }}>Tin tức & Sự kiện</span>
+              {canManageNews && (
+                <i className={`fi ${openMenu === "newsEvents" ? "fi-br-angle-small-up" : "fi-br-angle-small-down"}`} style={{ fontSize: "16px" }}></i>
+              )}
             </a>
+            {canManageNews && (
+              <ul className="menu-inner list-unstyled mb-0" style={{ display: openMenu === "newsEvents" ? "block" : "none", paddingLeft: "52px", marginTop: "4px" }}>
+                <li className="menu-item mb-1">
+                  <a
+                    className={`menu-link d-block px-3 py-2 rounded-2 ${currentPage === "tintuc" ? "bg-primary-subtle text-primary fw-medium" : "text-body-secondary"}`}
+                    href="#"
+                    style={{ textDecoration: "none", fontSize: "13px" }}
+                    onClick={(e) => { e.preventDefault(); onNavigate?.("tintuc"); }}
+                  >
+                    Chuyên trang tin
+                  </a>
+                </li>
+                <li className="menu-item mb-1">
+                  <a
+                    className={`menu-link d-block px-3 py-2 rounded-2 ${currentPage === "newsEventsManage" ? "bg-primary-subtle text-primary fw-medium" : "text-body-secondary"}`}
+                    href="#"
+                    style={{ textDecoration: "none", fontSize: "13px" }}
+                    onClick={(e) => { e.preventDefault(); onNavigate?.("newsEventsManage"); }}
+                  >
+                    Quản lý bài viết
+                  </a>
+                </li>
+              </ul>
+            )}
           </li>
 
           {/* --- 7. TÀI LIỆU & BIỂU MẪU --- */}
