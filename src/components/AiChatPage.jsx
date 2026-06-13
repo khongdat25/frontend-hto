@@ -104,14 +104,16 @@ const formatChatTime = (value) => {
   });
 };
 
-export function AiChatPage({ currentUser }) {
+export function AiChatPage({ currentUser, isOpen: controlledIsOpen, onOpenChange }) {
   const [sessions, setSessions] = useState(() => readSessions());
   const [activeSessionId, setActiveSessionId] = useState(() => readSessions()[0]?.id);
-  const [isHistoryOpen, setIsHistoryOpen] = useState(true);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [uncontrolledIsOpen, setUncontrolledIsOpen] = useState(false);
   const [question, setQuestion] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const messagesScrollRef = useRef(null);
   const pendingTimerRef = useRef(null);
+  const isOpen = typeof controlledIsOpen === "boolean" ? controlledIsOpen : uncontrolledIsOpen;
 
   const activeSession = useMemo(
     () => sessions.find((session) => session.id === activeSessionId) || sessions[0],
@@ -119,12 +121,30 @@ export function AiChatPage({ currentUser }) {
   );
 
   useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
     const scrollElement = messagesScrollRef.current;
 
     if (scrollElement) {
       scrollElement.scrollTop = scrollElement.scrollHeight;
     }
-  }, [activeSession?.messages.length, activeSessionId, isLoading]);
+  }, [activeSession?.messages.length, activeSessionId, isLoading, isOpen]);
+
+  useEffect(() => {
+    return () => {
+      window.clearTimeout(pendingTimerRef.current);
+    };
+  }, []);
+
+  const setChatOpen = (nextIsOpen) => {
+    if (typeof controlledIsOpen !== "boolean") {
+      setUncontrolledIsOpen(nextIsOpen);
+    }
+
+    onOpenChange?.(nextIsOpen);
+  };
 
   const persistSessions = (nextSessions) => {
     setSessions(nextSessions);
@@ -204,144 +224,171 @@ export function AiChatPage({ currentUser }) {
   };
 
   return (
-    <div className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-3 overflow-hidden">
-      <div className="flex min-h-0 flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-        <div>
-          <div className="text-uppercase fw-semibold text-primary mb-1" style={{ fontSize: "12px", letterSpacing: 0 }}>
-            AI Portal
-          </div>
-          <h4 className="fw-bold text-body-emphasis mb-1">Chat AI nội bộ</h4>
-         
-        </div>
-      </div>
-
-      <div className={`grid min-h-0 gap-4 overflow-hidden max-xl:grid-cols-1 max-xl:overflow-visible ${isHistoryOpen ? "grid-cols-[minmax(280px,370px)_minmax(0,1fr)]" : "grid-cols-[minmax(0,1fr)]"}`}>
-        {isHistoryOpen && (
-        <aside className="min-h-0 overflow-hidden max-xl:h-[460px]">
-          <section className="grid h-full min-h-0 w-full grid-rows-[auto_minmax(0,1fr)] overflow-hidden rounded-lg border-0 bg-[var(--bs-body-bg)] shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
-            <div className="flex flex-shrink-0 items-center justify-between border-0 bg-transparent p-3 pb-2">
-              <h6 className="fw-bold text-body-emphasis mb-0">Lịch sử chat</h6>
-              <div className="flex items-center gap-2">
-                <span className="badge bg-body-secondary text-body">{sessions.length}</span>
-                <button
-                  className="btn btn-sm btn-primary inline-flex items-center justify-center"
-                  type="button"
-                  onClick={startNewSession}
-                  title="Chat mới"
-                  aria-label="Chat mới"
-                >
-                  <PlusMiniIcon />
-                </button>
-                <button
-                  className="btn btn-sm btn-light border inline-flex items-center justify-center"
-                  type="button"
-                  onClick={() => setIsHistoryOpen(false)}
-                  title="Ẩn lịch sử chat"
-                  aria-label="Ẩn lịch sử chat"
-                >
-                  <MenuIcon />
-                </button>
-              </div>
-            </div>
-            <div className="grid min-h-0 content-start gap-2 overflow-y-auto overscroll-contain p-2 pt-0">
-              {sessions.map((session) => {
-                const isActive = session.id === activeSession?.id;
-
-                return (
+    <div className="ai-chat-widget">
+      {isOpen && (
+        <div className={`ai-chat-popover${isHistoryOpen ? " ai-chat-history-active" : ""}`}>
+          {isHistoryOpen && (
+            <section className="ai-chat-history rounded-lg border bg-[var(--bs-body-bg)] shadow-[0_18px_48px_rgba(15,23,42,0.18)]">
+              <div className="flex items-center justify-between gap-2 p-3 pb-2">
+                <h6 className="fw-bold text-body-emphasis mb-0">Lịch sử</h6>
+                <div className="d-flex align-items-center gap-2">
+                  <span className="badge bg-body-secondary text-body">{sessions.length}</span>
                   <button
-                    className={`btn text-start border d-flex gap-2 align-items-start ${isActive ? "btn-primary" : "btn-light"}`}
-                    key={session.id}
+                    className="btn btn-sm btn-light border d-inline-flex align-items-center justify-content-center ai-chat-history-close"
                     type="button"
-                    onClick={() => setActiveSessionId(session.id)}
-                    style={{ borderRadius: "8px" }}
+                    onClick={() => setIsHistoryOpen(false)}
+                    title="Đóng lịch sử"
+                    aria-label="Đóng lịch sử"
                   >
-                    <span className="d-inline-flex align-items-center justify-content-center rounded-circle flex-shrink-0" style={{ width: "28px", height: "28px", backgroundColor: isActive ? "rgba(255,255,255,0.2)" : "var(--bs-body-bg)" }}>
-                      <ChatIcon />
-                    </span>
-                    <span style={{ minWidth: 0, flex: 1 }}>
-                      <span className="fw-semibold d-block text-truncate" style={{ fontSize: "13px" }}>
-                        {session.title}
-                      </span>
-                      <span className={isActive ? "text-white-50" : "text-body-secondary"} style={{ fontSize: "11px" }}>
-                        {formatChatTime(session.updatedAt)}
-                      </span>
-                    </span>
-                    <span
-                      className="d-inline-flex align-items-center justify-content-center rounded-circle"
-                      role="button"
-                      tabIndex={0}
-                      title="Xóa phiên"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        deleteSession(session.id);
+                    <CloseIcon />
+                  </button>
+                </div>
+              </div>
+              <div className="grid min-h-0 content-start gap-2 overflow-y-auto overscroll-contain p-2 pt-0">
+                {sessions.map((session) => {
+                  const isActive = session.id === activeSession?.id;
+
+                  return (
+                    <button
+                      className={`btn text-start border d-flex gap-2 align-items-start ${isActive ? "btn-primary" : "btn-light"}`}
+                      key={session.id}
+                      type="button"
+                      onClick={() => {
+                        setActiveSessionId(session.id);
+                        setIsHistoryOpen(false);
                       }}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter") {
+                      style={{ borderRadius: "8px" }}
+                    >
+                      <span className="d-inline-flex align-items-center justify-content-center rounded-circle flex-shrink-0" style={{ width: "28px", height: "28px", backgroundColor: isActive ? "rgba(255,255,255,0.2)" : "var(--bs-body-bg)" }}>
+                        <ChatIcon />
+                      </span>
+                      <span style={{ minWidth: 0, flex: 1 }}>
+                        <span className="fw-semibold d-block text-truncate" style={{ fontSize: "13px" }}>
+                          {session.title}
+                        </span>
+                        <span className={isActive ? "text-white-50" : "text-body-secondary"} style={{ fontSize: "11px" }}>
+                          {formatChatTime(session.updatedAt)}
+                        </span>
+                      </span>
+                      <span
+                        className="d-inline-flex align-items-center justify-content-center rounded-circle"
+                        role="button"
+                        tabIndex={0}
+                        title="Xóa phiên"
+                        onClick={(event) => {
                           event.stopPropagation();
                           deleteSession(session.id);
-                        }
-                      }}
-                      style={{ width: "24px", height: "24px" }}
-                    >
-                      <TrashMiniIcon />
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            event.stopPropagation();
+                            deleteSession(session.id);
+                          }
+                        }}
+                        style={{ width: "24px", height: "24px" }}
+                      >
+                        <TrashMiniIcon />
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+
+          <section className="ai-chat-panel">
+            <ChatConversationPanel
+              currentUser={currentUser}
+              isHistoryOpen={isHistoryOpen}
+              isLoading={isLoading}
+              messages={activeSession?.messages || []}
+              messagesScrollRef={messagesScrollRef}
+              onClose={() => setChatOpen(false)}
+              onHistoryToggle={() => setIsHistoryOpen((currentValue) => !currentValue)}
+              onNewSession={startNewSession}
+              onQuestionChange={setQuestion}
+              onSubmit={handleSubmit}
+              question={question}
+              title={activeSession?.title || "Phiên chat"}
+            />
           </section>
-        </aside>
-        )}
+        </div>
+      )}
 
-        {!isHistoryOpen && (
-          <button
-            className="btn btn-sm btn-light border self-start justify-self-start inline-flex items-center justify-center"
-            type="button"
-            onClick={() => setIsHistoryOpen(true)}
-            title="Hiện lịch sử chat"
-            aria-label="Hiện lịch sử chat"
-          >
-            <MenuIcon />
-          </button>
-        )}
-
-        <section className="min-h-0 overflow-hidden max-xl:h-[460px]">
-          <ChatConversationPanel
-            currentUser={currentUser}
-            isLoading={isLoading}
-            messages={activeSession?.messages || []}
-            messagesScrollRef={messagesScrollRef}
-            onQuestionChange={setQuestion}
-            onSubmit={handleSubmit}
-            question={question}
-            title={activeSession?.title || "Phiên chat"}
+      <button
+        className="ai-chat-toggle btn btn-primary d-inline-flex align-items-center justify-content-center shadow-lg"
+        type="button"
+        onClick={() => setChatOpen(!isOpen)}
+        title={isOpen ? "Đóng AI chat" : "Mở AI chat"}
+        aria-label={isOpen ? "Đóng AI chat" : "Mở AI chat"}
+        aria-expanded={isOpen}
+      >
+        {isOpen ? (
+          <CloseIcon />
+        ) : (
+          <img
+            className="ai-chat-toggle-image"
+            src="/assets/images/hito_4.png"
+            alt="AI hỗ trợ"
           />
-        </section>
-      </div>
+        )}
+      </button>
     </div>
   );
 }
 
 function ChatConversationPanel({
   currentUser,
+  isHistoryOpen,
   isLoading,
   messages,
   messagesScrollRef,
+  onClose,
+  onHistoryToggle,
+  onNewSession,
   onQuestionChange,
   onSubmit,
   question,
   title,
 }) {
   return (
-    <article className="grid h-full min-h-0 w-full grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden rounded-lg border-0 bg-[var(--bs-body-bg)] shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
-      <header className="flex flex-wrap items-center justify-between gap-2 border-0 bg-transparent p-3">
-        <div>
+    <article className="grid h-full min-h-0 w-full grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden rounded-lg border bg-[var(--bs-body-bg)] shadow-[0_18px_48px_rgba(15,23,42,0.18)]">
+      <header className="flex items-start justify-between gap-2 border-bottom bg-transparent p-3">
+        <div style={{ minWidth: 0 }}>
           <h6 className="fw-bold text-body-emphasis mb-1">{title}</h6>
           <div className="text-body-secondary" style={{ fontSize: "12px" }}>
             {currentUser?.fullName || currentUser?.name || currentUser?.email || "Người dùng portal"}
           </div>
         </div>
-        <span className="badge bg-success-subtle text-success px-3 py-2">Sẵn sàng hỏi AI</span>
+        <div className="d-flex align-items-center gap-2 flex-shrink-0">
+          <button
+            className="btn btn-sm btn-light border d-inline-flex align-items-center justify-content-center"
+            type="button"
+            onClick={onHistoryToggle}
+            title={isHistoryOpen ? "Ẩn lịch sử chat" : "Hiện lịch sử chat"}
+            aria-label={isHistoryOpen ? "Ẩn lịch sử chat" : "Hiện lịch sử chat"}
+          >
+            <MenuIcon />
+          </button>
+          <button
+            className="btn btn-sm btn-primary d-inline-flex align-items-center justify-content-center"
+            type="button"
+            onClick={onNewSession}
+            title="Chat mới"
+            aria-label="Chat mới"
+          >
+            <PlusMiniIcon />
+          </button>
+          <button
+            className="btn btn-sm btn-light border d-inline-flex align-items-center justify-content-center"
+            type="button"
+            onClick={onClose}
+            title="Đóng"
+            aria-label="Đóng"
+          >
+            <CloseIcon />
+          </button>
+        </div>
       </header>
 
       <main className="min-h-0 overflow-hidden p-3">
@@ -371,8 +418,8 @@ function ChatConversationPanel({
             value={question}
             onChange={(event) => onQuestionChange(event.target.value)}
           />
-          <button className="btn btn-primary shrink-0" type="submit" disabled={isLoading || !question.trim()}>
-            {isLoading ? "Đang trả lời" : "Gửi"}
+          <button className="btn btn-primary shrink-0 d-inline-flex align-items-center justify-content-center" type="submit" disabled={isLoading || !question.trim()} title="Gửi" aria-label="Gửi">
+            <SendIcon />
           </button>
         </form>
       </footer>
@@ -414,9 +461,9 @@ function ChatMessage({ message }) {
   );
 }
 
-function ChatIcon() {
+function ChatIcon({ size = 15 }) {
   return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"></path>
     </svg>
   );
@@ -447,6 +494,24 @@ function MenuIcon() {
       <path d="M3 6h18"></path>
       <path d="M3 12h18"></path>
       <path d="M3 18h18"></path>
+    </svg>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M18 6 6 18"></path>
+      <path d="m6 6 12 12"></path>
+    </svg>
+  );
+}
+
+function SendIcon() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="m22 2-7 20-4-9-9-4Z"></path>
+      <path d="M22 2 11 13"></path>
     </svg>
   );
 }

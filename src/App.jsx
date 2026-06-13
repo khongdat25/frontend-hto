@@ -189,6 +189,7 @@ const resetAuthUrl = () => {
 function App() {
   const [currentPage, setCurrentPage] = useState(() => getStoredPage());
   const [selectedNotificationId, setSelectedNotificationId] = useState(null);
+  const [isAiChatOpen, setIsAiChatOpen] = useState(false);
   const [user, setUser] = useState(() => getStoredUser());
   const [authMode, setAuthMode] = useState(() => getAuthModeFromLocation()); // 'login', 'register', 'forgot', 'reset-password'
   const [registerLayoutMode, setRegisterLayoutMode] = useState("account");
@@ -309,6 +310,11 @@ function App() {
   };
 
   const handleNavigate = (page, options = {}) => {
+    if (page === "qna") {
+      setIsAiChatOpen(true);
+      return;
+    }
+
     setCurrentPage(page);
     setSelectedNotificationId(
       page === "notifications" ? options.notificationId || null : null,
@@ -441,7 +447,7 @@ function App() {
       />
 
       <main
-        className={`app-wrapper${currentPage === "qna" ? " ai-chat-wrapper" : ""}${
+        className={`app-wrapper${
           currentPage === "notifications" ? " notifications-wrapper" : ""
         }`}
       >
@@ -479,8 +485,6 @@ function App() {
           <DocumentsPage currentUser={user} />
         ) : currentPage === "nghiepvu" ? (
           <AccountingPlaceholderPage />
-        ) : currentPage === "qna" ? (
-          <AiChatPage currentUser={user} />
         ) : currentPage === "dashboardStats" ? (
           <DashboardPage currentUser={user} />
         ) : currentPage === "newsEventsManage" ? (
@@ -848,7 +852,12 @@ function App() {
         )}
       </main>
 
-      {currentPage !== "qna" && <Footer />}
+      <Footer />
+      <AiChatPage
+        currentUser={user}
+        isOpen={isAiChatOpen}
+        onOpenChange={setIsAiChatOpen}
+      />
     </div>
   );
 }

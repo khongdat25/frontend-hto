@@ -1,8 +1,10 @@
 import { useMemo, useState } from "react";
+import { getAuthHeaders } from "../auth/session";
 import { TailwindDropdown } from "../components/ui/TailwindDropdown";
+import { API_BASE_URL } from "../config/api";
 import "./LeadFormPage.css";
 
-const API_BASE_URL = "http://localhost:3000/api/v1";
+const LEAD_REQUEST_TIMEOUT_MS = 15000;
 
 const INITIAL_FORM = {
   customerName: "",
@@ -22,6 +24,39 @@ const PRODUCT_OPTIONS = ["Du học Đức", "Visa", "Định cư", "Đào tạo 
 const COUNTRY_OPTIONS = ["Đức", "Úc", "Canada", "Mỹ", "Nhật Bản", "Hàn Quốc", "Khác"];
 const URGENCY_OPTIONS = ["Ngay lập tức", "Trong 1-3 tháng", "Trong 3-6 tháng", "Sau 6 tháng", "Chưa xác định"];
 const CONTACT_OPTIONS = ["Zalo/Điện thoại", "Email", "Messenger", "Gặp trực tiếp", "Khác"];
+
+const normalizePhone = (value) => value.trim().replace(/[\s.-]/g, "");
+
+const buildLeadPayload = (form) => {
+  return {
+    customerName: form.customerName.trim(),
+    phone: normalizePhone(form.phone),
+    source: form.source || "Website",
+    productInterest: form.productInterest || "Du học Đức",
+    countryInterest: form.countryInterest || "Đức",
+    email: form.email.trim(),
+    budgetRange: form.budgetRange.trim(),
+    urgency: form.urgency || "Trong 1-3 tháng",
+    preferredContact: form.preferredContact || "Zalo/Điện thoại",
+    note: form.note.trim()
+  };
+};
+
+const getApiErrorMessage = (data, status) => {
+  if (status === 401) {
+    return data?.message || "Phiên đăng nhập không hợp lệ hoặc đã hết hạn. Vui lòng đăng nhập lại để gửi lead.";
+  }
+
+  if (status === 403) {
+    return data?.message || "Tài khoản hiện tại chưa có quyền gửi lead. Vui lòng kiểm tra quyền cộng tác viên.";
+  }
+
+  if (status === 400) {
+    return data?.message || "Thông tin lead chưa hợp lệ. Vui lòng kiểm tra họ tên và số điện thoại.";
+  }
+
+  return data?.message || "Không thể gửi lead. Vui lòng thử lại sau.";
+};
 
 const validateForm = (form) => {
   const errors = {};
@@ -52,6 +87,7 @@ export const LeadFormPage = () => {
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
   const [submitResult, setSubmitResult] = useState(null);
+  const payloadPreview = useMemo(() => buildLeadPayload(form), [form]);
 
   const completionPercent = useMemo(() => {
     const fields = [
@@ -96,54 +132,68 @@ export const LeadFormPage = () => {
     setSubmitting(true);
     setSubmitResult(null);
 
-    const payload = {
-      customerName: form.customerName.trim(),
-      phone: form.phone.trim(),
-      email: form.email.trim(),
-      source: form.source,
-      productInterest: form.productInterest,
-      countryInterest: form.countryInterest,
-      budgetRange: form.budgetRange.trim(),
-      urgency: form.urgency,
-      preferredContact: form.preferredContact,
-      note: form.note.trim(),
-      status: "new",
-      createdAt: new Date().toISOString()
-    };
+    const authHeaders = getAuthHeaders();
+
+    if (!authHeaders.Authorization) {
+      setSubmitResult({
+        type: "danger",
+        mode: "real",
+        leadCode: "-",
+        message: "Bạn cần đăng nhập hoặc phiên đăng nhập đã hết hạn để gửi lead."
+      });
+      setSubmitting(false);
+      return;
+    }
+
+    const payload = buildLeadPayload(form);
+
+    const abortController = new AbortController();
+    const requestTimeout = window.setTimeout(() => {
+      abortController.abort();
+    }, LEAD_REQUEST_TIMEOUT_MS);
 
     try {
       const response = await fetch(`${API_BASE_URL}/leads`, {
         method: "POST",
         headers: {
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
+          ...authHeaders
         },
+        signal: abortController.signal,
         body: JSON.stringify(payload)
       });
 
+      const data = await response.json().catch(() => ({}));
+
       if (!response.ok) {
-        throw new Error("API lead chưa sẵn sàng. Hệ thống sẽ mô phỏng gửi thành công để test UI.");
+        throw new Error(getApiErrorMessage(data, response.status));
       }
 
-      const data = await response.json();
+      const createdLead = data?.data || {};
 
       setSubmitResult({
         type: "success",
-        mode: "real",
-        leadCode: data?.data?.code || data?.code || `LEAD-${Date.now()}`,
-        message: "Lead đã được gửi thành công vào CRM."
+        mode: "api",
+        leadCode: createdLead.bizflyContactId || createdLead._id || `LEAD-${Date.now()}`,
+        message: createdLead.bizflyContactId
+          ? data?.message || "Lead đã được gửi thành công vào CRM."
+          : "Lead đã lưu vào hệ thống, nhưng BizFly chưa trả mã contact. Vui lòng kiểm tra log đồng bộ hoặc thử lại với đầy đủ email/số điện thoại."
       });
 
       setForm(INITIAL_FORM);
     } catch (err) {
-      setSubmitResult({
-        type: "success",
-        mode: "mock",
-        leadCode: `MOCK-LEAD-${Date.now().toString().slice(-6)}`,
-        message: "Đã mô phỏng gửi lead thành công. Khi có API thật, thay endpoint POST /leads là dùng được."
-      });
+      const isTimeout = err.name === "AbortError";
 
-      setForm(INITIAL_FORM);
+      setSubmitResult({
+        type: "danger",
+        mode: "api",
+        leadCode: "-",
+        message: isTimeout
+          ? "Kết nối API quá lâu chưa phản hồi. Vui lòng thử lại sau ít phút."
+          : err.message || "Không thể gửi lead. Vui lòng thử lại sau."
+      });
     } finally {
+      window.clearTimeout(requestTimeout);
       setSubmitting(false);
     }
   };
@@ -173,7 +223,7 @@ export const LeadFormPage = () => {
           <div>
             <strong>{submitResult.message}</strong>
             <div className="small">
-              Mã lead: {submitResult.leadCode} · {submitResult.mode === "real" ? "API thật" : "Dữ liệu giả"}
+              Mã lead: {submitResult.leadCode} · API: POST {API_BASE_URL}/leads
             </div>
           </div>
         </div>
@@ -314,8 +364,13 @@ export const LeadFormPage = () => {
             </div>
 
             <div className="lead-api-note mt-4">
-              <strong>API thật sau này:</strong>
-              <code>POST /api/v1/leads</code>
+              <strong>API đang kết nối:</strong>
+              <code>POST {API_BASE_URL}/leads</code>
+            </div>
+
+            <div className="lead-api-note mt-3">
+              <strong>Payload sẽ gửi:</strong>
+              <pre>{JSON.stringify(payloadPreview, null, 2)}</pre>
             </div>
           </div>
         </div>

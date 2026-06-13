@@ -147,6 +147,18 @@
   font-size: 12px;
 }
 
+.lead-api-note pre {
+  max-height: 260px;
+  margin: 0;
+  overflow: auto;
+  border-radius: 10px;
+  padding: 10px;
+  background: var(--bs-body-bg);
+  color: var(--bs-body-color);
+  font-size: 12px;
+  white-space: pre-wrap;
+}
+
 .lead-result-alert {
   border-radius: 14px;
   padding: 14px 16px;
