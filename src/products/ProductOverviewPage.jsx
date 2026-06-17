@@ -145,7 +145,27 @@ const INITIAL_CATEGORIES = [
     description: "Các chương trình du học hè ngắn hạn kết hợp học tập, rèn luyện kỹ năng và giao lưu văn hóa tại nhiều quốc gia phát triển.",
     status: "active",
     coverImageUrl: "https://images.unsplash.com/photo-1544717305-2782549b5136?auto=format&fit=crop&w=800&q=80",
-    programs: []
+    programs: [
+      {
+        id: "prog-1-1",
+        name: "Du học hè Singapore",
+        country: "Singapore",
+        region: "Châu Á",
+        description: "Chương trình du học hè tại Singapore",
+        detailDescription: "Chi tiết chương trình du học hè Singapore",
+        targetAudience: "Học sinh 7-17 tuổi",
+        highlights: ["Học tiếng Anh với giáo viên bản ngữ", "Tham quan các địa danh nổi tiếng"],
+        processSteps: ["Đăng ký", "Nộp hồ sơ", "Phỏng vấn"],
+        tags: ["Chất lượng cao", "An toàn"],
+        websiteUrl: "",
+        serviceFee: 0,
+        currency: "VND",
+        image: "",
+        brochure: null,
+        documents: [],
+        updatedAt: "2026-06-17"
+      }
+    ]
   },
   {
     id: "cat-2",
@@ -213,7 +233,6 @@ const apiRequest = async (url, options = {}) => {
 };
 
 // Helper: parse extended info từ description (lưu dưới dạng JSON)
-// Helper: parse extended info từ description (lưu dưới dạng JSON)
 const parseExtendedInfo = (description) => {
   if (!description) return { mainDescription: "", extendedData: {} };
   if (description.startsWith('{') && description.includes('"__extended__"')) {
@@ -225,13 +244,13 @@ const parseExtendedInfo = (description) => {
           extendedData: parsed
         };
       }
-    } catch  {
-      // Không phải JSON hợp lệ, trả về nguyên bản
+    } catch {
       return { mainDescription: description, extendedData: {} };
     }
   }
   return { mainDescription: description, extendedData: {} };
 };
+
 // Build description với extended data
 const buildDescription = (mainDescription, extendedData) => {
   if (Object.keys(extendedData).length === 0) return mainDescription;
@@ -271,10 +290,15 @@ const mapApiProductToUiProduct = (apiProduct, categoryId, categoryName) => {
   const status = apiProduct.status ||
     (apiProduct.isActive === false ? "inactive" : "active");
 
-  const image = apiProduct.image
-    ? (apiProduct.image.startsWith("http")
-        ? apiProduct.image
-        : `${STATIC_BASE_URL}/${apiProduct.image.replace(/^\//, "")}`)
+  let cleanImagePath = apiProduct.image || "";
+  if (cleanImagePath.includes("localhost:3000")) {
+    cleanImagePath = cleanImagePath.replace(/^http:\/\/localhost:3000/, "");
+  }
+
+  const image = cleanImagePath
+    ? (cleanImagePath.startsWith("http")
+        ? cleanImagePath
+        : `${STATIC_BASE_URL}/${cleanImagePath.replace(/^\//, "")}`)
     : "";
 
   const tags = requirements.filter(r => r.criteriaType === "tag").map(r => r.criteriaValue).filter(Boolean);
@@ -315,19 +339,36 @@ const USE_MOCK_WHEN_API_FAIL = true;
 
 const getMockData = () => INITIAL_CATEGORIES;
 
+/**
+ * Chuyển đổi dữ liệu danh mục từ API về định dạng chuẩn của giao diện (UI)
+ */
 const mapApiCategoryToUiCategory = (apiCategory) => {
-  const name = apiCategory.name || "";
+  if (!apiCategory) return null;
+
   const id = apiCategory._id || apiCategory.id || "";
-  const rawUrl = apiCategory.coverImageUrl || apiCategory.imageUrl || apiCategory.image || "";
-  const coverImageUrl = rawUrl && !rawUrl.startsWith("http")
-    ? `${STATIC_BASE_URL}/${rawUrl.replace(/^\//, "")}`
-    : rawUrl;
+  const name = apiCategory.name || "";
+  const description = apiCategory.description || "";
+  const status = apiCategory.status || (apiCategory.isActive === false ? "inactive" : "active");
+  const updatedAt = apiCategory.updatedAt || "";
+  
+  let rawUrl = apiCategory.coverImageUrl || apiCategory.imageUrl || apiCategory.image || "";
+
+  if (rawUrl.includes("localhost:3000")) {
+    rawUrl = rawUrl.replace(/^http:\/\/localhost:3000/, "");
+  }
+
+  const coverImageUrl = rawUrl
+    ? (rawUrl.startsWith("http://") || rawUrl.startsWith("https://") || rawUrl.startsWith("data:")
+        ? rawUrl
+        : `${STATIC_BASE_URL}/${rawUrl.replace(/^\//, "")}`)
+    : "https://images.unsplash.com/photo-1544717305-2782549b5136?auto=format&fit=crop&w=800&q=80";
+
   return {
     id,
     name,
-    description: apiCategory.description || "",
-    status: apiCategory.status || "active",  // Mặc định là active nếu thiếu
-    updatedAt: apiCategory.updatedAt || "",
+    description,
+    status,
+    updatedAt,
     coverImageUrl,
     programs: [],
     products: []
@@ -477,15 +518,15 @@ function CustomDropdown({ value, options, onChange, placeholder }) {
   );
 }
 
-function MegaMenuFilter({ categories, selectedCategoryName, selectedCountry, onSelect }) {
+function MegaMenuFilter({ categories, selectedCategoryName, selectedCountry, selectedRegion, onSelect }) {
   const [isOpen, setIsOpen] = useState(false);
-  const [hoveredCat, setHoveredCat] = useState(null);
-  const [hoveredCountry, setHoveredCountry] = useState(null);
+  const [selectedCat, setSelectedCat] = useState(null);
+  const [selectedRegionItem, setSelectedRegionItem] = useState(null);
+  const [selectedCountryItem, setSelectedCountryItem] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const menuRef = useRef(null);
-  const timeoutRef = useRef(null);
 
-  // Lọc danh mục theo từ khóa tìm kiếm
+  // Lọc danh mục
   const filteredCategories = useMemo(() => {
     if (!searchTerm.trim()) return categories;
     const term = searchTerm.toLowerCase().trim();
@@ -494,32 +535,78 @@ function MegaMenuFilter({ categories, selectedCategoryName, selectedCountry, onS
       cat?.description?.toLowerCase().includes(term)
     );
   }, [categories, searchTerm]);
-  // Lấy chương trình theo danh mục và quốc gia đã chọn
+
+  // Lấy danh sách khu vực theo danh mục đã chọn
+  const regionsForCat = useMemo(() => {
+    if (!selectedCat) return [];
+    const cat = categories.find(c => c.name === selectedCat);
+    if (!cat) return [];
+
+    const seen = new Set();
+    const result = [];
+    (cat.programs || []).forEach(p => {
+      const raw = p?.region?.trim();
+      if (raw && !seen.has(raw)) {
+        seen.add(raw);
+        result.push(raw);
+      }
+    });
+    return result.sort();
+  }, [categories, selectedCat]);
+
+  // Lấy danh sách quốc gia theo danh mục + khu vực đã chọn
+  const countriesForSelection = useMemo(() => {
+    if (!selectedCat || !selectedRegionItem) return [];
+    const cat = categories.find(c => c.name === selectedCat);
+    if (!cat) return [];
+
+    let programs = cat.programs || [];
+    if (selectedRegionItem !== "Tất cả khu vực") {
+      programs = programs.filter(p => safeText(p?.region) === safeText(selectedRegionItem));
+    }
+
+    const seen = new Set();
+    const result = [];
+    programs.forEach(p => {
+      const raw = p?.country?.trim();
+      if (raw && !seen.has(raw)) {
+        seen.add(raw);
+        result.push(raw);
+      }
+    });
+    return result.sort((a, b) =>
+      resolveCountryName(a).localeCompare(resolveCountryName(b), "vi")
+    );
+  }, [categories, selectedCat, selectedRegionItem]);
+
+  // Lấy chương trình theo danh mục, khu vực và quốc gia đã chọn
   const programsForSelection = useMemo(() => {
-    if (!hoveredCat) return [];
+    if (!selectedCat || !selectedRegionItem || !selectedCountryItem) return [];
     
-    const cat = categories.find(c => c.name === hoveredCat);
+    const cat = categories.find(c => c.name === selectedCat);
     if (!cat) return [];
 
     let programs = cat.programs || [];
     
-    // Nếu chọn "Tất cả quốc gia" hoặc "ALL" thì hiển thị tất cả chương trình của danh mục
-    if (hoveredCountry === "Tất cả quốc gia" || hoveredCountry === "ALL" || !hoveredCountry) {
-      return programs;
+    if (selectedRegionItem !== "Tất cả khu vực") {
+      programs = programs.filter(p => safeText(p?.region) === safeText(selectedRegionItem));
     }
 
-    // Lọc theo quốc gia
-    return programs.filter(
-      p => safeText(p?.country) === safeText(hoveredCountry)
-    );
-  }, [categories, hoveredCat, hoveredCountry]);
+    if (selectedCountryItem !== "Tất cả quốc gia") {
+      programs = programs.filter(p => safeText(p?.country) === safeText(selectedCountryItem));
+    }
 
+    return programs;
+  }, [categories, selectedCat, selectedRegionItem, selectedCountryItem]);
+
+  // Click outside
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (menuRef.current && !menuRef.current.contains(e.target)) {
         setIsOpen(false);
-        setHoveredCat(null);
-        setHoveredCountry(null);
+        setSelectedCat(null);
+        setSelectedRegionItem(null);
+        setSelectedCountryItem(null);
         setSearchTerm("");
       }
     };
@@ -531,103 +618,261 @@ function MegaMenuFilter({ categories, selectedCategoryName, selectedCountry, onS
     };
   }, [isOpen]);
 
-  // Cleanup timeout
-  useEffect(() => {
-    return () => {
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    };
-  }, []);
-
-  const hasSelection = selectedCategoryName !== "Tất cả" || selectedCountry !== "Tất cả";
+  const hasSelection = selectedCategoryName !== "Tất cả" || selectedCountry !== "Tất cả" || selectedRegion !== "Tất cả";
 
   const displayLabel = hasSelection
     ? [
         selectedCategoryName !== "Tất cả" && selectedCategoryName,
+        selectedRegion !== "Tất cả" && selectedRegion,
         selectedCountry !== "Tất cả" && resolveCountryName(selectedCountry)
       ]
       .filter(Boolean)
       .join(" › ")
     : "Danh mục & Quốc gia";
 
-  const handleSelectCatOnly = (catName) => {
-    onSelect({ category: catName, country: "Tất cả" });
-    setIsOpen(false);
-    setHoveredCat(null);
-    setHoveredCountry(null);
-    setSearchTerm("");
+  const handleSelectCategory = (catName) => {
+    if (selectedCat === catName) {
+      // Nếu đã chọn rồi thì bỏ chọn
+      setSelectedCat(null);
+      setSelectedRegionItem(null);
+      setSelectedCountryItem(null);
+    } else {
+      setSelectedCat(catName);
+      setSelectedRegionItem(null);
+      setSelectedCountryItem(null);
+    }
   };
 
-  const handleSelectCountry = (catName, country) => {
-    onSelect({ category: catName, country });
+  const handleSelectRegion = (region) => {
+    if (selectedRegionItem === region) {
+      setSelectedRegionItem(null);
+      setSelectedCountryItem(null);
+    } else {
+      setSelectedRegionItem(region);
+      setSelectedCountryItem(null);
+    }
+  };
+
+  const handleSelectCountry = (country) => {
+    if (selectedCountryItem === country) {
+      setSelectedCountryItem(null);
+    } else {
+      setSelectedCountryItem(country);
+    }
+  };
+
+  const handleApplyFilter = (catName, region, country) => {
+    onSelect({ 
+      category: catName || "Tất cả", 
+      region: region || "Tất cả", 
+      country: country || "Tất cả" 
+    });
     setIsOpen(false);
-    setHoveredCat(null);
-    setHoveredCountry(null);
+    setSelectedCat(null);
+    setSelectedRegionItem(null);
+    setSelectedCountryItem(null);
     setSearchTerm("");
   };
 
   const handleReset = () => {
-    onSelect({ category: "Tất cả", country: "Tất cả" });
+    onSelect({ category: "Tất cả", region: "Tất cả", country: "Tất cả" });
     setIsOpen(false);
-    setHoveredCat(null);
-    setHoveredCountry(null);
+    setSelectedCat(null);
+    setSelectedRegionItem(null);
+    setSelectedCountryItem(null);
     setSearchTerm("");
   };
 
-  const handleMouseEnter = (catName) => {
-    if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    setHoveredCat(catName);
-    setHoveredCountry("Tất cả quốc gia");
-  };
+  const renderCategoryList = () => (
+    <div className="p-2">
+      <div className="relative mb-2">
+        <input
+          type="text"
+          placeholder="Tìm danh mục..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="w-full h-9 pl-8 pr-3 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500"
+        />
+        <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+      </div>
+      
+      <button
+        onClick={handleReset}
+        className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all ${
+          selectedCategoryName === "Tất cả" && selectedCountry === "Tất cả" && selectedRegion === "Tất cả"
+            ? "bg-cyan-50 text-cyan-700 font-semibold"
+            : "hover:bg-slate-50 text-slate-600"
+        }`}
+      >
+        📂 Tất cả danh mục
+      </button>
 
-  const handleMenuLeave = () => {
-    timeoutRef.current = setTimeout(() => {
-      setHoveredCat(null);
-      setHoveredCountry(null);
-    }, 200);
-  };
+      {filteredCategories.map(cat => {
+        const isActive = selectedCat === cat.name;
+        const count = cat.programs?.length || 0;
+        return (
+          <button
+            key={cat.id}
+            onClick={() => handleSelectCategory(cat.name)}
+            className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all flex items-center justify-between ${
+              isActive ? "bg-cyan-50 text-cyan-700 font-semibold" : "hover:bg-slate-50 text-slate-600"
+            }`}
+          >
+            <span>{cat.name}</span>
+            <div className="flex items-center gap-2">
+              {count > 0 && (
+                <span className="text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
+                  {count}
+                </span>
+              )}
+              <svg className={`w-4 h-4 transition-transform ${isActive ? "rotate-90" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </div>
+          </button>
+        );
+      })}
+    </div>
+  );
 
-  // Lấy danh sách quốc gia cho danh mục đang hover
-  const countriesForCat = useMemo(() => {
-    if (!hoveredCat) return [];
-    const cat = categories.find(c => c.name === hoveredCat);
-    if (!cat) return [];
-
-    const seen = new Set();
-    const result = [];
-    (cat.programs || []).forEach(p => {
-      const raw = p?.country?.trim();
-      if (raw && !seen.has(raw)) {
-        seen.add(raw);
-        result.push(raw);
-      }
-    });
-    return result.sort((a, b) =>
-      resolveCountryName(a).localeCompare(resolveCountryName(b), "vi")
+  const renderRegionList = () => {
+    if (!selectedCat) return (
+      <div className="p-4 text-center text-slate-400 text-sm">
+        ← Chọn danh mục để xem khu vực
+      </div>
     );
-  }, [categories, hoveredCat]);
 
-  // Danh sách quốc gia hiển thị (bao gồm "Tất cả quốc gia")
-  const displayCountries = useMemo(() => {
-    const countryList = ["Tất cả quốc gia", ...countriesForCat];
-    if (countriesForCat.length > 1) {
-      countryList.splice(1, 0, "ALL");
-    }
-    return countryList;
-  }, [countriesForCat]);
+    if (regionsForCat.length === 0) return (
+      <div className="p-4 text-center text-slate-400 text-sm">
+        Chưa có khu vực
+      </div>
+    );
+
+    return (
+      <div className="p-2">
+        <div className="px-3 py-1.5 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+          Khu vực
+        </div>
+        <button
+          onClick={() => handleSelectRegion("Tất cả khu vực")}
+          className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all ${
+            selectedRegionItem === "Tất cả khu vực" ? "bg-cyan-50 text-cyan-700 font-semibold" : "hover:bg-slate-50 text-slate-600"
+          }`}
+        >
+          🌏 Tất cả khu vực
+        </button>
+        {regionsForCat.map(region => (
+          <button
+            key={region}
+            onClick={() => handleSelectRegion(region)}
+            className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all ${
+              selectedRegionItem === region ? "bg-cyan-50 text-cyan-700 font-semibold" : "hover:bg-slate-50 text-slate-600"
+            }`}
+          >
+            {region}
+          </button>
+        ))}
+      </div>
+    );
+  };
+
+  const renderCountryList = () => {
+    if (!selectedCat || !selectedRegionItem) return (
+      <div className="p-4 text-center text-slate-400 text-sm">
+        {!selectedCat ? "← Chọn danh mục" : "← Chọn khu vực để xem quốc gia"}
+      </div>
+    );
+
+    if (countriesForSelection.length === 0) return (
+      <div className="p-4 text-center text-slate-400 text-sm">
+        {selectedRegionItem === "Tất cả khu vực" 
+          ? "Chọn khu vực cụ thể để xem quốc gia"
+          : "Chưa có quốc gia"}
+      </div>
+    );
+
+    return (
+      <div className="p-2">
+        <div className="px-3 py-1.5 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+          Quốc gia
+        </div>
+        <button
+          onClick={() => handleSelectCountry("Tất cả quốc gia")}
+          className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all ${
+            selectedCountryItem === "Tất cả quốc gia" ? "bg-cyan-50 text-cyan-700 font-semibold" : "hover:bg-slate-50 text-slate-600"
+          }`}
+        >
+          🌍 Tất cả quốc gia
+        </button>
+        {countriesForSelection.map(country => (
+          <button
+            key={country}
+            onClick={() => handleSelectCountry(country)}
+            className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all ${
+              selectedCountryItem === country ? "bg-cyan-50 text-cyan-700 font-semibold" : "hover:bg-slate-50 text-slate-600"
+            }`}
+          >
+            {resolveCountryName(country)}
+          </button>
+        ))}
+      </div>
+    );
+  };
+
+  const renderProgramList = () => {
+    if (!selectedCat || !selectedRegionItem || !selectedCountryItem) return (
+      <div className="p-4 text-center text-slate-400 text-sm">
+        {!selectedCat ? "← Chọn danh mục" : 
+         !selectedRegionItem ? "← Chọn khu vực" :
+         "← Chọn quốc gia để xem chương trình"}
+      </div>
+    );
+
+    if (programsForSelection.length === 0) return (
+      <div className="p-4 text-center text-slate-400 text-sm">
+        {selectedCountryItem === "Tất cả quốc gia"
+          ? "Chọn quốc gia cụ thể để xem chương trình"
+          : "Chưa có chương trình"}
+      </div>
+    );
+
+    return (
+      <div className="p-2">
+        <div className="px-3 py-1.5 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+          Chương trình
+        </div>
+        {programsForSelection.slice(0, 10).map(prog => (
+          <button
+            key={prog.id}
+            onClick={() => handleApplyFilter(selectedCat, selectedRegionItem, selectedCountryItem)}
+            className="w-full text-left px-3 py-2 rounded-lg text-sm hover:bg-cyan-50 transition-all border-b border-slate-50 last:border-0"
+          >
+            <div className="font-medium text-slate-700">{prog.name}</div>
+            <div className="text-[10px] text-slate-400 mt-0.5">
+              {prog.region} · {resolveCountryName(prog.country)}
+            </div>
+          </button>
+        ))}
+        {programsForSelection.length > 10 && (
+          <button
+            onClick={() => handleApplyFilter(selectedCat, selectedRegionItem, selectedCountryItem)}
+            className="w-full text-center px-3 py-2 text-sm text-cyan-700 font-semibold hover:bg-cyan-50 rounded-lg transition-all mt-1"
+          >
+            Xem tất cả {programsForSelection.length} chương trình →
+          </button>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="relative w-full" ref={menuRef}>
       {/* Button trigger */}
       <button
         type="button"
-        onClick={() => {
-          setIsOpen(v => !v);
-          if (!isOpen) {
-            setHoveredCat(null);
-            setHoveredCountry(null);
-            setSearchTerm("");
-          }
-        }}
+        onClick={() => setIsOpen(!isOpen)}
         className={`
           w-full h-11 px-4 rounded-2xl border bg-white shadow-sm transition-all
           flex items-center justify-between
@@ -649,254 +894,50 @@ function MegaMenuFilter({ categories, selectedCategoryName, selectedCountry, onS
         </svg>
       </button>
 
-      {/* Dropdown menu */}
+      {/* Dropdown */}
       {isOpen && (
-        <div
-          className="
-            absolute left-0 top-full mt-2 z-[200]
-            bg-white rounded-2xl
-            border border-slate-200
-            shadow-[0_20px_60px_rgba(0,0,0,0.12)]
-            overflow-hidden
-            min-w-[320px] md:min-w-[680px] lg:min-w-[820px]
-          "
-          onMouseLeave={handleMenuLeave}
-        >
-          <div className="flex flex-col md:flex-row max-h-[520px]">
+        <div className="absolute left-0 top-full mt-2 z-[200] bg-white rounded-2xl border border-slate-200 shadow-[0_20px_60px_rgba(0,0,0,0.12)] overflow-hidden min-w-[320px] md:min-w-[700px] lg:min-w-[900px]">
+          <div className="flex flex-col md:flex-row max-h-[500px]">
             {/* Cột 1: Danh mục */}
-            <div className="w-full md:w-[240px] lg:w-[280px] flex-shrink-0 border-r border-slate-100">
-              <div className="p-3 border-b border-slate-100">
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                  Danh mục
-                </span>
-              </div>
-              <div className="overflow-y-auto max-h-[440px] py-1">
-                {/* Ô tìm kiếm danh mục */}
-                <div className="px-3 pb-2 border-b border-slate-100 mb-1">
-                  <div className="relative">
-                    <input
-                      type="text"
-                      placeholder="Tìm danh mục..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="
-                        w-full h-9 pl-9 pr-3
-                        bg-slate-50 border border-slate-200 rounded-xl
-                        text-sm text-slate-700 placeholder-slate-400
-                        focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500
-                        transition-all duration-200
-                      "
-                    />
-                    <svg
-                      className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                    </svg>
-                    {searchTerm && (
-                      <button
-                        type="button"
-                        onClick={() => setSearchTerm("")}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                {/* Nút Tất cả danh mục */}
-                <button
-                  onClick={handleReset}
-                  className={`
-                    w-full px-4 py-2.5 text-left text-sm transition-all
-                    flex items-center gap-3
-                    ${selectedCategoryName === "Tất cả" && selectedCountry === "Tất cả"
-                      ? "bg-cyan-50 text-cyan-700 font-semibold"
-                      : "hover:bg-slate-50 text-slate-600"
-                    }
-                  `}
-                >
-                  <span className="text-sm">Tất cả danh mục</span>
-                  {selectedCategoryName === "Tất cả" && selectedCountry === "Tất cả" && (
-                    <svg className="w-4 h-4 ml-auto text-cyan-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                    </svg>
-                  )}
-                </button>
-
-                {/* Danh sách danh mục đã được lọc */}
-                {filteredCategories.length > 0 ? (
-                  filteredCategories.map(cat => {
-                    const isHovered = hoveredCat === cat.name;
-                    const isSelected = selectedCategoryName === cat.name;
-                    const count = cat.programs?.length || 0;
-                    
-                    return (
-                      <button
-                        key={cat.id}
-                        onMouseEnter={() => handleMouseEnter(cat.name)}
-                        onClick={() => handleSelectCatOnly(cat.name)}
-                        className={`
-                          w-full px-4 py-2.5 text-left text-sm transition-all
-                          flex items-center gap-3 relative
-                          ${isHovered ? "bg-cyan-50 text-cyan-700" : "hover:bg-slate-50 text-slate-600"}
-                          ${isSelected ? "font-semibold text-cyan-700" : ""}
-                        `}
-                      >
-                        {isHovered && (
-                          <div className="absolute left-0 top-1 bottom-1 w-1 bg-cyan-600 rounded-r-full" />
-                        )}
-                        <span className="truncate text-sm">{cat.name}</span>
-                        {count > 0 && (
-                          <span className="text-[10px] text-slate-400 ml-auto flex-shrink-0 bg-slate-100 px-1.5 py-0.5 rounded">
-                            {count}
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })
-                ) : (
-                  <div className="px-4 py-8 text-center text-slate-400 text-sm">
-                    Không tìm thấy danh mục "{searchTerm}"
-                  </div>
-                )}
-              </div>
+            <div className="w-full md:w-[220px] lg:w-[260px] flex-shrink-0 border-r border-slate-100 overflow-y-auto">
+              {renderCategoryList()}
             </div>
 
-            {/* Cột 2: Quốc gia */}
-            <div className="w-full md:w-[200px] lg:w-[220px] flex-shrink-0 border-r border-slate-100 bg-slate-50/30">
-              <div className="p-3 border-b border-slate-100">
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                  Quốc gia
-                </span>
-              </div>
-              <div className="overflow-y-auto max-h-[440px] py-1">
-                {hoveredCat ? (
-                  <>
-                    {displayCountries.length > 0 ? (
-                      displayCountries.map(country => {
-                        const isHovered = hoveredCountry === country;
-                        const isSelected = selectedCountry === country;
-                        
-                        return (
-                          <button
-                            key={country}
-                            onMouseEnter={() => setHoveredCountry(country)}
-                            onClick={() => {
-                              if (hoveredCat) {
-                                handleSelectCountry(hoveredCat, country);
-                              }
-                            }}
-                            className={`
-                              w-full px-4 py-2.5 text-left text-sm transition-all
-                              flex items-center gap-2
-                              ${isHovered ? "bg-cyan-50 text-cyan-700 font-semibold" : "hover:bg-white text-slate-600"}
-                              ${isSelected ? "text-cyan-700 font-semibold" : ""}
-                            `}
-                          >
-                            <span className="truncate text-sm">{country}</span>
-                          </button>
-                        );
-                      })
-                    ) : (
-                      <div className="px-4 py-8 text-center text-slate-400 text-sm">
-                        Chưa có quốc gia
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <div className="px-4 py-8 text-center text-slate-400 text-sm">
-                    Chọn danh mục để xem quốc gia
-                  </div>
-                )}
-              </div>
+            {/* Cột 2: Khu vực */}
+            <div className="w-full md:w-[180px] lg:w-[200px] flex-shrink-0 border-r border-slate-100 bg-slate-50/30 overflow-y-auto">
+              {renderRegionList()}
             </div>
 
-            {/* Cột 3: Chương trình */}
-            <div className="w-full md:w-[240px] lg:w-[280px] flex-shrink-0 bg-white">
-              <div className="p-3 border-b border-slate-100">
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                  Chương trình
-                </span>
-              </div>
-              <div className="overflow-y-auto max-h-[440px] py-1">
-                {hoveredCat && hoveredCountry ? (
-                  <>
-                    {programsForSelection.length > 0 ? (
-                      programsForSelection.slice(0, 10).map(prog => (
-                        <button
-                          key={prog.id}
-                          onClick={() => {
-                            if (hoveredCat && hoveredCountry) {
-                              handleSelectCountry(hoveredCat, hoveredCountry);
-                            }
-                          }}
-                          className="
-                            w-full px-4 py-2.5 text-left text-sm
-                            hover:bg-cyan-50 transition-all
-                            border-b border-slate-50 last:border-0
-                            flex flex-col gap-0.5
-                          "
-                        >
-                          <span className="font-medium text-slate-700 text-sm line-clamp-1">{prog.name}</span>
-                          {prog.description && (
-                            <span className="text-[11px] text-slate-400 line-clamp-1">
-                              {prog.description.slice(0, 60)}...
-                            </span>
-                          )}
-                          {prog.country && (
-                            <span className="text-[10px] text-slate-400">
-                              {resolveCountryName(prog.country)}
-                            </span>
-                          )}
-                        </button>
-                      ))
-                    ) : (
-                      <div className="px-4 py-8 text-center text-slate-400 text-sm">
-                        {hoveredCountry === "Tất cả quốc gia" || hoveredCountry === "ALL"
-                          ? "Chọn quốc gia cụ thể để xem chương trình"
-                          : "Chưa có chương trình cho quốc gia này"}
-                      </div>
-                    )}
-                    
-                    {/* Nút Xem tất cả */}
-                    {programsForSelection.length > 3 && (
-                      <button
-                        onClick={() => {
-                          if (hoveredCat && hoveredCountry) {
-                            handleSelectCountry(hoveredCat, hoveredCountry);
-                          }
-                        }}
-                        className="
-                          w-full px-4 py-3 text-center text-sm
-                          text-cyan-700 font-semibold
-                          hover:bg-cyan-50 transition-all
-                          border-t border-slate-100 mt-1
-                        "
-                      >
-                        Xem tất cả {programsForSelection.length} chương trình →
-                      </button>
-                    )}
-                  </>
-                ) : (
-                  <div className="px-4 py-8 text-center text-slate-400 text-sm">
-                    {!hoveredCat ? "Chọn danh mục trước" : "Chọn quốc gia để xem chương trình"}
-                  </div>
-                )}
-              </div>
+            {/* Cột 3: Quốc gia */}
+            <div className="w-full md:w-[180px] lg:w-[200px] flex-shrink-0 border-r border-slate-100 bg-slate-50/20 overflow-y-auto">
+              {renderCountryList()}
+            </div>
+
+            {/* Cột 4: Chương trình */}
+            <div className="w-full md:w-[200px] lg:w-[240px] flex-shrink-0 bg-white overflow-y-auto">
+              {renderProgramList()}
             </div>
           </div>
+
+          {/* Nút áp dụng */}
+          {selectedCat && selectedRegionItem && selectedCountryItem && programsForSelection.length > 0 && (
+            <div className="border-t border-slate-100 p-3 bg-slate-50">
+              <button
+                onClick={() => handleApplyFilter(selectedCat, selectedRegionItem, selectedCountryItem)}
+                className="w-full bg-cyan-900 hover:bg-cyan-950 text-white text-sm font-semibold py-2 rounded-xl transition-colors"
+              >
+                Áp dụng bộ lọc
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
   );
 }
-
+// ==========================================
+// MAIN COMPONENT
+// ==========================================
 function ProductOverviewPageInner({ currentUser }) {
   const toast = useToast();
   const userRole = getUserRoleKey(currentUser);
@@ -924,6 +965,7 @@ function ProductOverviewPageInner({ currentUser }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategoryName, setSelectedCategoryName] = useState("Tất cả");
   const [selectedCountry, setSelectedCountry] = useState("Tất cả");
+  const [selectedRegion, setSelectedRegion] = useState("Tất cả");
   const [selectedStatus, setSelectedStatus] = useState("all");
 
   const [openCardPrograms, setOpenCardPrograms] = useState({});
@@ -1100,6 +1142,7 @@ function ProductOverviewPageInner({ currentUser }) {
     setSearchQuery("");
     setSelectedCategoryName("Tất cả");
     setSelectedCountry("Tất cả");
+    setSelectedRegion("Tất cả");
     setSelectedStatus("all");
     setCategoryPage(0);
   };
@@ -1111,7 +1154,6 @@ function ProductOverviewPageInner({ currentUser }) {
     }));
   };
 
-
   const CATEGORIES_PER_PAGE = 6;
   const [categoryPage, setCategoryPage] = useState(0);
 
@@ -1120,31 +1162,27 @@ function ProductOverviewPageInner({ currentUser }) {
     setViewMode("overview");
   };
 
-  // Reset trang danh mục khi bộ lọc thay đổi
   useEffect(() => {
     setCategoryPage(0);
-  }, [searchQuery, selectedCategoryName, selectedCountry, selectedStatus]);
+  }, [searchQuery, selectedCategoryName, selectedCountry, selectedRegion, selectedStatus]);
 
   const filteredCategories = useMemo(() => {
     const q = safeText(searchQuery);
-    const hasFilter = q || selectedCountry !== "Tất cả" || selectedStatus !== "all";
+    const hasFilter = q || selectedCountry !== "Tất cả" || selectedStatus !== "all" || selectedRegion !== "Tất cả";
 
     return safeArray(categories)
       .map(cat => {
         if (!cat) return null;
 
-        // Lọc category theo tên đã chọn
         if (selectedCategoryName !== "Tất cả" && safeText(cat.name) !== safeText(selectedCategoryName)) {
           return null;
         }
 
         const progs = safeArray(cat.programs || cat.products);
 
-        // Lọc programs theo tất cả điều kiện
         const filteredProgs = progs.filter(prog => {
           if (!prog) return false;
 
-          // Ẩn sản phẩm hidden/inactive với người dùng thường (không phải admin/manager)
           if (!canManageProducts) {
             if (prog.status === "hidden" || prog.isActive === false) return false;
           }
@@ -1164,17 +1202,19 @@ function ProductOverviewPageInner({ currentUser }) {
             selectedStatus === "all" ||
             safeText(prog.status) === safeText(selectedStatus);
 
-          return matchSearch && matchCountry && matchStatus;
+          const matchRegion =
+            selectedRegion === "Tất cả" ||
+            safeText(prog.region) === safeText(selectedRegion);
+
+          return matchSearch && matchCountry && matchStatus && matchRegion;
         });
 
-        // Nếu có bộ lọc: chỉ hiện category khi có ít nhất 1 program khớp
-        // Nếu không có bộ lọc: luôn hiện category (kể cả khi chưa có program)
         if (hasFilter) {
-          // Cho phép match theo tên/mô tả category khi search text (không lọc quốc gia/trạng thái)
           const isCatNameMatch =
             q &&
             selectedCountry === "Tất cả" &&
             selectedStatus === "all" &&
+            selectedRegion === "Tất cả" &&
             (safeText(cat.name).includes(q) || safeText(cat.description).includes(q));
 
           if (filteredProgs.length === 0 && !isCatNameMatch) return null;
@@ -1183,7 +1223,7 @@ function ProductOverviewPageInner({ currentUser }) {
         return { ...cat, filteredPrograms: filteredProgs };
       })
       .filter(Boolean);
-  }, [categories, searchQuery, selectedCategoryName, selectedCountry, selectedStatus, canManageProducts]);
+  }, [categories, searchQuery, selectedCategoryName, selectedCountry, selectedRegion, selectedStatus, canManageProducts]);
 
   const stats = useMemo(() => {
     let totalChildren = 0;
@@ -1534,7 +1574,6 @@ function ProductOverviewPageInner({ currentUser }) {
             setSelectedProduct(null);
             setViewMode("overview");
           }
-          // Sync formCategory.programs so modal tab 2 reflects deletion immediately
           setFormCategory(prev => ({
             ...prev,
             programs: (prev.programs || []).filter(p => p.id !== prodId)
@@ -1632,13 +1671,13 @@ function ProductOverviewPageInner({ currentUser }) {
     }
 
     const extendedData = {
-      region: formProduct.region,
-      detailDescription: formProduct.detailDescription,
-      targetAudience: formProduct.targetAudience,
-      tags: tags,
-      websiteUrl: formProduct.websiteUrl,
-      brochure: formProduct.brochure,
-      documents: formProduct.documents,
+      region: formProduct.region || "Châu Á",
+      detailDescription: formProduct.detailDescription || formProduct.description,
+      targetAudience: formProduct.targetAudience || "",
+      tags: tags || [],
+      websiteUrl: formProduct.websiteUrl || "",
+      brochure: formProduct.brochure || null,
+      documents: formProduct.documents || [],
       updatedAt: new Date().toISOString().split("T")[0]
     };
     
@@ -1684,16 +1723,16 @@ function ProductOverviewPageInner({ currentUser }) {
           id: editingProduct === "new" ? `prod-${Date.now()}` : editingProduct,
           categoryId: editingProductParentCatId,
           categoryName: catName,
-          region: formProduct.region,
+          region: formProduct.region || "Châu Á",
           status: formProduct.status,
           highlights: highlightsArray,
           processSteps: processStepsArray,
           tags: tags,
-          detailDescription: formProduct.detailDescription,
-          targetAudience: formProduct.targetAudience,
-          websiteUrl: formProduct.websiteUrl,
-          brochure: formProduct.brochure,
-          documents: formProduct.documents,
+          detailDescription: formProduct.detailDescription || formProduct.description,
+          targetAudience: formProduct.targetAudience || "",
+          websiteUrl: formProduct.websiteUrl || "",
+          brochure: formProduct.brochure || null,
+          documents: formProduct.documents || [],
           updatedAt: new Date().toISOString().split("T")[0]
         };
       }
@@ -1716,7 +1755,6 @@ function ProductOverviewPageInner({ currentUser }) {
       setCategories(updated);
       setEditingProduct(null);
       if (selectedProduct?.id === editingProduct) setSelectedProduct(savedProd);
-      // Sync formCategory.programs so modal tab 2 reflects changes immediately
       const updatedCat = updated.find(c => c.id === editingProductParentCatId);
       if (updatedCat) {
         setFormCategory(prev => ({ ...prev, programs: updatedCat.programs || [] }));
@@ -2086,6 +2124,7 @@ function ProductOverviewPageInner({ currentUser }) {
         const activeFilters = [
           searchQuery && { key: "search", label: `"${searchQuery}"`, onClear: () => setSearchQuery("") },
           selectedCategoryName !== "Tất cả" && { key: "cat", label: selectedCategoryName, onClear: () => setSelectedCategoryName("Tất cả") },
+          selectedRegion !== "Tất cả" && { key: "region", label: selectedRegion, onClear: () => setSelectedRegion("Tất cả") },
           selectedCountry !== "Tất cả" && { key: "country", label: resolveCountryName(selectedCountry), onClear: () => setSelectedCountry("Tất cả") },
           selectedStatus !== "all" && { key: "status", label: statusOptions.find(o => o.value === selectedStatus)?.label || selectedStatus, onClear: () => setSelectedStatus("all") },
         ].filter(Boolean);
@@ -2097,7 +2136,7 @@ function ProductOverviewPageInner({ currentUser }) {
           <div className="bg-white app-dark:!bg-[#252525] rounded-2xl border border-slate-100 app-dark:!border-white/8 px-4 py-3 shadow-sm app-dark:!shadow-none mb-5">
             <div className="grid grid-cols-1 gap-3 md:grid-cols-12 md:items-center">
               {/* Search */}
-              <div className="md:col-span-12 xl:col-span-6">
+              <div className="md:col-span-12 xl:col-span-5">
                 <div className="relative flex items-center">
                   <span className="absolute left-3 text-slate-400 app-dark:!text-slate-500 flex items-center justify-center pointer-events-none">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2126,14 +2165,16 @@ function ProductOverviewPageInner({ currentUser }) {
                 </div>
               </div>
 
-              {/* Mega menu: Danh mục + Quốc gia */}
-              <div className="md:col-span-8 xl:col-span-4">
+              {/* Mega menu: Danh mục + Khu vực + Quốc gia */}
+              <div className="md:col-span-8 xl:col-span-5">
                 <MegaMenuFilter
                   categories={categories}
                   selectedCategoryName={selectedCategoryName}
                   selectedCountry={selectedCountry}
-                  onSelect={({ category, country }) => {
+                  selectedRegion={selectedRegion}
+                  onSelect={({ category, region, country }) => {
                     setSelectedCategoryName(category);
+                    setSelectedRegion(region);
                     setSelectedCountry(country);
                   }}
                 />
@@ -3054,6 +3095,8 @@ function ProductOverviewPageInner({ currentUser }) {
                         <option value="Châu Âu">Châu Âu</option>
                         <option value="Châu Mỹ">Châu Mỹ</option>
                         <option value="Châu Đại Dương">Châu Đại Dương</option>
+                        <option value="Châu Phi">Châu Phi</option>
+                        <option value="Trung Đông">Trung Đông</option>
                       </select>
                     </div>
                     <div className="col-span-1 md:col-span-4">
