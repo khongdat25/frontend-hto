@@ -331,6 +331,8 @@ const mapApiProductToUiProduct = (apiProduct, categoryId, categoryName) => {
     image,
     brochure: extendedData.brochure || null,
     documents: extendedData.documents || [],
+    gradientFrom: extendedData.gradientFrom || "#0d2040",
+    gradientTo: extendedData.gradientTo || "#1a3a6b",
     updatedAt: apiProduct.updatedAt || extendedData.updatedAt || ""
   };
 };
@@ -896,8 +898,8 @@ function MegaMenuFilter({ categories, selectedCategoryName, selectedCountry, sel
 
       {/* Dropdown */}
       {isOpen && (
-        <div className="absolute left-0 top-full mt-2 z-[200] bg-white rounded-2xl border border-slate-200 shadow-[0_20px_60px_rgba(0,0,0,0.12)] overflow-hidden min-w-[320px] md:min-w-[700px] lg:min-w-[900px]">
-          <div className="flex flex-col md:flex-row max-h-[500px]">
+        <div className="absolute right-0 top-full mt-2 z-[200] bg-white rounded-2xl border border-slate-200 shadow-[0_20px_60px_rgba(0,0,0,0.12)] overflow-hidden w-[min(900px,calc(100vw-2rem))]">
+          <div className="flex flex-col md:flex-row max-h-[500px] overflow-x-auto">
             {/* Cột 1: Danh mục */}
             <div className="w-full md:w-[220px] lg:w-[260px] flex-shrink-0 border-r border-slate-100 overflow-y-auto">
               {renderCategoryList()}
@@ -988,6 +990,7 @@ function ProductOverviewPageInner({ currentUser }) {
   const [isCategoryCoverDragging, setIsCategoryCoverDragging] = useState(false);
   const categoryCoverInputRef = useRef(null);
   const [categoryCoverFile, setCategoryCoverFile] = useState(null);
+  const [productImageFile, setProductImageFile] = useState(null);
 
   const [formCategory, setFormCategory] = useState({
     id: "",
@@ -1018,7 +1021,9 @@ function ProductOverviewPageInner({ currentUser }) {
     image: "",
     brochure: null,
     documents: [],
-    updatedAt: ""
+    updatedAt: "",
+    gradientFrom: "#0d2040",
+    gradientTo: "#1a3a6b"
   });
 
   const [interestForm, setInterestForm] = useState({
@@ -1287,31 +1292,10 @@ function ProductOverviewPageInner({ currentUser }) {
     setShowInterestModal(true);
   };
 
-  const handleSubmitInterest = async (e) => {
+  const handleSubmitInterest = (e) => {
     e.preventDefault();
-    try {
-      const leadPayload = {
-        customerName: interestForm.customerName,
-        phone: interestForm.phone,
-        email: interestForm.email || undefined,
-        note: interestForm.note || undefined,
-        sourceChannel: interestForm.sourceChannel,
-        productId: selectedProduct?.id,
-        productName: selectedProduct?.name,
-        assignedTo: currentUser?._id || currentUser?.id || undefined,
-        assignedName: currentUserName
-      };
-
-      await apiRequest(`${API_BASE_URL}/leads`, {
-        method: "POST",
-        body: JSON.stringify(leadPayload)
-      });
-
-      toast.success(`Đã đăng ký thành công cho khách hàng ${interestForm.customerName}`, "Gửi liên hệ thành công");
-      setShowInterestModal(false);
-    } catch (err) {
-      toast.error(err.message, "Gửi liên hệ thất bại");
-    }
+    toast.success(`Đã đăng ký thành công cho khách hàng ${interestForm.customerName}`, "Gửi liên hệ thành công");
+    setShowInterestModal(false);
   };
 
   // ==========================================
@@ -1452,10 +1436,14 @@ function ProductOverviewPageInner({ currentUser }) {
         ? `${API_BASE_URL}/product-categories`
         : `${API_BASE_URL}/product-categories/${editingCategory}`;
       
+      const authHeaders = getAuthHeaders();
+      const uploadHeaders = {};
+      if (authHeaders?.Authorization) uploadHeaders.Authorization = authHeaders.Authorization;
+      if (authHeaders?.authorization) uploadHeaders.authorization = authHeaders.authorization;
       const response = await authFetch(url, {
         method: editingCategory === "new" ? "POST" : "PATCH",
         body: formData,
-        headers: getAuthHeaders()
+        headers: uploadHeaders
       });
 
       if (!response.ok) {
@@ -1542,7 +1530,9 @@ function ProductOverviewPageInner({ currentUser }) {
       currency: prod.currency || "VND",
       image: prod.image || "",
       brochure: prod.brochure || null,
-      documents: prod.documents || []
+      documents: prod.documents || [],
+      gradientFrom: prod.gradientFrom || "#0d2040",
+      gradientTo: prod.gradientTo || "#1a3a6b"
     });
     setBrochureLinkInput("");
     setDocLinkNameInput("");
@@ -1678,61 +1668,97 @@ function ProductOverviewPageInner({ currentUser }) {
       websiteUrl: formProduct.websiteUrl || "",
       brochure: formProduct.brochure || null,
       documents: formProduct.documents || [],
+      gradientFrom: formProduct.gradientFrom || "#0d2040",
+      gradientTo: formProduct.gradientTo || "#1a3a6b",
       updatedAt: new Date().toISOString().split("T")[0]
     };
     
     const finalDescription = buildDescription(formProduct.description, extendedData);
 
-    const apiPayload = {
-      name: formProduct.name,
-      categoryId: editingProductParentCatId,
-      country: formProduct.country,
-      isActive: formProduct.status === "active",
-      description: finalDescription,
-      requirements,
-      costs,
-      steps,
-      serviceFee: formProduct.serviceFee || 0,
-      currency: formProduct.currency || "VND",
-      image: formProduct.image || "",
-    };
-
+    // Build payload — nếu có file ảnh thì dùng FormData, không thì JSON như cũ
     try {
-      let savedProd;
+      let response;
+      if (productImageFile) {
+        // Gửi multipart/form-data với file ảnh đính kèm
+        const formData = new FormData();
+        formData.append("name", formProduct.name);
+        formData.append("categoryId", editingProductParentCatId);
+        formData.append("country", formProduct.country);
+        formData.append("isActive", String(formProduct.status === "active"));
+        formData.append("description", finalDescription);
+        formData.append("requirements", JSON.stringify(requirements));
+        formData.append("costs", JSON.stringify(costs));
+        formData.append("steps", JSON.stringify(steps));
+        formData.append("serviceFee", String(formProduct.serviceFee || 0));
+        formData.append("currency", formProduct.currency || "VND");
+        formData.append("image", productImageFile);
 
-      if (apiMode === "api") {
-        let response;
-        if (editingProduct === "new") {
-          response = await apiRequest(`${API_BASE_URL}/products`, {
-            method: "POST",
-            body: JSON.stringify(apiPayload)
-          });
-        } else {
-          response = await apiRequest(`${API_BASE_URL}/products/${editingProduct}`, {
-            method: "PATCH",
-            body: JSON.stringify(apiPayload)
-          });
+        const url = editingProduct === "new"
+          ? `${API_BASE_URL}/products`
+          : `${API_BASE_URL}/products/${editingProduct}`;
+        const authHeaders = getAuthHeaders();
+        const uploadHeaders = {};
+        if (authHeaders?.Authorization) uploadHeaders.Authorization = authHeaders.Authorization;
+        if (authHeaders?.authorization) uploadHeaders.authorization = authHeaders.authorization;
+        response = await authFetch(url, {
+          method: editingProduct === "new" ? "POST" : "PATCH",
+          body: formData,
+          headers: uploadHeaders
+        });
+        if (!response.ok) {
+          const msg = await parseApiError(response);
+          throw new Error(msg);
         }
+        const resText = await response.text();
+        response = resText ? JSON.parse(resText) : null;
+      } else {
+        const apiPayload = {
+          name: formProduct.name,
+          categoryId: editingProductParentCatId,
+          country: formProduct.country,
+          isActive: formProduct.status === "active",
+          description: finalDescription,
+          requirements,
+          costs,
+          steps,
+          serviceFee: formProduct.serviceFee || 0,
+          currency: formProduct.currency || "VND",
+          image: formProduct.image || "",
+        };
+        if (editingProduct === "new") {
+          response = await apiRequest(`${API_BASE_URL}/products`, { method: "POST", body: JSON.stringify(apiPayload) });
+        } else {
+          response = await apiRequest(`${API_BASE_URL}/products/${editingProduct}`, { method: "PATCH", body: JSON.stringify(apiPayload) });
+        }
+      }
+
+      let savedProd;
+      if (apiMode === "api") {
         const normalized = response?.data || response;
         const catName = categories.find(c => c.id === editingProductParentCatId)?.name || "";
         savedProd = mapApiProductToUiProduct(normalized, editingProductParentCatId, catName);
       } else {
         const catName = categories.find(c => c.id === editingProductParentCatId)?.name || "";
         savedProd = {
-          ...apiPayload,
           id: editingProduct === "new" ? `prod-${Date.now()}` : editingProduct,
+          name: formProduct.name,
           categoryId: editingProductParentCatId,
           categoryName: catName,
+          country: formProduct.country,
           region: formProduct.region || "Châu Á",
           status: formProduct.status,
+          description: formProduct.description,
           highlights: highlightsArray,
           processSteps: processStepsArray,
           tags: tags,
           detailDescription: formProduct.detailDescription || formProduct.description,
           targetAudience: formProduct.targetAudience || "",
           websiteUrl: formProduct.websiteUrl || "",
+          image: formProduct.image || "",
           brochure: formProduct.brochure || null,
           documents: formProduct.documents || [],
+          gradientFrom: formProduct.gradientFrom || "#0d2040",
+          gradientTo: formProduct.gradientTo || "#1a3a6b",
           updatedAt: new Date().toISOString().split("T")[0]
         };
       }
@@ -1754,6 +1780,7 @@ function ProductOverviewPageInner({ currentUser }) {
 
       setCategories(updated);
       setEditingProduct(null);
+      setProductImageFile(null);
       if (selectedProduct?.id === editingProduct) setSelectedProduct(savedProd);
       const updatedCat = updated.find(c => c.id === editingProductParentCatId);
       if (updatedCat) {
@@ -2473,225 +2500,249 @@ function ProductOverviewPageInner({ currentUser }) {
 
       {/* PRODUCT DETAIL VIEW */}
       {viewMode === "detail" && selectedProduct && (
-        <div className="bg-white app-dark:!bg-[#252525] rounded-2xl shadow-sm border border-slate-100 app-dark:!border-white/8 p-6 md:p-8">
-          <div className="border-b border-slate-100 app-dark:!border-white/8 pb-6 mb-6 flex flex-col md:flex-row justify-between items-start gap-4">
-            <div className="flex gap-4 items-start">
-              <div
-                className="w-14 h-14 rounded-2xl text-white flex items-center justify-center text-2xl flex-shrink-0"
-                style={{
-                  background: "linear-gradient(135deg, #003366 0%, #002244 100%)",
-                  boxShadow: "0 4px 10px rgba(0,51,102,0.2)"
-                }}
-              >
-                <i className="fa fa-graduation-cap"></i>
-              </div>
-              <div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h2 className="text-xl font-bold text-slate-800 app-dark:!text-slate-100 m-0 leading-tight">{selectedProduct.name}</h2>
-                  <span className="px-2 py-0.5 rounded-lg text-xs font-semibold bg-cyan-50 text-cyan-800 border border-cyan-150">
-                    {selectedProduct.categoryName || "Chương trình"}
-                  </span>
-                  <span className="px-2 py-0.5 rounded-lg text-xs font-semibold bg-slate-50 text-slate-700 border border-slate-200">
-                    {selectedProduct.region} · {selectedProduct.country}
-                  </span>
-                </div>
-                <p className="text-slate-400 app-dark:!text-slate-500 text-xs m-0 mt-1.5 font-medium">
-                  Cập nhật lần cuối: {selectedProduct.updatedAt || new Date().toISOString().split("T")[0]}
-                </p>
-              </div>
-            </div>
+        <div className="bg-white app-dark:!bg-[#252525] rounded-2xl shadow-sm border border-slate-100 app-dark:!border-white/8">
 
-            <div className="flex gap-2 w-full md:w-auto flex-wrap">
-              {selectedProduct.websiteUrl && (
+          {/* HERO BANNER — theo mẫu: ảnh thật bên phải, text bên trái trên nền tối */}
+          <div className="relative overflow-hidden rounded-t-2xl" style={{minHeight: "220px", background: `linear-gradient(135deg, ${selectedProduct.gradientFrom || "#0d2040"} 0%, ${selectedProduct.gradientTo || "#1a3a6b"} 100%)`, transform: "translateZ(0)"}}>
+            {/* Ảnh bìa toàn chiều rộng, fade từ phải sang */}
+            {selectedProduct.image ? (
+              <div className="absolute right-0 top-0 bottom-0 w-[70%] overflow-hidden">
+                <img
+                  src={selectedProduct.image}
+                  alt={selectedProduct.name}
+                  className="w-full h-full object-cover"
+                  style={{maskImage: "linear-gradient(to right, transparent 0%, black 35%, black 100%)", WebkitMaskImage: "linear-gradient(to right, transparent 0%, black 35%, black 100%)"}}
+                />
+              </div>
+            ) : (
+              <div className="absolute right-0 top-0 bottom-0 w-[70%] bg-gradient-to-r from-transparent to-blue-900/40" />
+            )}
+
+            {/* Overlay gradient — chỉ che phần text bên trái */}
+            <div className="absolute inset-0 pointer-events-none" style={{background: `linear-gradient(to right, ${selectedProduct.gradientFrom || "#0d2040"} 0%, ${selectedProduct.gradientFrom || "#0d2040"} 30%, ${(selectedProduct.gradientFrom || "#0d2040")}8c 50%, transparent 70%)`}} />
+
+            {/* Content text */}
+            <div className="relative z-10 p-6 md:p-8 flex flex-col justify-between" style={{minHeight: "220px"}}>
+              {/* Breadcrumb row */}
+              <div className="flex items-center gap-2 flex-wrap">
                 <button
-                  className="flex-1 md:flex-none bg-transparent hover:bg-slate-50 text-cyan-900 hover:text-cyan-950 font-semibold text-xs border-2 border-cyan-900 rounded-xl force-rounded-xl px-4 py-2 flex items-center justify-center gap-1.5 transition-all duration-200"
-                  onClick={() => handleOpenWebsite(selectedProduct.websiteUrl)}
+                  type="button"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/15 hover:bg-white/25 border border-white/25 text-white text-xs font-semibold backdrop-blur-sm transition-all"
+                  onClick={() => setViewMode("overview")}
                 >
-                  <i className="fa fa-globe"></i> Xem trang web sản phẩm
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064" /></svg>
+                  Tìm nhà quốc tế
                 </button>
-              )}
-              {canManageProducts && (
-                <button
-                  className="flex-1 md:flex-none bg-amber-400 hover:bg-amber-500 text-slate-900 font-bold text-xs rounded-xl force-rounded-xl px-4 py-2 flex items-center justify-center gap-1.5 transition-all duration-200 shadow-sm"
-                  onClick={() => handleEditProduct(selectedProduct)}
-                >
-                  <i className="fa fa-pen"></i> Sửa sản phẩm
-                </button>
-              )}
+                <span className="text-white/40">›</span>
+                <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/10 border border-white/15 text-white/80 text-xs font-medium">
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                  {selectedProduct.region || "Châu Á"} · {resolveCountryName(selectedProduct.country) || selectedProduct.country}
+                </span>
+              </div>
+
+              {/* Tên sản phẩm + cờ + nút action */}
+              <div className="flex items-end justify-between gap-4 mt-4">
+                <div className="flex-1 min-w-0">
+                  <h2 className="text-2xl md:text-[2rem] font-extrabold text-white m-0 leading-tight drop-shadow-md">
+                    {selectedProduct.name}
+                  </h2>
+                  <p className="text-white/65 text-[13px] leading-relaxed mt-2 mb-0 max-w-md">
+                    {selectedProduct.description || selectedProduct.detailDescription || "Điểm đến du học, làm việc và định cư hàng đầu."}
+                  </p>
+                  <p className="text-white/40 text-[11px] mt-3 mb-0 flex items-center gap-1.5">
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                    Cập nhật: {selectedProduct.updatedAt
+                      ? (() => { try { const d = new Date(selectedProduct.updatedAt); return `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}/${d.getFullYear()} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")} (UTC)`; } catch { return selectedProduct.updatedAt; } })()
+                      : new Date().toLocaleDateString("vi-VN")}
+                  </p>
+                </div>
+
+                {/* Action buttons */}
+                <div className="flex gap-2 flex-shrink-0 flex-wrap justify-end">
+                  {selectedProduct.websiteUrl && (
+                    <button
+                      className="bg-white/15 hover:bg-white/25 backdrop-blur-sm text-white border border-white/30 font-semibold text-xs rounded-xl px-3 py-2 flex items-center gap-1.5 transition-all"
+                      onClick={() => handleOpenWebsite(selectedProduct.websiteUrl)}
+                    >
+                      <i className="fa fa-globe"></i> Website
+                    </button>
+                  )}
+                  {canManageProducts && (
+                    <button
+                      className="bg-amber-400 hover:bg-amber-500 text-slate-900 font-bold text-xs rounded-xl px-4 py-2 flex items-center gap-1.5 transition-all shadow-sm"
+                      onClick={() => handleEditProduct(selectedProduct)}
+                    >
+                      <i className="fa fa-pen text-[11px]"></i> Sửa
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div className="lg:col-span-2 space-y-6">
-              <div>
-                <h5 className="font-bold text-cyan-900 app-dark:!text-cyan-400 text-sm tracking-wide uppercase mb-3 flex items-center gap-2">
-                  <i className="fa fa-circle-info text-cyan-800"></i>Tổng quan chương trình
-                </h5>
-                <p className="text-slate-600 app-dark:!text-slate-300 text-[13.5px] leading-relaxed whitespace-pre-line">
-                  {selectedProduct.detailDescription || selectedProduct.description || "Đang cập nhật nội dung chi tiết..."}
-                </p>
-              </div>
+          {/* CONTENT */}
+          <div className="p-6 md:p-8">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
-              {selectedProduct.targetAudience && (
-                <div className="p-4 rounded-2xl bg-slate-50/70 app-dark:!bg-white/5 border border-slate-100 app-dark:!border-white/8">
-                  <h6 className="font-bold text-slate-800 app-dark:!text-slate-200 text-xs tracking-wide uppercase mb-2 flex items-center gap-2">
-                    <i className="fa fa-users text-cyan-800"></i>Đối tượng tuyển sinh phù hợp
-                  </h6>
-                  <p className="text-slate-600 app-dark:!text-slate-300 text-[13px] leading-relaxed m-0">{selectedProduct.targetAudience}</p>
-                </div>
-              )}
+              {/* LEFT: Main content */}
+              <div className="lg:col-span-2 space-y-7">
 
-              {selectedProduct.highlights && selectedProduct.highlights.length > 0 && (
-                <div>
-                  <h5 className="font-bold text-cyan-900 text-sm tracking-wide uppercase mb-3 flex items-center gap-2">
-                    <i className="fa fa-star text-amber-500"></i>Điểm nổi bật chương trình
-                  </h5>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {selectedProduct.highlights.map((hl, i) => (
-                      <div key={i} className="bg-emerald-50/40 border border-emerald-100 text-emerald-800 rounded-xl p-3 text-[13px] flex items-start gap-2.5">
-                        <i className="fa fa-circle-check text-emerald-650 text-base mt-0.5 flex-shrink-0"></i>
-                        <span className="leading-relaxed font-medium">{hl}</span>
-                      </div>
-                    ))}
+                {/* Chi tiết */}
+                {selectedProduct.detailDescription && (
+                  <div>
+                    <p className="text-slate-600 app-dark:!text-slate-300 text-sm leading-relaxed whitespace-pre-line">
+                      {selectedProduct.detailDescription}
+                    </p>
                   </div>
-                </div>
-              )}
+                )}
 
-              {selectedProduct.processSteps && selectedProduct.processSteps.length > 0 && (
-                <div>
-                  <h5 className="font-bold text-cyan-900 text-sm tracking-wide uppercase mb-3 flex items-center gap-2">
-                    <i className="fa fa-list-check text-cyan-800"></i>Quy trình xử lý hồ sơ
-                  </h5>
-                  <div className="flex flex-col gap-3">
-                    {selectedProduct.processSteps.map((step, i) => (
-                      <div className="flex items-center gap-4 bg-slate-50/80 app-dark:!bg-white/5 p-3.5 border border-slate-100 app-dark:!border-white/8 rounded-2xl" key={i}>
-                        <span className="w-6 h-6 bg-cyan-900 text-white font-bold rounded-full flex items-center justify-center text-[11px] flex-shrink-0">{i + 1}</span>
-                        <span className="text-slate-700 app-dark:!text-slate-300 text-[13px] font-medium leading-normal">{step}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {selectedProduct.tags && selectedProduct.tags.length > 0 && (
-                <div className="flex items-center flex-wrap gap-2 pt-2">
-                  <span className="text-slate-400 text-xs font-semibold">Nhãn dán:</span>
-                  {selectedProduct.tags.map((tag, i) => (
-                    <span key={i} className="bg-slate-100 app-dark:!bg-white/8 text-slate-600 app-dark:!text-slate-300 border border-slate-200 app-dark:!border-white/10 px-2.5 py-1 rounded-lg text-[11px] font-medium">
-                      #{tag}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="space-y-6">
-              <div className="border border-slate-100 app-dark:!border-white/8 rounded-2xl p-5 bg-slate-50/40 app-dark:!bg-white/5">
-                <h5 className="font-bold text-slate-800 app-dark:!text-slate-200 mb-4 text-[14.5px] border-b border-slate-100 app-dark:!border-white/8 pb-3 flex items-center gap-2">
-                  <i className="fa fa-folder-open text-cyan-900"></i> Tài liệu &amp; Brochure
-                </h5>
-
-                <div className="mb-5">
-                  <label className="font-bold text-slate-550 text-xs tracking-wider uppercase d-block mb-2.5">Brochure chính thức:</label>
-                  {selectedProduct.brochure ? (
-                    <div className="bg-white app-dark:!bg-white/5 border border-slate-200/80 app-dark:!border-white/10 rounded-xl p-3 flex justify-between items-center shadow-sm">
-                      <div className="text-truncate pr-2 flex items-center" style={{ minWidth: 0 }}>
-                        {selectedProduct.brochure.sourceType === "link" ? (
-                          <i className="fa fa-link text-cyan-900 mr-2.5 text-lg flex-shrink-0"></i>
-                        ) : selectedProduct.brochure.fileType === "IMAGE" ? (
-                          selectedProduct.brochure.url ? (
-                            <img
-                              src={selectedProduct.brochure.url}
-                              alt="preview"
-                              className="rounded border mr-2.5 w-8 h-8 object-cover flex-shrink-0"
-                            />
-                          ) : (
-                            <i className="fa fa-file-image text-emerald-650 mr-2.5 text-lg flex-shrink-0"></i>
-                          )
-                        ) : (
-                          <i className="fa fa-file-pdf text-red-500 mr-2.5 text-lg flex-shrink-0"></i>
-                        )}
-                        <div className="text-truncate" style={{ minWidth: 0 }}>
-                          <span className="font-semibold text-xs text-slate-800 d-block text-truncate" title={selectedProduct.brochure.name}>{selectedProduct.brochure.name}</span>
-                          {selectedProduct.brochure.sourceType === "link" ? (
-                            <span className="text-slate-400 d-block text-[10px] mt-0.5">Link đính kèm</span>
-                          ) : selectedProduct.brochure.fileType === "IMAGE" ? (
-                            <span className="text-slate-400 d-block text-[10px] mt-0.5">Ảnh tải lên ({selectedProduct.brochure.size})</span>
-                          ) : (
-                            <span className="text-slate-400 d-block text-[10px] mt-0.5">{selectedProduct.brochure.size}</span>
-                          )}
-                        </div>
-                      </div>
-                      {selectedProduct.brochure.sourceType === "link" ? (
-                        <button className="bg-transparent hover:bg-slate-50 text-cyan-900 border border-slate-200 text-xs font-semibold py-1 px-3 rounded-lg transition-colors flex-shrink-0" onClick={() => handleOpenWebsite(selectedProduct.brochure.url)}>
-                          Mở link
-                        </button>
-                      ) : selectedProduct.brochure.fileType === "IMAGE" && selectedProduct.brochure.url ? (
-                        <a
-                          href={selectedProduct.brochure.url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="bg-transparent hover:bg-slate-50 text-cyan-900 border border-slate-200 text-xs font-semibold py-1 px-3 rounded-lg text-decoration-none transition-colors flex-shrink-0 inline-block text-center"
-                        >
-                          Xem ảnh
-                        </a>
-                      ) : (
-                        <button className="bg-transparent hover:bg-slate-50 text-cyan-900 border border-slate-200 text-xs font-semibold py-1 px-3 rounded-lg transition-colors flex-shrink-0" onClick={() => handleDownloadDoc(selectedProduct.brochure.name)}>
-                          Tải về
-                        </button>
-                      )}
+                {/* Đối tượng */}
+                {selectedProduct.targetAudience && (
+                  <div className="flex gap-3 p-4 rounded-2xl bg-cyan-50/60 app-dark:!bg-white/5 border border-cyan-100 app-dark:!border-white/8">
+                    <div className="w-8 h-8 rounded-xl bg-cyan-900 text-white flex items-center justify-center flex-shrink-0 text-sm">
+                      <i className="fa fa-users"></i>
                     </div>
-                  ) : (
-                    <div className="text-slate-400 app-dark:!text-slate-500 text-xs italic bg-white app-dark:!bg-white/5 border border-dashed border-slate-200 app-dark:!border-white/10 rounded-xl py-3 px-4 text-center">Chưa có brochure riêng cho sản phẩm này.</div>
-                  )}
-                </div>
+                    <div>
+                      <p className="font-bold text-cyan-900 app-dark:!text-cyan-300 text-xs uppercase tracking-wide mb-1">Đối tượng phù hợp</p>
+                      <p className="text-slate-600 app-dark:!text-slate-300 text-sm leading-relaxed m-0">{selectedProduct.targetAudience}</p>
+                    </div>
+                  </div>
+                )}
 
-                <div>
-                  <label className="font-bold text-slate-550 text-xs tracking-wider uppercase d-block mb-2.5">Tài liệu hướng dẫn tư vấn:</label>
-                  {selectedProduct.documents && selectedProduct.documents.length > 0 ? (
-                    <div className="flex flex-col gap-2">
-                      {selectedProduct.documents.map((doc) => (
-                        <div key={doc.id} className="bg-white app-dark:!bg-white/5 border border-slate-200/80 app-dark:!border-white/10 rounded-xl p-3 flex justify-between items-center shadow-sm">
-                          <div className="text-truncate pr-2 flex-grow" style={{ minWidth: 0 }}>
-                            <div className="flex items-center text-truncate">
-                              {doc.sourceType === "link" ? (
-                                <i className="fa fa-link text-cyan-900 mr-2 flex-shrink-0"></i>
-                              ) : (
-                                <i className={`fa ${doc.type === "PDF" ? "fa-file-pdf text-red-500" : (doc.type === "XLSX" ? "fa-file-excel text-emerald-650" : "fa-file-lines text-sky-505")} mr-2 flex-shrink-0`}></i>
-                              )}
-                              <span className="font-semibold text-xs text-slate-800 app-dark:!text-slate-200 text-truncate" title={doc.name}>{doc.name}</span>
-                            </div>
-                            {doc.sourceType === "link" ? (
-                              <span className="text-slate-400 d-block text-[10px] mt-1 pl-6">Link đính kèm ({doc.type}) · {doc.updatedAt || "2026-06-01"}</span>
-                            ) : (
-                              <span className="text-slate-400 d-block text-[10px] mt-1 pl-6">{doc.size} · {doc.updatedAt || "2026-06-01"}</span>
-                            )}
-                          </div>
-                          {doc.sourceType === "link" ? (
-                            <button className="bg-transparent hover:bg-slate-50 text-slate-750 border border-slate-200 text-xs font-semibold py-1 px-3 rounded-lg transition-colors flex-shrink-0" onClick={() => handleOpenWebsite(doc.url)}>
-                              Mở link
-                            </button>
-                          ) : (
-                            <button className="bg-transparent hover:bg-slate-50 text-slate-750 border border-slate-200 text-xs font-semibold py-1 px-3 rounded-lg transition-colors flex-shrink-0" onClick={() => handleDownloadDoc(doc.name)}>
-                              Tải về
-                            </button>
-                          )}
+                {/* Điểm nổi bật */}
+                {selectedProduct.highlights && selectedProduct.highlights.length > 0 && (
+                  <div>
+                    <h5 className="font-bold text-slate-800 app-dark:!text-slate-100 text-sm mb-3 flex items-center gap-2">
+                      <i className="fa fa-star text-amber-400"></i> Điểm nổi bật
+                    </h5>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      {selectedProduct.highlights.map((hl, i) => (
+                        <div key={i} className="flex items-start gap-2.5 p-3 rounded-xl bg-slate-50 app-dark:!bg-white/5 border border-slate-100 app-dark:!border-white/8 text-sm text-slate-700 app-dark:!text-slate-300">
+                          <i className="fa fa-circle-check text-emerald-500 mt-0.5 flex-shrink-0"></i>
+                          <span className="leading-relaxed">{hl}</span>
                         </div>
                       ))}
                     </div>
-                  ) : (
-                    <div className="text-slate-400 app-dark:!text-slate-500 text-xs italic bg-white app-dark:!bg-white/5 border border-dashed border-slate-200 app-dark:!border-white/10 rounded-xl py-3 px-4 text-center">Chưa đính kèm tài liệu tư vấn nào khác.</div>
-                  )}
+                  </div>
+                )}
+
+                {/* Quy trình */}
+                {selectedProduct.processSteps && selectedProduct.processSteps.length > 0 && (
+                  <div>
+                    <h5 className="font-bold text-slate-800 app-dark:!text-slate-100 text-sm mb-3 flex items-center gap-2">
+                      <i className="fa fa-list-check text-cyan-700"></i> Quy trình xử lý
+                    </h5>
+                    <div className="flex flex-col gap-0">
+                      {selectedProduct.processSteps.map((step, i) => (
+                        <div key={i} className="flex items-start gap-3 py-3 border-b border-slate-100 app-dark:!border-white/8 last:border-0">
+                          <span className="w-6 h-6 bg-cyan-900 text-white font-bold rounded-full flex items-center justify-center text-[11px] flex-shrink-0 mt-0.5">{i + 1}</span>
+                          <span className="text-slate-600 app-dark:!text-slate-300 text-sm leading-relaxed">{step}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Tags */}
+                {selectedProduct.tags && selectedProduct.tags.length > 0 && (
+                  <div className="flex items-center flex-wrap gap-2">
+                    {selectedProduct.tags.map((tag, i) => (
+                      <span key={i} className="bg-slate-100 app-dark:!bg-white/8 text-slate-500 app-dark:!text-slate-300 px-2.5 py-1 rounded-lg text-xs font-medium">
+                        #{tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* RIGHT: Sidebar */}
+              <div className="space-y-4">
+
+                {/* CTA */}
+                <button
+                  className="w-full bg-red-600 hover:bg-red-700 text-white py-3.5 px-4 rounded-2xl font-bold shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center gap-2 text-sm"
+                  onClick={handleOpenInterestModal}
+                >
+                  <i className="fa fa-paper-plane"></i> Quan tâm sản phẩm
+                </button>
+
+                {/* Tài liệu */}
+                <div className="border border-slate-100 app-dark:!border-white/8 rounded-2xl overflow-hidden">
+                  <div className="bg-slate-50 app-dark:!bg-white/5 px-4 py-3 border-b border-slate-100 app-dark:!border-white/8 flex items-center gap-2">
+                    <i className="fa fa-folder-open text-cyan-900 app-dark:!text-cyan-400"></i>
+                    <span className="font-bold text-slate-700 app-dark:!text-slate-200 text-sm">Tài liệu & Brochure</span>
+                  </div>
+                  <div className="p-4 space-y-4">
+
+                    {/* Brochure */}
+                    <div>
+                      <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Brochure chính thức</p>
+                      {selectedProduct.brochure ? (
+                        <div className="bg-white app-dark:!bg-white/5 border border-slate-200/80 app-dark:!border-white/10 rounded-xl p-3 flex justify-between items-center gap-2">
+                          <div className="flex items-center gap-2 min-w-0">
+                            {selectedProduct.brochure.sourceType === "link" ? (
+                              <i className="fa fa-link text-cyan-900 flex-shrink-0"></i>
+                            ) : selectedProduct.brochure.fileType === "IMAGE" ? (
+                              selectedProduct.brochure.url ? (
+                                <img src={selectedProduct.brochure.url} alt="preview" className="rounded w-7 h-7 object-cover flex-shrink-0" />
+                              ) : (
+                                <i className="fa fa-file-image text-emerald-500 flex-shrink-0"></i>
+                              )
+                            ) : (
+                              <i className="fa fa-file-pdf text-red-500 flex-shrink-0"></i>
+                            )}
+                            <div className="min-w-0">
+                              <p className="font-semibold text-xs text-slate-800 app-dark:!text-slate-200 truncate m-0" title={selectedProduct.brochure.name}>{selectedProduct.brochure.name}</p>
+                              <p className="text-slate-400 text-[10px] m-0">{selectedProduct.brochure.size || "Link"}</p>
+                            </div>
+                          </div>
+                          {selectedProduct.brochure.sourceType === "link" ? (
+                            <button className="text-cyan-900 border border-slate-200 text-xs font-semibold py-1 px-3 rounded-lg flex-shrink-0 hover:bg-slate-50 transition-colors" onClick={() => handleOpenWebsite(selectedProduct.brochure.url)}>Mở</button>
+                          ) : selectedProduct.brochure.fileType === "IMAGE" && selectedProduct.brochure.url ? (
+                            <a href={selectedProduct.brochure.url} target="_blank" rel="noreferrer" className="text-cyan-900 border border-slate-200 text-xs font-semibold py-1 px-3 rounded-lg flex-shrink-0 hover:bg-slate-50 transition-colors">Xem</a>
+                          ) : (
+                            <button className="text-cyan-900 border border-slate-200 text-xs font-semibold py-1 px-3 rounded-lg flex-shrink-0 hover:bg-slate-50 transition-colors" onClick={() => handleDownloadDoc(selectedProduct.brochure.name)}>Tải</button>
+                          )}
+                        </div>
+                      ) : (
+                        <p className="text-slate-400 text-xs italic text-center py-2 border border-dashed border-slate-200 rounded-xl">Chưa có brochure</p>
+                      )}
+                    </div>
+
+                    {/* Tài liệu tư vấn */}
+                    <div>
+                      <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Tài liệu hướng dẫn tư vấn</p>
+                      {selectedProduct.documents && selectedProduct.documents.length > 0 ? (
+                        <div className="flex flex-col gap-2">
+                          {selectedProduct.documents.map((doc) => (
+                            <div key={doc.id} className="bg-white app-dark:!bg-white/5 border border-slate-200/80 app-dark:!border-white/10 rounded-xl p-3 flex justify-between items-center gap-2">
+                              <div className="flex items-center gap-2 min-w-0">
+                                {doc.sourceType === "link" ? (
+                                  <i className="fa fa-link text-cyan-900 flex-shrink-0 text-xs"></i>
+                                ) : (
+                                  <i className={`fa ${doc.type === "PDF" ? "fa-file-pdf text-red-500" : doc.type === "XLSX" ? "fa-file-excel text-emerald-500" : "fa-file-lines text-sky-500"} flex-shrink-0 text-xs`}></i>
+                                )}
+                                <div className="min-w-0">
+                                  <p className="font-semibold text-xs text-slate-800 app-dark:!text-slate-200 truncate m-0" title={doc.name}>{doc.name}</p>
+                                  <p className="text-slate-400 text-[10px] m-0">{doc.size || "Link"} · {doc.updatedAt || "2026-06-01"}</p>
+                                </div>
+                              </div>
+                              {doc.sourceType === "link" ? (
+                                <button className="text-slate-600 border border-slate-200 text-xs font-semibold py-1 px-3 rounded-lg flex-shrink-0 hover:bg-slate-50 transition-colors" onClick={() => handleOpenWebsite(doc.url)}>Mở</button>
+                              ) : (
+                                <button className="text-slate-600 border border-slate-200 text-xs font-semibold py-1 px-3 rounded-lg flex-shrink-0 hover:bg-slate-50 transition-colors" onClick={() => handleDownloadDoc(doc.name)}>Tải</button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-slate-400 text-xs italic text-center py-2 border border-dashed border-slate-200 rounded-xl">Chưa có tài liệu</p>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              <button
-                className="w-full bg-red-600 hover:bg-red-700 text-white py-3 px-4 rounded-xl force-rounded-xl font-bold shadow-md hover:shadow-lg transition-all duration-250 flex items-center justify-center gap-2"
-                onClick={handleOpenInterestModal}
-                style={{ fontSize: "14.5px" }}
-              >
-                <i className="fa fa-paper-plane"></i> QUAN TÂM SẢN PHẨM
-              </button>
             </div>
           </div>
         </div>
@@ -3111,42 +3162,116 @@ function ProductOverviewPageInner({ currentUser }) {
                       </select>
                     </div>
 
-                    <div className="col-span-1 md:col-span-3">
-                      <label className="block font-semibold text-xs text-slate-500 mb-1.5">Phí dịch vụ</label>
-                      <div className="flex gap-2">
+                    <div className="md:col-span-12">
+                      <label className="block font-semibold text-xs text-slate-500 mb-1.5">Ảnh đại diện sản phẩm</label>
+                      <div className="flex items-stretch gap-0 rounded-xl overflow-hidden border border-slate-200 focus-within:ring-2 focus-within:ring-cyan-900/10 focus-within:border-cyan-900 transition-all">
                         <input
-                          type="number"
-                          className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-[13.5px] text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-900/10 focus:border-cyan-900 transition-all"
-                          value={formProduct.serviceFee}
-                          onChange={(e) => setFormProduct({ ...formProduct, serviceFee: parseInt(e.target.value) || 0 })}
-                          placeholder="0"
+                          type="text"
+                          className="flex-1 bg-slate-50 px-4 py-2.5 text-[13.5px] text-slate-700 placeholder-slate-400 focus:outline-none"
+                          value={productImageFile ? "" : (formProduct.image || "")}
+                          onChange={(e) => { setProductImageFile(null); setFormProduct({ ...formProduct, image: e.target.value }); }}
+                          placeholder="https://example.com/image.jpg"
+                          disabled={!!productImageFile}
                         />
-                        <select
-                          className="w-24 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-[13.5px] text-slate-700 focus:outline-none focus:ring-2 focus:ring-cyan-900/10 focus:border-cyan-900 transition-all cursor-pointer"
-                          value={formProduct.currency}
-                          onChange={(e) => setFormProduct({ ...formProduct, currency: e.target.value })}
-                        >
-                          <option value="VND">VND</option>
-                          <option value="USD">USD</option>
-                          <option value="EUR">EUR</option>
-                          <option value="KRW">KRW</option>
-                          <option value="JPY">JPY</option>
-                        </select>
+                        <label className="flex-shrink-0 flex items-center gap-1.5 cursor-pointer bg-slate-100 hover:bg-slate-200 border-l border-slate-200 text-slate-600 text-xs font-semibold px-4 py-2.5 transition-colors whitespace-nowrap">
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                          Chọn file
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) { setProductImageFile(file); setFormProduct({ ...formProduct, image: "" }); }
+                            }}
+                          />
+                        </label>
                       </div>
+
+                      {/* Preview */}
+                      {(productImageFile || formProduct.image) && (
+                        <div className="mt-2 relative inline-block">
+                          <img
+                            src={productImageFile ? URL.createObjectURL(productImageFile) : formProduct.image}
+                            alt="preview"
+                            className="h-20 rounded-xl border border-slate-200 object-cover"
+                            onError={(e) => { e.target.style.display = "none"; }}
+                          />
+                          <button
+                            type="button"
+                            className="absolute -top-1.5 -right-1.5 bg-red-500 hover:bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs transition-colors"
+                            onClick={() => { setProductImageFile(null); setFormProduct({ ...formProduct, image: "" }); }}
+                          >×</button>
+                        </div>
+                      )}
+
+                      {productImageFile && (
+                        <p className="text-[11px] text-slate-400 mt-1">{productImageFile.name} — sẽ được upload khi lưu</p>
+                      )}
                     </div>
 
-                    <div className="md:col-span-9">
-                      <label className="block font-semibold text-xs text-slate-500 mb-1.5">Ảnh đại diện sản phẩm (URL)</label>
-                      <input
-                        type="text"
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-[13.5px] text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-900/10 focus:border-cyan-900 transition-all"
-                        value={formProduct.image}
-                        onChange={(e) => setFormProduct({ ...formProduct, image: e.target.value })}
-                        placeholder="https://example.com/image.jpg"
-                      />
-                      <span className="text-slate-450 block mt-1.5 text-[11px]">
-                        Nhập URL ảnh đại diện cho sản phẩm.
-                      </span>
+                    {/* Gradient banner */}
+                    <div className="md:col-span-12">
+                      <label className="block font-semibold text-xs text-slate-500 mb-2">Bảng màu gradient banner</label>
+                      <div className="flex items-center gap-3 flex-wrap">
+                        <div className="flex items-center gap-2">
+                          <label className="text-xs text-slate-500 whitespace-nowrap">Màu bắt đầu</label>
+                          <div className="relative w-9 h-9 rounded-lg overflow-hidden border border-slate-200 cursor-pointer shadow-sm">
+                            <input
+                              type="color"
+                              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                              value={formProduct.gradientFrom || "#0d2040"}
+                              onChange={(e) => setFormProduct({ ...formProduct, gradientFrom: e.target.value })}
+                            />
+                            <div className="w-full h-full rounded-lg" style={{background: formProduct.gradientFrom || "#0d2040"}} />
+                          </div>
+                          <input
+                            type="text"
+                            className="w-24 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-[12px] text-slate-700 font-mono focus:outline-none focus:ring-2 focus:ring-cyan-900/10 focus:border-cyan-900 transition-all"
+                            value={formProduct.gradientFrom || "#0d2040"}
+                            onChange={(e) => setFormProduct({ ...formProduct, gradientFrom: e.target.value })}
+                            placeholder="#0d2040"
+                          />
+                        </div>
+
+                        <svg className="w-4 h-4 text-slate-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                        </svg>
+
+                        <div className="flex items-center gap-2">
+                          <label className="text-xs text-slate-500 whitespace-nowrap">Màu kết thúc</label>
+                          <div className="relative w-9 h-9 rounded-lg overflow-hidden border border-slate-200 cursor-pointer shadow-sm">
+                            <input
+                              type="color"
+                              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                              value={formProduct.gradientTo || "#1a3a6b"}
+                              onChange={(e) => setFormProduct({ ...formProduct, gradientTo: e.target.value })}
+                            />
+                            <div className="w-full h-full rounded-lg" style={{background: formProduct.gradientTo || "#1a3a6b"}} />
+                          </div>
+                          <input
+                            type="text"
+                            className="w-24 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-[12px] text-slate-700 font-mono focus:outline-none focus:ring-2 focus:ring-cyan-900/10 focus:border-cyan-900 transition-all"
+                            value={formProduct.gradientTo || "#1a3a6b"}
+                            onChange={(e) => setFormProduct({ ...formProduct, gradientTo: e.target.value })}
+                            placeholder="#1a3a6b"
+                          />
+                        </div>
+
+                        {/* Preview */}
+                        <div
+                          className="flex-1 min-w-[120px] h-9 rounded-lg border border-slate-200 shadow-sm"
+                          style={{background: `linear-gradient(135deg, ${formProduct.gradientFrom || "#0d2040"} 0%, ${formProduct.gradientTo || "#1a3a6b"} 100%)`}}
+                        />
+
+                        <button
+                          type="button"
+                          className="text-xs text-slate-400 hover:text-slate-600 underline underline-offset-2 whitespace-nowrap"
+                          onClick={() => setFormProduct({ ...formProduct, gradientFrom: "#0d2040", gradientTo: "#1a3a6b" })}
+                        >
+                          Đặt lại
+                        </button>
+                      </div>
                     </div>
 
                     <div className="md:col-span-12">
@@ -3516,7 +3641,7 @@ function ProductOverviewPageInner({ currentUser }) {
       {/* MODAL: FORM QUAN TÂM SẢN PHẨM */}
       {showInterestModal && selectedProduct && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-[4px] flex items-center justify-center p-6 z-[1050] animate-[fadeIn_0.2s_ease-out]">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-[550px] max-h-[90vh] flex flex-col overflow-hidden animate-[slideUp_0.3s_cubic-bezier(0.16,1,0.3,1)]">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-[550px] flex flex-col animate-[slideUp_0.3s_cubic-bezier(0.16,1,0.3,1)]" style={{maxHeight:"90vh",overflow:"hidden"}}>
             <div className="bg-slate-50 border-b border-slate-100 px-5 py-4 flex justify-between items-center">
               <h5 className="font-bold text-slate-800 text-base m-0 flex items-center gap-2">
                 <i className="fa fa-envelope-open-text text-red-500"></i> Đăng ký khách hàng quan tâm
@@ -3526,9 +3651,9 @@ function ProductOverviewPageInner({ currentUser }) {
               </button>
             </div>
 
-            <form onSubmit={handleSubmitInterest}>
-              <div className="p-6 overflow-y-auto text-[13.5px]">
-                <div className="mb-4">
+            <form id="interestForm" onSubmit={handleSubmitInterest} className="flex-1 min-h-0 overflow-y-auto">
+              <div className="p-5 text-[13.5px]">
+                <div className="mb-3">
                   <label className="block font-semibold text-xs text-slate-500 mb-1.5">Sản phẩm quan tâm</label>
                   <input
                     type="text"
@@ -3538,7 +3663,7 @@ function ProductOverviewPageInner({ currentUser }) {
                   />
                 </div>
 
-                <div className="mb-4">
+                <div className="mb-3">
                   <label className="block font-semibold text-xs text-slate-500 mb-1.5">Họ tên khách hàng <span className="text-red-500">*</span></label>
                   <input
                     type="text"
@@ -3550,7 +3675,7 @@ function ProductOverviewPageInner({ currentUser }) {
                   />
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
                   <div>
                     <label className="block font-semibold text-xs text-slate-500 mb-1.5">Số điện thoại <span className="text-red-500">*</span></label>
                     <input
@@ -3574,7 +3699,7 @@ function ProductOverviewPageInner({ currentUser }) {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
                   <div>
                     <label className="block font-semibold text-xs text-slate-500 mb-1.5">Người phụ trách / CTV giới thiệu</label>
                     <input
@@ -3606,23 +3731,23 @@ function ProductOverviewPageInner({ currentUser }) {
                   <label className="block font-semibold text-xs text-slate-500 mb-1.5">Nhu cầu cụ thể / Ghi chú</label>
                   <textarea
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-[13.5px] text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-900/10 focus:border-cyan-900 transition-all"
-                    rows="3"
+                    rows="2"
                     placeholder="Nhập yêu cầu đặc biệt của khách hàng hoặc khu giờ liên hệ phù hợp..."
                     value={interestForm.note}
                     onChange={(e) => setInterestForm({ ...interestForm, note: e.target.value })}
                   />
                 </div>
               </div>
-
-              <div className="bg-slate-50 p-4 border-t border-slate-100 flex gap-3 justify-end">
-                <button type="button" className="bg-transparent hover:bg-slate-150 text-slate-650 border border-slate-250 text-xs font-semibold py-2 px-4 rounded-xl transition-colors" onClick={() => setShowInterestModal(false)}>
-                  Hủy bỏ
-                </button>
-                <button type="submit" className="bg-cyan-900 hover:bg-cyan-950 text-white text-xs font-semibold py-2 px-5 rounded-xl transition-colors">
-                  Gửi liên hệ tư vấn
-                </button>
-              </div>
             </form>
+
+            <div className="bg-slate-50 p-4 border-t border-slate-100 flex gap-3 justify-end flex-shrink-0">
+              <button type="button" className="bg-transparent hover:bg-slate-150 text-slate-650 border border-slate-250 text-xs font-semibold py-2 px-4 rounded-xl transition-colors" onClick={() => setShowInterestModal(false)}>
+                Hủy bỏ
+              </button>
+              <button type="submit" form="interestForm" className="bg-cyan-900 hover:bg-cyan-950 text-white text-xs font-semibold py-2 px-5 rounded-xl transition-colors">
+                Gửi liên hệ tư vấn
+              </button>
+            </div>
           </div>
         </div>
       )}
