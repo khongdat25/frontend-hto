@@ -1066,6 +1066,8 @@ function ProductOverviewPageInner({ currentUser }) {
     sourceChannel: "CTV/Đại lý"
   });
 
+  const [isSubmittingInterest, setIsSubmittingInterest] = useState(false);
+
   const currentUserName = useMemo(() => {
     return currentUser?.name || currentUser?.username || "CTV/Đại lý HTO";
   }, [currentUser]);
@@ -1378,10 +1380,45 @@ function ProductOverviewPageInner({ currentUser }) {
     setShowInterestModal(true);
   };
 
-  const handleSubmitInterest = (e) => {
+  const handleSubmitInterest = async (e) => {
     e.preventDefault();
-    toast.success(`Đã đăng ký thành công cho khách hàng ${interestForm.customerName}`, "Gửi liên hệ thành công");
-    setShowInterestModal(false);
+
+    if (!interestForm.customerName.trim() || !interestForm.phone.trim()) {
+      toast.error("Vui lòng điền đầy đủ họ tên và số điện thoại.", "Thiếu thông tin");
+      return;
+    }
+
+    setIsSubmittingInterest(true);
+
+    const normalizePhone = (value) => value.trim().replace(/[\s.-]/g, "");
+
+    const payload = {
+      customerName: interestForm.customerName.trim(),
+      phone: normalizePhone(interestForm.phone),
+      email: interestForm.email ? interestForm.email.trim() : "",
+      source: interestForm.sourceChannel || "CTV/Đại lý",
+      productInterest: selectedProduct?.name || "Sản phẩm quan tâm",
+      countryInterest: resolveCountryName(selectedProduct?.country) || "Đức",
+      note: interestForm.note ? interestForm.note.trim() : ""
+    };
+
+    try {
+      const response = await apiRequest(`${API_BASE_URL}/leads`, {
+        method: "POST",
+        body: JSON.stringify(payload)
+      });
+
+      const successCode = response?.data?.bizflyContactId || response?.bizflyContactId || response?.data?._id || response?._id || `HTO-${Date.now().toString().slice(-6)}`;
+      toast.success(
+        `Đã đăng ký thành công cho khách hàng ${interestForm.customerName}. Mã liên hệ: ${successCode}`,
+        "Gửi liên hệ thành công"
+      );
+      setShowInterestModal(false);
+    } catch (err) {
+      toast.error(err.message || "Gửi liên hệ tư vấn thất bại. Vui lòng thử lại sau.", "Lỗi gửi liên hệ");
+    } finally {
+      setIsSubmittingInterest(false);
+    }
   };
 const handleImageUpload = (e) => {
   const file = e.target.files[0];
@@ -3872,11 +3909,12 @@ const handleEditCategory = (cat) => {
                     <label className="block font-semibold text-xs text-slate-500 mb-1.5">Họ tên khách hàng <span className="text-red-500">*</span></label>
                     <input
                       type="text"
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-[13.5px] text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-900/10 focus:border-cyan-900 transition-all"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-[13.5px] text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-900/10 focus:border-cyan-900 transition-all disabled:opacity-50"
                       placeholder="Ví dụ: Nguyễn Văn A"
                       value={interestForm.customerName}
                       onChange={(e) => setInterestForm({ ...interestForm, customerName: e.target.value })}
                       required
+                      disabled={isSubmittingInterest}
                     />
                   </div>
 
@@ -3885,21 +3923,23 @@ const handleEditCategory = (cat) => {
                       <label className="block font-semibold text-xs text-slate-500 mb-1.5">Số điện thoại <span className="text-red-500">*</span></label>
                       <input
                         type="text"
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-[13.5px] text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-900/10 focus:border-cyan-900 transition-all"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-[13.5px] text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-900/10 focus:border-cyan-900 transition-all disabled:opacity-50"
                         placeholder="Ví dụ: 0987654321"
                         value={interestForm.phone}
                         onChange={(e) => setInterestForm({ ...interestForm, phone: e.target.value })}
                         required
+                        disabled={isSubmittingInterest}
                       />
                     </div>
                     <div>
                       <label className="block font-semibold text-xs text-slate-500 mb-1.5">Email (nếu có)</label>
                       <input
                         type="email"
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-[13.5px] text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-900/10 focus:border-cyan-900 transition-all"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-[13.5px] text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-900/10 focus:border-cyan-900 transition-all disabled:opacity-50"
                         placeholder="customer@email.com"
                         value={interestForm.email}
                         onChange={(e) => setInterestForm({ ...interestForm, email: e.target.value })}
+                        disabled={isSubmittingInterest}
                       />
                     </div>
                   </div>
@@ -3917,9 +3957,10 @@ const handleEditCategory = (cat) => {
                     <div>
                       <label className="block font-semibold text-xs text-slate-500 mb-1.5">Kênh nguồn tuyển sinh</label>
                       <select
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-[13.5px] text-slate-700 focus:outline-none focus:ring-2 focus:ring-cyan-900/10 focus:border-cyan-900 transition-all cursor-pointer"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-[13.5px] text-slate-700 focus:outline-none focus:ring-2 focus:ring-cyan-900/10 focus:border-cyan-900 transition-all cursor-pointer disabled:opacity-50"
                         value={interestForm.sourceChannel}
                         onChange={(e) => setInterestForm({ ...interestForm, sourceChannel: e.target.value })}
+                        disabled={isSubmittingInterest}
                       >
                         <option value="CTV/Đại lý">CTV / Đại lý</option>
                         <option value="Nhân viên tư vấn">Nhân viên tư vấn</option>
@@ -3935,22 +3976,23 @@ const handleEditCategory = (cat) => {
                   <div className="mb-2">
                     <label className="block font-semibold text-xs text-slate-500 mb-1.5">Nhu cầu cụ thể / Ghi chú</label>
                     <textarea
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-[13.5px] text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-900/10 focus:border-cyan-900 transition-all"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-[13.5px] text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-900/10 focus:border-cyan-900 transition-all disabled:opacity-50"
                       rows="2"
                       placeholder="Nhập yêu cầu đặc biệt của khách hàng hoặc khu giờ liên hệ phù hợp..."
                       value={interestForm.note}
                       onChange={(e) => setInterestForm({ ...interestForm, note: e.target.value })}
+                      disabled={isSubmittingInterest}
                     />
                   </div>
                 </div>
               </form>
 
               <div className="bg-slate-50 p-4 border-t border-slate-100 flex gap-3 justify-end flex-shrink-0">
-                <button type="button" className="bg-transparent hover:bg-slate-150 text-slate-650 border border-slate-250 text-xs font-semibold py-2 px-4 rounded-xl transition-colors" onClick={() => setShowInterestModal(false)}>
+                <button type="button" className="bg-transparent hover:bg-slate-150 text-slate-650 border border-slate-250 text-xs font-semibold py-2 px-4 rounded-xl transition-colors disabled:opacity-50" onClick={() => setShowInterestModal(false)} disabled={isSubmittingInterest}>
                   Hủy bỏ
                 </button>
-                <button type="submit" form="interestForm" className="bg-cyan-900 hover:bg-cyan-950 text-white text-xs font-semibold py-2 px-5 rounded-xl transition-colors">
-                  Gửi liên hệ tư vấn
+                <button type="submit" form="interestForm" className="bg-cyan-900 hover:bg-cyan-950 text-white text-xs font-semibold py-2 px-5 rounded-xl transition-colors disabled:opacity-50" disabled={isSubmittingInterest}>
+                  {isSubmittingInterest ? "Đang gửi..." : "Gửi liên hệ tư vấn"}
                 </button>
               </div>
             </div>
