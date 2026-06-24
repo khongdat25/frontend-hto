@@ -1,7 +1,13 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { API_BASE_URL } from "../config/api";
+import { authFetch, getAuthHeaders } from "../auth/session";
 
 const ADMIN_ROLE_ID = "69fc5af582ef85451120772a";
-const PRODUCT_STORAGE_KEY = "hto_products";
+
+// Key dùng chung với ProductOverviewPage.jsx để truyền danh mục được chọn khi điều hướng
+const SIDEBAR_CATEGORY_STORAGE_KEY = "hto_selected_product_category";
+// Sự kiện dùng để báo cho ProductOverviewPage (nếu đã mount sẵn) cập nhật ngay khi đổi danh mục
+const SIDEBAR_CATEGORY_EVENT = "hto:select-product-category";
 
 const ROLE_ID_MAP = {
   "69fc5af582ef85451120772a": "admin",
@@ -12,20 +18,6 @@ const ROLE_ID_MAP = {
   "69fc5af682ef85451120772f": "congtacvien",
   "69fc5af782ef854511207730": "user",
 };
-
-const PRODUCT_TYPES = [
-  { id: "duhocduc", label: "Du học - Đức" },
-  { id: "dinhcu", label: "Định cư" },
-  { id: "visa", label: "Visa" },
-  { id: "daotaongonngu", label: "Đào tạo ngôn ngữ" },
-  { id: "nophosoonline", label: "Nộp hồ sơ online" },
-];
-
-const DEFAULT_PRODUCT_LINKS = [
-  { id: "product-du-hoc-duc", name: "Du học nghề Đức", type: "duhocduc" },
-  { id: "product-visa", name: "Dịch vụ visa Đức", type: "visa" },
-  { id: "product-language", name: "Khóa tiếng Đức B1", type: "daotaongonngu" },
-];
 
 const normalizeRoleKey = (roleValue) => {
   return String(roleValue || "")
@@ -60,75 +52,129 @@ const canManageNewsEvents = (user) => {
   return ["admin", "bangiamdoc", "truongbophan"].includes(roleKey);
 };
 
-const normalizeProductType = (typeValue) => {
-  const typeKey = String(typeValue || "").trim();
-
-  if (PRODUCT_TYPES.some((type) => type.id === typeKey)) {
-    return typeKey;
-  }
-
-  return "duhocduc";
+// KIỂM TRA QUYỀN XEM CHI TIẾT SẢN PHẨM (chỉ dùng cho "Tổng quan sản phẩm")
+const canViewProductDetails = (user) => {
+  const roleKey = getUserRoleKey(user);
+  if (["admin", "bangiamdoc", "truongbophan"].includes(roleKey)) return true;
+  const granted = Array.isArray(user?.grantedPermissions) ? user.grantedPermissions : [];
+  return granted.includes("view_product_details");
 };
 
-const normalizeProductItem = (product, index) => {
-  const id = String(
-    product?.id ||
-    product?._id ||
-    product?.slug ||
-    product?.code ||
-    `product-${index + 1}`,
-  );
+const normalizeApiCategoryList = (payload) => {
+  const list = Array.isArray(payload)
+    ? payload
+    : Array.isArray(payload?.data)
+    ? payload.data
+    : Array.isArray(payload?.items)
+    ? payload.items
+    : Array.isArray(payload?.categories)
+    ? payload.categories
+    : [];
 
-  return {
-    id,
-    name: product?.name || product?.title || product?.label || "Sản phẩm chưa đặt tên",
-    type: normalizeProductType(
-      product?.type ||
-      product?.productType ||
-      product?.category ||
-      product?.categoryId,
-    ),
-  };
+  return list
+    .map((cat) => ({
+      id: String(cat?._id?.$oid || cat?._id || cat?.id || ""),
+      name: cat?.name || "Danh mục chưa đặt tên",
+      status: cat?.status || "active",
+    }))
+    .filter((cat) => cat.id && cat.name);
 };
 
-const getSidebarProducts = () => {
-  if (typeof window === "undefined") {
-    return DEFAULT_PRODUCT_LINKS;
-  }
-
-  try {
-    const storedProducts = JSON.parse(
-      window.localStorage.getItem(PRODUCT_STORAGE_KEY) || "[]",
-    );
-
-    if (!Array.isArray(storedProducts) || storedProducts.length === 0) {
-      return DEFAULT_PRODUCT_LINKS;
-    }
-
-    const normalizedProducts = storedProducts
-      .map((product, index) => normalizeProductItem(product, index))
-      .filter((product) => product.id && product.name);
-
-    return normalizedProducts.length > 0 ? normalizedProducts : DEFAULT_PRODUCT_LINKS;
-  } catch {
-    return DEFAULT_PRODUCT_LINKS;
-  }
-};
 export const Sidebar = ({ currentUser, onNavigate, currentPage, onToggleSidebar }) => {
-  // State quản lý việc đóng/mở menu con (mặc định mở 'sanpham' cho giống hình mẫu)
   const [openMenu, setOpenMenu] = useState(() => ["tintuc", "newsEventsManage"].includes(currentPage) ? "newsEvents" : "sanpham");
-  // eslint-disable-next-line no-unused-vars
-  const [openProductCategory, setOpenProductCategory] = useState("duhocduc");
-  // eslint-disable-next-line no-unused-vars
-  const sidebarProducts = getSidebarProducts();
+
+  // ==========================================
+  // DANH MỤC SẢN PHẨM TỪ API
+  // ==========================================
+  const [productCategories, setProductCategories] = useState([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
+  const [selectedCategoryId, setSelectedCategoryId] = useState(null);
+
   const isProductPage =
-    ["duhocduc", "dinhcu", "visa", "daotaongonngu", "nophosoonline", "sanpham", "productOverview"].includes(currentPage) ||
+    ["duhocduc", "dinhcu", "visa", "daotaongonngu", "nophosoonline", "sanpham"].includes(currentPage) ||
+    (currentPage === "productOverview" && selectedCategoryId !== null) ||
     currentPage.startsWith("product:");
   const isNewsPage = ["tintuc", "newsEventsManage"].includes(currentPage);
   const canManageNews = canManageNewsEvents(currentUser);
   const handleGoHome = () => {
     onNavigate?.("dashboard");
   };
+
+  // Lắng nghe sự kiện chọn danh mục (từ bộ lọc MegaMenu)
+  useEffect(() => {
+    const handleCategorySelect = (event) => {
+      const detail = event?.detail || {};
+      if (detail.fromSidebar) return; // Bỏ qua nếu sự kiện phát ra từ chính sidebar
+
+      if (detail.id) {
+        setSelectedCategoryId(detail.id);
+      } else {
+        setSelectedCategoryId(null);
+      }
+    };
+
+    window.addEventListener(SIDEBAR_CATEGORY_EVENT, handleCategorySelect);
+    return () => window.removeEventListener(SIDEBAR_CATEGORY_EVENT, handleCategorySelect);
+  }, []);
+
+  // Fetch danh mục từ API
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchCategories = async () => {
+      try {
+        const headers = { "Content-Type": "application/json", ...getAuthHeaders() };
+        const response = await authFetch(`${API_BASE_URL}/product-categories`, { headers });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const payload = await response.json().catch(() => null);
+        const normalized = normalizeApiCategoryList(payload);
+        if (isMounted) setProductCategories(normalized);
+      } catch (err) {
+        console.warn("[Sidebar] Không tải được danh mục sản phẩm:", err.message);
+        if (isMounted) setProductCategories([]);
+      } finally {
+        if (isMounted) setCategoriesLoading(false);
+      }
+    };
+
+    fetchCategories();
+    return () => { isMounted = false; };
+  }, []);
+
+  // Xử lý click vào danh mục
+  const handleToggleCategory = (categoryId) => {
+    // Cập nhật selected để highlight
+    setSelectedCategoryId(categoryId);
+    
+    // Gửi sự kiện để ProductOverviewPage lọc theo danh mục
+    const category = productCategories.find(c => c.id === categoryId);
+    if (category) {
+      const detail = { id: category.id, name: category.name, fromSidebar: true };
+      try {
+        sessionStorage.setItem(SIDEBAR_CATEGORY_STORAGE_KEY, JSON.stringify(detail));
+      } catch {
+        // bỏ qua
+      }
+      window.dispatchEvent(new CustomEvent(SIDEBAR_CATEGORY_EVENT, { detail }));
+    }
+
+    // Điều hướng sang trang tổng quan sản phẩm
+    onNavigate?.("productOverview");
+  };
+
+  const handleGoToProductOverview = () => {
+    const detail = { id: null, name: "Tất cả", fromSidebar: true };
+    try {
+      sessionStorage.setItem(SIDEBAR_CATEGORY_STORAGE_KEY, JSON.stringify(detail));
+    } catch {
+      // bỏ qua
+    }
+    window.dispatchEvent(new CustomEvent(SIDEBAR_CATEGORY_EVENT, { detail }));
+    setSelectedCategoryId(null);
+    onNavigate?.("productOverview");
+  };
+
+  const hasProductDetailPermission = canViewProductDetails(currentUser);
 
   return (
     <aside className="app-menubar" id="menubar">
@@ -183,7 +229,6 @@ export const Sidebar = ({ currentUser, onNavigate, currentPage, onToggleSidebar 
                 onNavigate?.("dashboard");
               }}
             >
-              {/* Khung xám đồng nhất chứa Icon */}
               <div className="d-flex align-items-center justify-content-center rounded-3 bg-body-secondary me-3 flex-shrink-0" style={{ width: "36px", height: "36px" }}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
@@ -216,6 +261,31 @@ export const Sidebar = ({ currentUser, onNavigate, currentPage, onToggleSidebar 
             </a>
           </li>
 
+          {/* --- 1C. TỔNG SẢN PHẨM --- */}
+          {hasProductDetailPermission && (
+            <li className="menu-item mb-2">
+              <a
+                className={`menu-link d-flex align-items-center px-2 py-2 rounded-2 ${(currentPage === "productOverview" && !selectedCategoryId) ? "text-primary fw-bold" : "text-body-secondary"}`}
+                href="#"
+                style={{ textDecoration: "none" }}
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleGoToProductOverview();
+                }}
+              >
+                <div className="d-flex align-items-center justify-content-center rounded-3 bg-body-secondary me-3 flex-shrink-0" style={{ width: "36px", height: "36px" }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="3" width="7" height="9"></rect>
+                    <rect x="14" y="3" width="7" height="5"></rect>
+                    <rect x="14" y="12" width="7" height="9"></rect>
+                    <rect x="3" y="16" width="7" height="5"></rect>
+                  </svg>
+                </div>
+                <span className="menu-label" style={{ flex: 1, fontSize: "14px" }}>Tổng sản phẩm</span>
+              </a>
+            </li>
+          )}
+
           {/* --- 2. SẢN PHẨM --- */}
           <li className="menu-item mb-2">
             <a
@@ -225,7 +295,7 @@ export const Sidebar = ({ currentUser, onNavigate, currentPage, onToggleSidebar 
               style={{ textDecoration: "none" }}
               onClick={(e) => {
                 e.preventDefault();
-                onNavigate?.("productOverview"); // Click vào thẻ a chỉ chuyển trang
+                onNavigate?.("productOverview");
               }}
             >
               <div className="d-flex align-items-center justify-content-center rounded-3 bg-body-secondary me-3 flex-shrink-0" style={{ width: "36px", height: "36px" }}>
@@ -235,12 +305,12 @@ export const Sidebar = ({ currentUser, onNavigate, currentPage, onToggleSidebar 
                 </svg>
               </div>
               <span className="menu-label" style={{ flex: 1, fontSize: "14px" }}>Sản phẩm</span>
-              {/* Click vùng mũi tên này mới xổ xuống */}
+              
               <span
                 style={{ cursor: "pointer", padding: "4px" }}
                 onClick={(e) => {
                   e.preventDefault();
-                  e.stopPropagation(); // Chặn lan truyền click
+                  e.stopPropagation();
                   setOpenMenu(openMenu === "sanpham" ? "" : "sanpham");
                 }}
               >
@@ -251,13 +321,54 @@ export const Sidebar = ({ currentUser, onNavigate, currentPage, onToggleSidebar 
             </a>
 
             <ul className="menu-inner list-unstyled mb-0" style={{ display: openMenu === "sanpham" ? "block" : "none", paddingLeft: "52px" }}>
+
+              {/* DANH SÁCH DANH MỤC */}
+              {categoriesLoading ? (
+                <li className="menu-item mb-1">
+                  <span className="d-block px-3 py-2 text-body-secondary" style={{ fontSize: "13px" }}>
+                    Đang tải danh mục...
+                  </span>
+                </li>
+              ) : productCategories.length > 0 ? (
+                productCategories.map((category) => {
+                  return (
+                    <li key={category.id} className="menu-item mb-1">
+                      <a
+                        className={`menu-link d-block px-3 py-2 rounded-2 ${
+                          selectedCategoryId === category.id && currentPage === "productOverview" ? "bg-primary-subtle text-primary fw-medium" : "text-body-secondary"
+                        }`}
+                        style={{ 
+                          textDecoration: "none", 
+                          fontSize: "13px",
+                          cursor: "pointer"
+                        }}
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          handleToggleCategory(category.id);
+                        }}
+                      >
+                        {category.name}
+                      </a>
+                    </li>
+                  );
+                })
+              ) : (
+                <li className="menu-item mb-1">
+                  <span className="d-block px-3 py-2 text-body-secondary" style={{ fontSize: "13px" }}>
+                    Chưa có danh mục
+                  </span>
+                </li>
+              )}
+
+              {/* NỘP HỒ SƠ ONLINE */}
               <li className="menu-item mb-1">
-                <a className={`menu-link d-block px-3 py-2 rounded-2 ${currentPage === "productOverview" ? "bg-primary-subtle text-primary fw-medium" : "text-body-secondary"}`} style={{ textDecoration: "none", fontSize: "13px" }} href="#" onClick={(e) => { e.preventDefault(); onNavigate?.("productOverview"); }}>
-                  Tổng quan sản phẩm
-                </a>
-              </li>
-              <li className="menu-item mb-1">
-                <a className={`menu-link d-block px-3 py-2 rounded-2 ${currentPage === "nophosoonline" ? "bg-primary-subtle text-primary fw-medium" : "text-body-secondary"}`} style={{ textDecoration: "none", fontSize: "13px" }} href="#" onClick={(e) => { e.preventDefault(); onNavigate?.("nophosoonline"); }}>
+                <a
+                  className={`menu-link d-block px-3 py-2 rounded-2 ${currentPage === "nophosoonline" ? "bg-primary-subtle text-primary fw-medium" : "text-body-secondary"}`}
+                  style={{ textDecoration: "none", fontSize: "13px" }}
+                  href="#"
+                  onClick={(e) => { e.preventDefault(); onNavigate?.("nophosoonline"); }}
+                >
                   Nộp hồ sơ online
                 </a>
               </li>
@@ -468,7 +579,6 @@ export const Sidebar = ({ currentUser, onNavigate, currentPage, onToggleSidebar 
                 </svg>
               </div>
               <span className="menu-label" style={{ flex: 1, fontSize: "14px" }}>Tài liệu & Biểu mẫu</span>
-              {/* Vùng bấm xổ menu con */}
               <span
                 style={{ cursor: "pointer", padding: "4px" }}
                 onClick={(e) => {
