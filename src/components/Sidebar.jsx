@@ -109,8 +109,8 @@ export const Sidebar = ({
       "daotaongonngu",
       "nophosoonline",
       "sanpham",
+      "productOverview",
     ].includes(currentPage) ||
-    (currentPage === "productOverview" && selectedCategoryId !== null) ||
     currentPage.startsWith("product:");
   const isNewsPage = ["tintuc", "newsEventsManage"].includes(currentPage);
   const canManageNews = canManageNewsEvents(currentUser);
@@ -336,47 +336,7 @@ export const Sidebar = ({
             </a>
           </li>
 
-          {/* --- 1C. TỔNG SẢN PHẨM --- */}
-          {hasProductDetailPermission && (
-            <li className="menu-item mb-2">
-              <a
-                className={`menu-link d-flex align-items-center px-2 py-2 rounded-2 ${currentPage === "productOverview" && !selectedCategoryId ? "text-primary fw-bold" : "text-body-secondary"}`}
-                href="#"
-                style={{ textDecoration: "none" }}
-                onClick={(e) => {
-                  e.preventDefault();
-                  handleGoToProductOverview();
-                }}
-              >
-                <div
-                  className="d-flex align-items-center justify-content-center rounded-3 bg-body-secondary me-3 flex-shrink-0"
-                  style={{ width: "36px", height: "36px" }}
-                >
-                  <svg
-                    width="20"
-                    height="20"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <rect x="3" y="3" width="7" height="9"></rect>
-                    <rect x="14" y="3" width="7" height="5"></rect>
-                    <rect x="14" y="12" width="7" height="9"></rect>
-                    <rect x="3" y="16" width="7" height="5"></rect>
-                  </svg>
-                </div>
-                <span
-                  className="menu-label"
-                  style={{ flex: 1, fontSize: "14px" }}
-                >
-                  Tổng sản phẩm
-                </span>
-              </a>
-            </li>
-          )}
+
 
           {/* --- 2. SẢN PHẨM --- */}
           <li className="menu-item mb-2">
@@ -387,7 +347,8 @@ export const Sidebar = ({
               style={{ textDecoration: "none" }}
               onClick={(e) => {
                 e.preventDefault();
-                onNavigate?.("productOverview");
+                handleGoToProductOverview();
+                setOpenMenu(openMenu === "sanpham" ? "" : "sanpham");
               }}
             >
               <div
@@ -412,7 +373,7 @@ export const Sidebar = ({
                 className="menu-label"
                 style={{ flex: 1, fontSize: "14px" }}
               >
-                Sản phẩm
+                Tổng quan<br /> sản phẩm
               </span>
 
               <span
@@ -467,12 +428,11 @@ export const Sidebar = ({
                   return (
                     <li key={category.id} className="menu-item mb-1">
                       <a
-                        className={`menu-link d-block px-3 py-2 rounded-2 ${
-                          selectedCategoryId === category.id &&
-                          currentPage === "productOverview"
+                        className={`menu-link d-block px-3 py-2 rounded-2 ${selectedCategoryId === category.id &&
+                            currentPage === "productOverview"
                             ? "bg-primary-subtle text-primary fw-medium"
                             : "text-body-secondary"
-                        }`}
+                          }`}
                         style={{
                           textDecoration: "none",
                           fontSize: "13px",
