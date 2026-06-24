@@ -91,6 +91,10 @@ const normalizeUser = (userData) => {
     roleId: userData.roleId,
     departmentId: userData.departmentId || null,
     role: userData.role || normalizeRole(userData.roleId),
+    // Quyền được admin/bangiamdoc cấp thêm (mảng string, ví dụ: ["view_product_details"])
+    grantedPermissions: Array.isArray(userData.grantedPermissions)
+      ? userData.grantedPermissions
+      : [],
   };
 };
 
