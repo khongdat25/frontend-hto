@@ -170,6 +170,34 @@ export const Sidebar = ({
     };
   }, []);
 
+  const [departments, setDepartments] = useState([]);
+  const [departmentsLoading, setDepartmentsLoading] = useState(true);
+  const [expandedDeptId, setExpandedDeptId] = useState(null);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchDepts = async () => {
+      try {
+        const headers = { "Content-Type": "application/json", ...getAuthHeaders() };
+        const response = await authFetch(`${API_BASE_URL}/departments?includeHidden=true`, { headers });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const payload = await response.json().catch(() => null);
+        const list = payload?.data || payload || [];
+        const normalized = list.map(d => ({ id: d._id || d.id, name: d.name })).filter(d => d.id && d.name);
+        if (isMounted) setDepartments(normalized);
+      } catch (err) {
+        console.warn("[Sidebar] Không tải được danh mục phòng ban:", err.message);
+        if (isMounted) setDepartments([]);
+      } finally {
+        if (isMounted) setDepartmentsLoading(false);
+      }
+    };
+
+    fetchDepts();
+    return () => { isMounted = false; };
+  }, []);
+
   // Xử lý click vào danh mục
   const handleToggleCategory = (categoryId) => {
     // Cập nhật selected để highlight
@@ -520,14 +548,13 @@ export const Sidebar = ({
           {/* --- 3. NGHIỆP VỤ --- */}
           <li className="menu-item mb-2 mt-2">
             <a
-              className={`menu-link d-flex align-items-center px-2 py-2 rounded-2 ${["nghiepvu", "checklist", "sop", "doisoatdeal"].includes(currentPage) ? "text-primary fw-bold" : "text-body-secondary"}`}
+              className={`menu-link d-flex align-items-center px-2 py-2 rounded-2 ${["nghiepvu", "checklist", "sop", "doisoatdeal"].includes(currentPage) || (typeof currentPage === "string" && currentPage.startsWith("dept-")) ? "text-primary fw-bold" : "text-body-secondary"}`}
               href="#"
               role="button"
               style={{ textDecoration: "none" }}
               onClick={(e) => {
                 e.preventDefault();
                 setOpenMenu(openMenu === "nghiepvu" ? "" : "nghiepvu");
-                onNavigate?.("nghiepvu");
               }}
             >
               <div
@@ -588,35 +615,143 @@ export const Sidebar = ({
               className="menu-inner list-unstyled mb-0"
               style={{
                 display: openMenu === "nghiepvu" ? "block" : "none",
-                paddingLeft: "52px",
+                paddingLeft: "32px",
               }}
             >
-              <li className="menu-item mb-1">
-                <a
-                  className={`menu-link d-block px-3 py-2 rounded-2 ${currentPage === "nghiepvu" ? "bg-primary-subtle text-primary fw-medium" : "text-body-secondary"}`}
-                  style={{ textDecoration: "none", fontSize: "13px" }}
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    onNavigate?.("nghiepvu");
-                  }}
-                >
-                  JD công việc
-                </a>
-              </li>
-              <li className="menu-item mb-1">
-                <a
-                  className={`menu-link d-block px-3 py-2 rounded-2 ${currentPage === "doisoatdeal" ? "bg-primary-subtle text-primary fw-medium" : "text-body-secondary"}`}
-                  style={{ textDecoration: "none", fontSize: "13px" }}
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    onNavigate?.("doisoatdeal");
-                  }}
-                >
-                  Đối soát Deal
-                </a>
-              </li>
+              {(() => {
+                const roleKey = getUserRoleKey(currentUser);
+                const isSystemAdmin = ["admin", "bangiamdoc"].includes(roleKey);
+                const userDeptIds = currentUser?.departmentIds || (currentUser?.departmentId ? [currentUser.departmentId] : []);
+                
+                const visibleDepartments = isSystemAdmin
+                  ? departments
+                  : departments.filter(d => userDeptIds.includes(d.id));
+
+                if (departmentsLoading) {
+                  return (
+                    <li className="menu-item mb-1">
+                      <span className="d-block px-3 py-2 text-body-secondary" style={{ fontSize: "13px" }}>
+                        Đang tải phòng ban...
+                      </span>
+                    </li>
+                  );
+                }
+
+                if (visibleDepartments.length === 0) {
+                  return (
+                    <li className="menu-item mb-1">
+                      <span className="d-block px-3 py-2 text-body-secondary" style={{ fontSize: "13px" }}>
+                        Không có phòng ban nghiệp vụ
+                      </span>
+                    </li>
+                  );
+                }
+
+                return visibleDepartments.map((dept) => {
+                  const isDeptExpanded = expandedDeptId === dept.id;
+                  const isSopActive = currentPage === `dept-sop:${dept.id}`;
+                  const isDocsActive = currentPage === `dept-docs:${dept.id}`;
+                  const isJdsActive = currentPage === `dept-jds:${dept.id}`;
+
+                  return (
+                    <li key={dept.id} className="menu-item mb-2 pb-1" style={{ listStyleType: "none" }}>
+                      <a
+                        className="menu-link d-flex align-items-center justify-content-between px-3 py-1.5 rounded-2 text-body-secondary"
+                        href="#"
+                        style={{ textDecoration: "none", fontSize: "13px", fontWeight: "600", transition: "all 0.2s" }}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setExpandedDeptId(isDeptExpanded ? null : dept.id);
+                        }}
+                      >
+                        <span className="text-truncate" style={{ maxWidth: "80%" }}>📁 {dept.name}</span>
+                        <svg
+                          width="12"
+                          height="12"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="3"
+                          style={{
+                            transform: isDeptExpanded ? "rotate(180deg)" : "rotate(0deg)",
+                            transition: "transform 0.2s ease"
+                          }}
+                        >
+                          <polyline points="6 9 12 15 18 9"></polyline>
+                        </svg>
+                      </a>
+                      
+                      <ul
+                        className="list-unstyled mb-0 mt-1 pl-3"
+                        style={{
+                          display: isDeptExpanded ? "block" : "none",
+                          borderLeft: "1px dashed var(--bs-border-color)",
+                          marginLeft: "16px",
+                          paddingLeft: "12px",
+                          listStyleType: "none"
+                        }}
+                      >
+                        <li className="mb-1" style={{ listStyleType: "none" }}>
+                          <a
+                            className={`menu-link d-block py-1 rounded-2 ${isSopActive ? "text-primary fw-bold" : "text-body-secondary"}`}
+                            style={{ textDecoration: "none", fontSize: "12px" }}
+                            href="#"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              onNavigate?.(`dept-sop:${dept.id}`);
+                            }}
+                          >
+                            • Nội dung chung
+                          </a>
+                        </li>
+                        <li className="mb-1" style={{ listStyleType: "none" }}>
+                          <a
+                            className={`menu-link d-block py-1 rounded-2 ${isDocsActive ? "text-primary fw-bold" : "text-body-secondary"}`}
+                            style={{ textDecoration: "none", fontSize: "12px" }}
+                            href="#"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              onNavigate?.(`dept-docs:${dept.id}`);
+                            }}
+                          >
+                            • Tài liệu phòng ban
+                          </a>
+                        </li>
+                        <li className="mb-1" style={{ listStyleType: "none" }}>
+                          <a
+                            className={`menu-link d-block py-1 rounded-2 ${isJdsActive ? "text-primary fw-bold" : "text-body-secondary"}`}
+                            style={{ textDecoration: "none", fontSize: "12px" }}
+                            href="#"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              onNavigate?.(`dept-jds:${dept.id}`);
+                            }}
+                          >
+                            • JD công việc
+                          </a>
+                        </li>
+                      </ul>
+                    </li>
+                  );
+                });
+              })()}
+
+              {/* Vẫn giữ trang Đối soát Deal cho kế toán và quản trị nếu cần */}
+              {(["admin", "bangiamdoc", "truongbophan"].includes(getUserRoleKey(currentUser))) && (
+                <li className="menu-item mb-1 border-top pt-1 mt-1" style={{ listStyleType: "none" }}>
+                  <a
+                    className={`menu-link d-block px-3 py-2 rounded-2 ${currentPage === "doisoatdeal" ? "bg-primary-subtle text-primary fw-medium" : "text-body-secondary"}`}
+                    style={{ textDecoration: "none", fontSize: "13px" }}
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      onNavigate?.("doisoatdeal");
+                    }}
+                  >
+                    📊 Đối soát Deal
+                  </a>
+                </li>
+              )}
             </ul>
           </li>
 

@@ -290,17 +290,28 @@ const updateJobDescription = async (id, payload) =>
 const deleteJobDescription = async (id) =>
   await apiRequest(`/job-descriptions/${id}`, { method: "DELETE" });
 
-export const JobDescriptionsPage = ({ currentUser }) => {
+export const JobDescriptionsPage = ({ currentUser, filterDepartmentId }) => {
   const [jds, setJds] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [totalJds, setTotalJds] = useState(0);
   const [searchTerm, setSearchTerm] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState(() => {
+    if (filterDepartmentId) return filterDepartmentId;
     const isSystemAdmin = ["admin", "bangiamdoc", "nhansu"].includes(currentUser?.role) || 
                           [ADMIN_ROLE_ID, DIRECTOR_ROLE_ID, HR_ROLE_ID].includes(currentUser?.roleId);
     return isSystemAdmin ? "all" : (currentUser?.departmentId || "all");
   });
   const [statusFilter, setStatusFilter] = useState("all");
+
+  useEffect(() => {
+    if (filterDepartmentId) {
+      setDepartmentFilter(filterDepartmentId);
+    } else {
+      const isSystemAdmin = ["admin", "bangiamdoc", "nhansu"].includes(currentUser?.role) || 
+                            [ADMIN_ROLE_ID, DIRECTOR_ROLE_ID, HR_ROLE_ID].includes(currentUser?.roleId);
+      setDepartmentFilter(isSystemAdmin ? "all" : (currentUser?.departmentId || "all"));
+    }
+  }, [filterDepartmentId, currentUser]);
   const [selectedJdId, setSelectedJdId] = useState("");
   const [jdListPage, setJdListPage] = useState(1);
   const [formMode, setFormMode] = useState(null);
@@ -350,7 +361,9 @@ export const JobDescriptionsPage = ({ currentUser }) => {
       setSelectedJdId((currentId) =>
         jdData.items.some((jd) => jd.id === currentId) ? currentId : jdData.items[0]?.id || "",
       );
-      if (departmentData.length > 0) {
+      if (filterDepartmentId) {
+        setImportDepartmentId(filterDepartmentId);
+      } else if (departmentData.length > 0) {
         setImportDepartmentId(departmentData[0].id);
       }
     } catch (error) {
@@ -417,7 +430,7 @@ export const JobDescriptionsPage = ({ currentUser }) => {
   const openCreateForm = () => {
     setFormMode("create");
     setEditingId("");
-    setForm({ ...emptyForm, departmentId: departments[0]?.id || "" });
+    setForm({ ...emptyForm, departmentId: filterDepartmentId || departments[0]?.id || "" });
     setFormError("");
   };
 
@@ -431,7 +444,7 @@ export const JobDescriptionsPage = ({ currentUser }) => {
   const closeForm = () => {
     setFormMode(null);
     setEditingId("");
-    setForm(emptyForm);
+    setForm({ ...emptyForm, departmentId: filterDepartmentId || "" });
     setFormError("");
   };
 
@@ -574,6 +587,12 @@ export const JobDescriptionsPage = ({ currentUser }) => {
     }
   };
 
+  const filteredDepartmentName = useMemo(() => {
+    if (!filterDepartmentId || departments.length === 0) return "";
+    const match = departments.find(d => String(d.id) === String(filterDepartmentId));
+    return match ? match.name : "";
+  }, [filterDepartmentId, departments]);
+
   return (
     <div
       className="container-fluid pt-3 pb-4"
@@ -591,7 +610,9 @@ export const JobDescriptionsPage = ({ currentUser }) => {
     >
       <div className="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
         <div>
-          <h4 className="fw-bold text-body-emphasis mb-1">JD vị trí / phòng ban</h4>
+          <h4 className="fw-bold text-body-emphasis mb-1">
+            JD vị trí / phòng ban {filteredDepartmentName ? `— ${filteredDepartmentName}` : ""}
+          </h4>
           
         </div>
         {canManage ? (
@@ -649,34 +670,36 @@ export const JobDescriptionsPage = ({ currentUser }) => {
             />
           </div>
         </div>
-        <div className="col-12 col-md-6 col-lg-3">
-          <TailwindDropdown
-            onChange={setDepartmentFilter}
-            options={
-              (() => {
-                const isSystemAdmin = ["admin", "bangiamdoc", "nhansu"].includes(currentUser?.role) || 
-                                      [ADMIN_ROLE_ID, DIRECTOR_ROLE_ID, HR_ROLE_ID].includes(currentUser?.roleId);
-                if (isSystemAdmin) {
-                  return [
-                    { label: "Tất cả phòng ban", value: "all" },
-                    ...departments.map((department) => ({
-                      label: department.name,
-                      value: department.id,
-                    })),
-                  ];
-                } else {
-                  // Chỉ hiển thị phòng ban của chính user
-                  const myDep = departments.find(d => d.id === currentUser?.departmentId);
-                  return myDep 
-                    ? [{ label: myDep.name, value: myDep.id }] 
-                    : [{ label: "Phòng ban của tôi", value: currentUser?.departmentId || "none" }];
-                }
-              })()
-            }
-            placeholder="Tất cả phòng ban"
-            value={departmentFilter}
-          />
-        </div>
+        {!filterDepartmentId && (
+          <div className="col-12 col-md-6 col-lg-3">
+            <TailwindDropdown
+              onChange={setDepartmentFilter}
+              options={
+                (() => {
+                  const isSystemAdmin = ["admin", "bangiamdoc", "nhansu"].includes(currentUser?.role) || 
+                                        [ADMIN_ROLE_ID, DIRECTOR_ROLE_ID, HR_ROLE_ID].includes(currentUser?.roleId);
+                  if (isSystemAdmin) {
+                    return [
+                      { label: "Tất cả phòng ban", value: "all" },
+                      ...departments.map((department) => ({
+                        label: department.name,
+                        value: department.id,
+                      })),
+                    ];
+                  } else {
+                    // Chỉ hiển thị phòng ban của chính user
+                    const myDep = departments.find(d => d.id === currentUser?.departmentId);
+                    return myDep 
+                      ? [{ label: myDep.name, value: myDep.id }] 
+                      : [{ label: "Phòng ban của tôi", value: currentUser?.departmentId || "none" }];
+                  }
+                })()
+              }
+              placeholder="Tất cả phòng ban"
+              value={departmentFilter}
+            />
+          </div>
+        )}
         <div className="col-12 col-md-6 col-lg-3">
           <TailwindDropdown
             onChange={setStatusFilter}
@@ -898,7 +921,7 @@ export const JobDescriptionsPage = ({ currentUser }) => {
                   </Field>
                   <Field label="Phòng ban" required>
                     <TailwindDropdown
-                      disabled={actionLoading}
+                      disabled={actionLoading || Boolean(filterDepartmentId)}
                       onChange={(value) => updateForm("departmentId", value)}
                       options={[
                         { label: "Chọn phòng ban", value: "" },
@@ -1047,6 +1070,7 @@ export const JobDescriptionsPage = ({ currentUser }) => {
                   options={departments.map((d) => ({ label: d.name, value: d.id }))}
                   placeholder="Chọn phòng ban"
                   value={importDepartmentId}
+                  disabled={Boolean(filterDepartmentId)}
                 />
               </div>
 
