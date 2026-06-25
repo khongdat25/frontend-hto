@@ -77,10 +77,22 @@ const clearStoredSession = () => {
   document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;";
 };
 
+const getUserDepartmentsMapping = () => {
+  try {
+    const stored = window.localStorage.getItem("hto_user_departments_mapping");
+    return stored ? JSON.parse(stored) : {};
+  } catch {
+    return {};
+  }
+};
+
 const normalizeUser = (userData) => {
   if (!userData?.id || !userData?.email || !userData?.roleId) {
     return null;
   }
+
+  const mapping = getUserDepartmentsMapping();
+  const departmentIds = mapping[userData.id] || (userData.departmentId ? [userData.departmentId] : []);
 
   return {
     id: userData.id,
@@ -90,6 +102,7 @@ const normalizeUser = (userData) => {
     avatarUrl: userData.avatarUrl || "",
     roleId: userData.roleId,
     departmentId: userData.departmentId || null,
+    departmentIds,
     role: userData.role || normalizeRole(userData.roleId),
     // Quyền được admin/bangiamdoc cấp thêm (mảng string, ví dụ: ["view_product_details"])
     grantedPermissions: Array.isArray(userData.grantedPermissions)
@@ -439,6 +452,23 @@ function App() {
     );
   }
 
+  const getDeptRouteInfo = () => {
+    if (typeof currentPage === "string") {
+      if (currentPage.startsWith("dept-sop:")) {
+        return { type: "sop", id: currentPage.split(":")[1] };
+      }
+      if (currentPage.startsWith("dept-docs:")) {
+        return { type: "docs", id: currentPage.split(":")[1] };
+      }
+      if (currentPage.startsWith("dept-jds:")) {
+        return { type: "jds", id: currentPage.split(":")[1] };
+      }
+    }
+    return null;
+  };
+
+  const deptRoute = getDeptRouteInfo();
+
   return (
     <div className="page-layout bg-body-tertiary d-flex flex-column min-vh-100">
       <Header
@@ -461,7 +491,15 @@ function App() {
           currentPage === "notifications" ? " notifications-wrapper" : ""
         }`}
       >
-        {currentPage === "profile" ? (
+        {deptRoute ? (
+          deptRoute.type === "sop" ? (
+            <DocumentsPage currentUser={user} filterDepartmentId={deptRoute.id} forceCategoryName="Nội dung chung" />
+          ) : deptRoute.type === "docs" ? (
+            <DocumentsPage currentUser={user} filterDepartmentId={deptRoute.id} />
+          ) : (
+            <JobDescriptionsPage currentUser={user} filterDepartmentId={deptRoute.id} />
+          )
+        ) : currentPage === "profile" ? (
           <ProfilePage currentUser={user} onUserUpdate={handleUserUpdate} />
         ) : currentPage === "users" ? (
           // Truyền currentUser (chính là state 'user' ở App.jsx) xuống để check quyền

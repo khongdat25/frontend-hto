@@ -203,7 +203,7 @@ const STATUS_META = {
   archived: { label: "Lưu trữ", className: "sop-status-archived" }
 };
 
-export const SOPPage = ({ currentUser }) => {
+export const SOPPage = ({ currentUser, filterDepartmentId }) => {
   const [sops, setSops] = useState([]);
   const [selectedId, setSelectedId] = useState("");
   const [loading, setLoading] = useState(true);
@@ -214,6 +214,33 @@ export const SOPPage = ({ currentUser }) => {
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [departmentFilter, setDepartmentFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+
+  const [departmentsList, setDepartmentsList] = useState([]);
+
+  useEffect(() => {
+    const fetchDepts = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        const response = await fetch(`${API_BASE_URL}/departments?includeHidden=true`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const payload = await response.json().catch(() => null);
+        setDepartmentsList(payload?.data || payload || []);
+      } catch (e) {
+        console.warn("Failed to load departments in SOPPage:", e);
+      }
+    };
+    fetchDepts();
+  }, []);
+
+  useEffect(() => {
+    if (filterDepartmentId && departmentsList.length > 0) {
+      const match = departmentsList.find(d => (d._id || d.id) === filterDepartmentId);
+      if (match) {
+        setDepartmentFilter(match.name);
+      }
+    }
+  }, [filterDepartmentId, departmentsList]);
 
   const fetchSops = useCallback(async () => {
     setLoading(true);
@@ -303,22 +330,32 @@ export const SOPPage = ({ currentUser }) => {
   const resetFilters = () => {
     setSearchTerm("");
     setCategoryFilter("all");
-    setDepartmentFilter("all");
+    if (!filterDepartmentId) {
+      setDepartmentFilter("all");
+    }
     setStatusFilter("all");
   };
 
   const hasActiveFilters =
     searchTerm ||
     categoryFilter !== "all" ||
-    departmentFilter !== "all" ||
+    (!filterDepartmentId && departmentFilter !== "all") ||
     statusFilter !== "all";
+
+  const filteredDepartmentName = useMemo(() => {
+    if (!filterDepartmentId || departmentsList.length === 0) return "";
+    const match = departmentsList.find(d => (d._id || d.id) === filterDepartmentId);
+    return match ? match.name : "";
+  }, [filterDepartmentId, departmentsList]);
 
   return (
     <div className="sop-page container-fluid pt-3 pb-4" style={{ maxWidth: "1600px" }}>
       <div className="sop-hero mb-4">
         <div>
           <span className="page-eyebrow">Standard operating procedures</span>
-          <h4 className="fw-bold text-body-emphasis mb-1">Thư viện SOP nghiệp vụ</h4>
+          <h4 className="fw-bold text-body-emphasis mb-1">
+            Thư viện SOP nghiệp vụ {filteredDepartmentName ? `— ${filteredDepartmentName}` : ""}
+          </h4>
           <p className="text-body-secondary mb-0">
             Xem danh sách quy trình chuẩn theo quyền, đọc chi tiết từng SOP và truy cập nhanh tài liệu liên quan.
           </p>
@@ -381,7 +418,19 @@ export const SOPPage = ({ currentUser }) => {
         </div>
 
         <div className="sop-filter-select"><TailwindDropdown onChange={setCategoryFilter} options={[{ label: "Tất cả nhóm SOP", value: "all" }, ...categories.map((category) => ({ label: category, value: category }))]} placeholder="Tất cả nhóm SOP" value={categoryFilter} /></div>
-        <div className="sop-filter-select"><TailwindDropdown onChange={setDepartmentFilter} options={[{ label: "Tất cả phòng ban", value: "all" }, ...departments.map((department) => ({ label: department, value: department }))]} placeholder="Tất cả phòng ban" value={departmentFilter} /></div>
+        {!filterDepartmentId && (
+          <div className="sop-filter-select">
+            <TailwindDropdown
+              onChange={setDepartmentFilter}
+              options={[
+                { label: "Tất cả phòng ban", value: "all" },
+                ...departments.map((department) => ({ label: department, value: department })),
+              ]}
+              placeholder="Tất cả phòng ban"
+              value={departmentFilter}
+            />
+          </div>
+        )}
         <div className="sop-filter-select"><TailwindDropdown onChange={setStatusFilter} options={[{ label: "Tất cả trạng thái", value: "all" }, { label: "Đã phát hành", value: "published" }, { label: "Đang duyệt", value: "reviewing" }, { label: "Bản nháp", value: "draft" }, { label: "Lưu trữ", value: "archived" }]} placeholder="Tất cả trạng thái" value={statusFilter} /></div>
 
         {hasActiveFilters && (
