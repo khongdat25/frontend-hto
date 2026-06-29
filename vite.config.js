@@ -6,23 +6,14 @@ import { resolve } from 'path'
 
 // https://vite.dev/config/
 export default defineConfig({
-  server: {
-    port: 5173,
-    proxy: {
-      "/api": {
-        target: "https://api.hto.edu.vn",
-        changeOrigin: true,
-        secure: true,
-        rewrite: (path) => path.replace(/^\/api/, '/api/v1')
-      },
-    },
-  },
   plugins: [
     tailwindcss(),
     react(),
     {
       name: 'spa-fallback-404',
       closeBundle() {
+        // Copy index.html → 404.html so Vercel serves the SPA
+        // even when no file matches the requested path (e.g. /reset-password)
         const dist = resolve(import.meta.dirname, 'dist')
         const index = resolve(dist, 'index.html')
         const fallback = resolve(dist, '404.html')
