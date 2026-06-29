@@ -768,6 +768,10 @@ const getReadableDocuments = async (params = {}) => {
     searchParams.set("categoryId", params.categoryId);
   }
 
+  if (params.departmentId) {
+    searchParams.set("departmentId", params.departmentId);
+  }
+
   const payload = await requestReadableDocuments(`?${searchParams.toString()}`);
   const { items, total } = normalizeDocumentsPayload(payload);
 
@@ -833,7 +837,7 @@ const toggleDocumentCategoryVisibility = async (categoryId) => {
   return normalizeCategory(payload);
 };
 
-export const DocumentsPage = ({ currentUser }) => {
+export const DocumentsPage = ({ currentUser, filterDepartmentId, forceCategoryName }) => {
   const [categories, setCategories] = useState([]);
   const [documents, setDocuments] = useState([]);
   const [documentTotal, setDocumentTotal] = useState(0);
@@ -863,7 +867,27 @@ export const DocumentsPage = ({ currentUser }) => {
   const [deleteTargetDocument, setDeleteTargetDocument] = useState(null);
   const [deleteConfirmValue, setDeleteConfirmValue] = useState("");
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
+  const [departmentsList, setDepartmentsList] = useState(initialDepartments);
+
+  const forcedCategoryId = useMemo(() => {
+    if (!forceCategoryName || categories.length === 0) return "";
+    const match = categories.find((c) => c.name.toLowerCase() === forceCategoryName.toLowerCase());
+    return match ? String(match.id) : "";
+  }, [forceCategoryName, categories]);
+
+  useEffect(() => {
+    if (forcedCategoryId) {
+      setActiveCategory(forcedCategoryId);
+    }
+  }, [forcedCategoryId]);
+
+  useEffect(() => {
+    if (forcedCategoryId) {
+      setUploadForm((prev) => ({ ...prev, categoryId: forcedCategoryId }));
+    }
+  }, [forcedCategoryId]);
   const permissionConfigRef = useRef(null);
+  const isSopMode = Boolean(forceCategoryName);
 
   const canUpload = canUploadDocument(currentUser);
   const canManageCategories = isAdminUser(currentUser);
@@ -875,9 +899,38 @@ export const DocumentsPage = ({ currentUser }) => {
     [categories],
   );
   const departmentMap = useMemo(
-    () => new Map(initialDepartments.map((department) => [department.id, department])),
-    [],
+    () => new Map(departmentsList.map((department) => [department.id, department])),
+    [departmentsList],
   );
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchDepts = async () => {
+      try {
+        const headers = { "Content-Type": "application/json", ...getAuthHeaders() };
+        const response = await authFetch(`${API_BASE_URL}/departments?includeHidden=true`, { headers });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const payload = await response.json().catch(() => null);
+        const list = payload?.data || payload || [];
+        const normalized = list.map(d => ({ id: d._id || d.id, name: d.name })).filter(d => d.id && d.name);
+        if (isMounted && normalized.length > 0) {
+          setDepartmentsList(normalized);
+        }
+      } catch (err) {
+        console.warn("[DocumentsPage] Không tải được danh mục phòng ban:", err.message);
+      }
+    };
+    fetchDepts();
+    return () => { isMounted = false; };
+  }, []);
+
+  useEffect(() => {
+    if (filterDepartmentId) {
+      setUploadForm((prev) => ({ ...prev, departmentId: filterDepartmentId }));
+    } else {
+      setUploadForm((prev) => ({ ...prev, departmentId: "" }));
+    }
+  }, [filterDepartmentId]);
 
   const visibleCategories = categories.filter((c) => !c.isHidden);
   const displayedCategories = canManageCategories ? categories : visibleCategories;
@@ -896,6 +949,10 @@ export const DocumentsPage = ({ currentUser }) => {
     }
 
     if (!canUseDocumentAction(currentUser, doc, "view")) {
+      return false;
+    }
+
+    if (filterDepartmentId && String(doc.departmentId) !== String(filterDepartmentId)) {
       return false;
     }
 
@@ -998,6 +1055,7 @@ export const DocumentsPage = ({ currentUser }) => {
         const documentData = await getReadableDocuments({
           categoryId: activeCategory,
           limit: REMOTE_DOCUMENT_PAGE_SIZE,
+          departmentId: filterDepartmentId,
         });
         const nextDocuments = documentData.items;
 
@@ -1044,7 +1102,7 @@ export const DocumentsPage = ({ currentUser }) => {
     return () => {
       isMounted = false;
     };
-  }, [activeCategory, currentUser]);
+  }, [activeCategory, currentUser, filterDepartmentId]);
 
   const resetForm = () => {
     setEditingId(null);
@@ -1588,18 +1646,26 @@ export const DocumentsPage = ({ currentUser }) => {
     }
   };
 
+  const filteredDepartmentName = useMemo(() => {
+    if (!filterDepartmentId || departmentsList.length === 0) return "";
+    const match = departmentsList.find(d => String(d.id) === String(filterDepartmentId));
+    return match ? match.name : "";
+  }, [filterDepartmentId, departmentsList]);
+
   return (
     <div className="container-fluid">
       <div className="app-page-head d-flex flex-wrap gap-3 align-items-center justify-content-between">
         <div className="clearfix">
-          <h1 className="app-page-title mb-0">Tài Liệu & Biểu Mẫu</h1>
+          <h1 className="app-page-title mb-0">
+            {isSopMode ? `Nội dung chung (SOP)${filteredDepartmentName ? ` — ${filteredDepartmentName}` : ""}` : `Tài Liệu & Biểu Mẫu${filteredDepartmentName ? ` — ${filteredDepartmentName}` : ""}`}
+          </h1>
         </div>
         <span className="badge bg-primary-subtle text-primary">
           {documentLoading ? "Đang tải tài liệu..." : `${documentTotal} tài liệu được phân quyền`}
         </span>
       </div>
 
-      <div className="row g-3">
+      <div className={(filterDepartmentId && !isSopMode) ? "d-none" : "row g-3"}>
         {canManageCategories && (
           <div className="col-xxl-4">
             <div className="card">
@@ -1808,7 +1874,7 @@ export const DocumentsPage = ({ currentUser }) => {
         </div>
       </div>
 
-      {canUpload && (
+      {canUpload && (!filterDepartmentId || isSopMode) && (
         <div id="documents-upload-card" className="card mt-3">
           <div className="card-header border-0 pb-0 d-flex flex-wrap justify-content-between align-items-center gap-2">
             <div>
@@ -1911,13 +1977,14 @@ export const DocumentsPage = ({ currentUser }) => {
                       }
                       options={[
                         { label: "Chọn phòng ban", value: "" },
-                        ...initialDepartments.map((department) => ({
+                        ...departmentsList.map((department) => ({
                           label: department.name,
                           value: department.id,
                         })),
                       ]}
                       placeholder="Chọn phòng ban"
                       value={uploadForm.departmentId}
+                      disabled={Boolean(filterDepartmentId)}
                     />
                     {uploadErrors.departmentId && (
                       <div className="invalid-feedback">{uploadErrors.departmentId}</div>
@@ -2055,7 +2122,7 @@ export const DocumentsPage = ({ currentUser }) => {
         </div>
       )}
 
-      {canConfigurePermissions && (
+      {canConfigurePermissions && (!filterDepartmentId || isSopMode) && (
         <div id="documents-permission-card" className="card mt-3" ref={permissionConfigRef}>
           <div className="card-header border-0 pb-0 d-flex flex-wrap justify-content-between align-items-center gap-2">
             <div>
@@ -2434,13 +2501,14 @@ export const DocumentsPage = ({ currentUser }) => {
                                 }
                                 options={[
                                   { label: "Không chọn", value: "" },
-                                  ...initialDepartments.map((department) => ({
+                                  ...departmentsList.map((department) => ({
                                     label: department.name,
                                     value: department.id,
                                   })),
                                 ]}
                                 placeholder="Không chọn"
                                 value={documentEditForm.departmentId}
+                                disabled={Boolean(filterDepartmentId)}
                               />
                             </div>
                             <div className="col-md-3">

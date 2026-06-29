@@ -90,6 +90,19 @@ const ROLE_ID_TO_KEY = Object.fromEntries(
   Object.entries(ROLE_MAP).map(([key, value]) => [value.roleId, key]),
 );
 
+const getUserDepartmentsMapping = () => {
+  try {
+    const value = localStorage.getItem("hto_user_departments_mapping");
+    return value ? JSON.parse(value) : {};
+  } catch {
+    return {};
+  }
+};
+
+const saveUserDepartmentsMapping = (mapping) => {
+  localStorage.setItem("hto_user_departments_mapping", JSON.stringify(mapping));
+};
+
 const normalizeUser = (user) => {
   const role = user.role || ROLE_ID_TO_KEY[user.roleId] || "hethong";
   const department =
@@ -99,9 +112,13 @@ const normalizeUser = (user) => {
     user.departmentId ||
     "";
 
+  const mapping = getUserDepartmentsMapping();
+  const departmentIds = mapping[user.id || user._id] || (user.departmentId ? [user.departmentId] : []);
+
   return {
     id: user.id || user._id,
     name: user.name || user.fullName || "",
+    fullName: user.fullName || user.name || "",
     email: user.email || "",
     phone: user.phone || "",
     address: user.address || user.profile?.address || "",
@@ -111,6 +128,7 @@ const normalizeUser = (user) => {
     roleId: user.roleId || ROLE_MAP[role]?.roleId || "",
     department,
     departmentId: user.departmentId || "",
+    departmentIds,
     status: user.status || "active",
   };
 };
@@ -277,7 +295,7 @@ export const UserList = ({ currentUser }) => {
   const openCreateModal = () => {
     setModalMode("create");
     setSelectedUser(null);
-    reset({ name: "", email: "", password: "", role: "", departmentId: "", phone: "" });
+    reset({ name: "", email: "", password: "", role: "", departmentId: "", departmentIds: [], phone: "" });
     setIsModalOpen(true);
   };
 
@@ -291,6 +309,7 @@ export const UserList = ({ currentUser }) => {
       phone: user.phone,
       role: user.role,
       departmentId: user.departmentId,
+      departmentIds: user.departmentIds || [],
     });
     setIsModalOpen(true);
   };
@@ -304,14 +323,19 @@ export const UserList = ({ currentUser }) => {
   const onSubmit = async (data) => {
     setActionLoading(true);
     try {
+      const primaryDepartmentId = data.departmentIds && data.departmentIds.length > 0
+        ? data.departmentIds[0]
+        : undefined;
+
       const input = {
         fullName: data.name.trim(),
         email: data.email.trim(),
         phone: data.phone?.trim() || undefined,
         roleId: ROLE_MAP[data.role]?.roleId,
-        departmentId: data.departmentId?.trim() || undefined,
+        departmentId: primaryDepartmentId || data.departmentId?.trim() || undefined,
       };
 
+      let savedUserRaw;
       if (modalMode === "create") {
         const payload = await usersRequest("", {
           method: "POST",
@@ -321,15 +345,34 @@ export const UserList = ({ currentUser }) => {
             status: "active",
           },
         });
-        const createdUser = normalizeUser(payload?.data ?? payload);
-        setUsers(prev => [createdUser, ...prev]);
+        savedUserRaw = payload?.data ?? payload;
       } else {
         const payload = await usersRequest(`/${selectedUser.id}`, {
           method: "PATCH",
           body: input,
         });
-        const updatedUser = normalizeUser(payload?.data ?? payload);
-        setUsers(prev => prev.map(u => u.id === selectedUser.id ? updatedUser : u));
+        savedUserRaw = payload?.data ?? payload;
+      }
+
+      // Lưu trữ ánh xạ đa phòng ban cục bộ ở localStorage
+      const mapping = getUserDepartmentsMapping();
+      const userId = savedUserRaw.id || savedUserRaw._id || selectedUser?.id;
+      if (userId) {
+        mapping[userId] = data.departmentIds || [];
+        saveUserDepartmentsMapping(mapping);
+      }
+
+      const updatedUser = normalizeUser(savedUserRaw);
+
+      setUsers(prev => {
+        if (modalMode === "create") {
+          return [updatedUser, ...prev];
+        } else {
+          return prev.map(u => u.id === selectedUser.id ? updatedUser : u);
+        }
+      });
+
+      if (modalMode === "edit") {
         setDetailUser((current) => current?.id === selectedUser.id ? updatedUser : current);
       }
 
@@ -581,7 +624,18 @@ export const UserList = ({ currentUser }) => {
                           </span>
                         </div>
                       </td>
-                      <td>{user.department || '—'}</td>
+                      <td>
+                        {(() => {
+                          const userDeptIds = user.departmentIds || [];
+                          if (userDeptIds.length > 0 && departmentOptions.length > 0) {
+                            return userDeptIds
+                              .map(id => departmentOptions.find(d => d.id === id)?.name)
+                              .filter(Boolean)
+                              .join(", ");
+                          }
+                          return user.department || '—';
+                        })()}
+                      </td>
                       <td>
                         <span className={`status-badge ${user.status === 'active' ? 'status-active' : 'status-locked'}`}>
                           {user.status === 'active' ? (
@@ -714,7 +768,18 @@ export const UserList = ({ currentUser }) => {
                 <DetailItem label="Link mạng xã hội" value={detailUser.socialLink} isLink />
                 <DetailItem label="Mã giới thiệu" value={detailUser.referralCode} />
                 <DetailItem label="Vai trò" value={ROLE_MAP[detailUser.role]?.label || detailUser.role} />
-                <DetailItem label="Phòng ban" value={detailUser.department} />
+                <DetailItem label="Phòng ban" value={
+                  (() => {
+                    const userDeptIds = detailUser.departmentIds || [];
+                    if (userDeptIds.length > 0 && departmentOptions.length > 0) {
+                      return userDeptIds
+                        .map(id => departmentOptions.find(d => d.id === id)?.name)
+                        .filter(Boolean)
+                        .join(", ");
+                    }
+                    return detailUser.department || '—';
+                  })()
+                } />
                 <DetailItem label="Trạng thái" value={detailUser.status === "active" ? "Hoạt động" : "Đã khóa/Ngừng hoạt động"} />
               </div>
             </div>
@@ -878,21 +943,36 @@ export const UserList = ({ currentUser }) => {
                   </div>
 
                   <div className="col-md-6 mb-3">
-                    <label className="form-label" style={{ fontSize: "14px", fontWeight: "600" }}>Phòng ban</label>
                     <input type="hidden" {...register("departmentId")} />
-                    <TailwindDropdown
-                      disabled={actionLoading || departmentsLoading}
-                      onChange={(value) => setValue("departmentId", value, { shouldDirty: true })}
-                      options={[
-                        { label: "-- Không gán phòng ban --", value: "" },
-                        ...departmentOptions.map((department) => ({
-                          label: `${department.name}${department.isHidden ? " (đang ẩn)" : ""}`,
-                          value: department.id,
-                        })),
-                      ]}
-                      placeholder={departmentsLoading ? "Đang tải phòng ban..." : "-- Không gán phòng ban --"}
-                      value={selectedDepartmentValue}
-                    />
+                    <input type="hidden" {...register("departmentIds")} />
+                    <label className="form-label" style={{ fontSize: "14px", fontWeight: "600" }}>Phòng ban nghiệp vụ (Chọn nhiều)</label>
+                    <div className="d-flex flex-wrap gap-2 border rounded p-2 bg-body-tertiary" style={{ maxHeight: "150px", overflowY: "auto", minHeight: "38px" }}>
+                      {departmentOptions.length === 0 ? (
+                        <span className="text-body-secondary small">Đang tải phòng ban...</span>
+                      ) : (
+                        departmentOptions.map((dept) => {
+                          const currentIds = watch("departmentIds") || [];
+                          const isChecked = currentIds.includes(dept.id);
+                          return (
+                            <label key={dept.id} className="d-flex align-items-center gap-1 cursor-pointer mb-0 px-2 py-0.5 bg-body rounded border" style={{ fontSize: "12px" }}>
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                disabled={actionLoading}
+                                onChange={(e) => {
+                                  const nextIds = e.target.checked
+                                    ? [...currentIds, dept.id]
+                                    : currentIds.filter(id => id !== dept.id);
+                                  setValue("departmentIds", nextIds, { shouldDirty: true });
+                                  setValue("departmentId", nextIds[0] || "", { shouldDirty: true });
+                                }}
+                              />
+                              <span>{dept.name}</span>
+                            </label>
+                          );
+                        })
+                      )}
+                    </div>
                   </div>
                 </div>
 
