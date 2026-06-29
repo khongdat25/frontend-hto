@@ -109,8 +109,8 @@ export const Sidebar = ({
       "daotaongonngu",
       "nophosoonline",
       "sanpham",
-      "productOverview",
     ].includes(currentPage) ||
+    (currentPage === "productOverview" && selectedCategoryId !== null) ||
     currentPage.startsWith("product:");
   const isNewsPage = ["tintuc", "newsEventsManage"].includes(currentPage);
   const canManageNews = canManageNewsEvents(currentUser);
@@ -179,16 +179,63 @@ export const Sidebar = ({
 
     const fetchDepts = async () => {
       try {
-        const headers = { "Content-Type": "application/json", ...getAuthHeaders() };
-        const response = await authFetch(`${API_BASE_URL}/departments?includeHidden=true`, { headers });
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const payload = await response.json().catch(() => null);
-        const list = payload?.data || payload || [];
-        const normalized = list.map(d => ({ id: d._id || d.id, name: d.name })).filter(d => d.id && d.name);
+        const roleKey = getUserRoleKey(currentUser);
+        const canReadDepts = ["admin", "bangiamdoc", "truongbophan", "nhansu", "staff"].includes(roleKey);
+
+        let normalized = [];
+        if (canReadDepts) {
+          const headers = { "Content-Type": "application/json", ...getAuthHeaders() };
+          const response = await authFetch(`${API_BASE_URL}/departments?includeHidden=true`, { headers });
+          if (response.ok) {
+            const payload = await response.json().catch(() => null);
+            const list = payload?.data || payload || [];
+            normalized = list.map(d => ({ id: d._id || d.id, name: d.name })).filter(d => d.id && d.name);
+          } else if (response.status === 403) {
+            normalized = [];
+          } else {
+            throw new Error(`HTTP ${response.status}`);
+          }
+        }
+        
+        // --- BỔ SUNG PHÒNG BAN ẨN MÀ USER THUỘC VỀ ---
+        const userDeptIds = currentUser?.departmentIds || (currentUser?.departmentId ? [currentUser.departmentId] : []);
+        const KNOWN_HIDDEN_DEPTS = {
+          "67cfe24df1ba48e42f9a0d54": "laptop m4",
+          "67cfe255f1ba48e42f9a0d5c": "laptop lenovo",
+          "67cfe25df1ba48e42f9a0d64": "laptop dell",
+          "67cfe263f1ba48e42f9a0d6c": "laptop acer",
+          "67cfe26df1ba48e42f9a0d74": "laptop asus",
+          "67cfe2a8f1ba48e42f9a0d84": "laptop hasee"
+        };
+        
+        userDeptIds.forEach(id => {
+          if (id && !normalized.some(d => String(d.id) === String(id))) {
+            const hiddenName = KNOWN_HIDDEN_DEPTS[id] || `Phòng ban ẩn (${id.substring(id.length - 4)})`;
+            normalized.push({ id, name: hiddenName });
+          }
+        });
+
         if (isMounted) setDepartments(normalized);
       } catch (err) {
         console.warn("[Sidebar] Không tải được danh mục phòng ban:", err.message);
-        if (isMounted) setDepartments([]);
+        
+        const userDeptIds = currentUser?.departmentIds || (currentUser?.departmentId ? [currentUser.departmentId] : []);
+        const KNOWN_HIDDEN_DEPTS = {
+          "67cfe24df1ba48e42f9a0d54": "laptop m4",
+          "67cfe255f1ba48e42f9a0d5c": "laptop lenovo",
+          "67cfe25df1ba48e42f9a0d64": "laptop dell",
+          "67cfe263f1ba48e42f9a0d6c": "laptop acer",
+          "67cfe26df1ba48e42f9a0d74": "laptop asus",
+          "67cfe2a8f1ba48e42f9a0d84": "laptop hasee"
+        };
+        const fallback = [];
+        userDeptIds.forEach(id => {
+          if (id) {
+            const hiddenName = KNOWN_HIDDEN_DEPTS[id] || `Phòng ban ẩn (${id.substring(id.length - 4)})`;
+            fallback.push({ id, name: hiddenName });
+          }
+        });
+        if (isMounted) setDepartments(fallback);
       } finally {
         if (isMounted) setDepartmentsLoading(false);
       }
@@ -196,7 +243,7 @@ export const Sidebar = ({
 
     fetchDepts();
     return () => { isMounted = false; };
-  }, []);
+  }, [currentUser]);
 
   // Xử lý click vào danh mục
   const handleToggleCategory = (categoryId) => {
@@ -292,7 +339,6 @@ export const Sidebar = ({
           {/* --- 1. DASHBOARD --- */}
           <li className="menu-item mb-2">
             <a
-              id="sidebar-nav-home"
               className={`menu-link d-flex align-items-center px-2 py-2 rounded-2 ${currentPage === "dashboard" ? "text-primary fw-bold" : "text-body-secondary"}`}
               href="#"
               style={{ textDecoration: "none" }}
@@ -330,7 +376,6 @@ export const Sidebar = ({
 
           <li className="menu-item mb-2">
             <a
-              id="sidebar-nav-stats"
               className={`menu-link d-flex align-items-center px-2 py-2 rounded-2 ${currentPage === "dashboardStats" ? "text-primary fw-bold" : "text-body-secondary"}`}
               href="#"
               style={{ textDecoration: "none" }}
@@ -366,20 +411,58 @@ export const Sidebar = ({
             </a>
           </li>
 
-
+          {/* --- 1C. TỔNG SẢN PHẨM --- */}
+          {hasProductDetailPermission && (
+            <li className="menu-item mb-2">
+              <a
+                className={`menu-link d-flex align-items-center px-2 py-2 rounded-2 ${currentPage === "productOverview" && !selectedCategoryId ? "text-primary fw-bold" : "text-body-secondary"}`}
+                href="#"
+                style={{ textDecoration: "none" }}
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleGoToProductOverview();
+                }}
+              >
+                <div
+                  className="d-flex align-items-center justify-content-center rounded-3 bg-body-secondary me-3 flex-shrink-0"
+                  style={{ width: "36px", height: "36px" }}
+                >
+                  <svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <rect x="3" y="3" width="7" height="9"></rect>
+                    <rect x="14" y="3" width="7" height="5"></rect>
+                    <rect x="14" y="12" width="7" height="9"></rect>
+                    <rect x="3" y="16" width="7" height="5"></rect>
+                  </svg>
+                </div>
+                <span
+                  className="menu-label"
+                  style={{ flex: 1, fontSize: "14px" }}
+                >
+                  Tổng sản phẩm
+                </span>
+              </a>
+            </li>
+          )}
 
           {/* --- 2. SẢN PHẨM --- */}
           <li className="menu-item mb-2">
             <a
-              id="sidebar-nav-products"
               className={`menu-link d-flex align-items-center px-2 py-2 rounded-2 ${isProductPage ? "text-primary fw-bold" : "text-body-secondary"}`}
               href="#"
               role="button"
               style={{ textDecoration: "none" }}
               onClick={(e) => {
                 e.preventDefault();
-                handleGoToProductOverview();
-                setOpenMenu(openMenu === "sanpham" ? "" : "sanpham");
+                onNavigate?.("productOverview");
               }}
             >
               <div
@@ -404,7 +487,7 @@ export const Sidebar = ({
                 className="menu-label"
                 style={{ flex: 1, fontSize: "14px" }}
               >
-                Tổng quan<br /> sản phẩm
+                Sản phẩm
               </span>
 
               <span
@@ -460,9 +543,9 @@ export const Sidebar = ({
                     <li key={category.id} className="menu-item mb-1">
                       <a
                         className={`menu-link d-block px-3 py-2 rounded-2 ${selectedCategoryId === category.id &&
-                            currentPage === "productOverview"
-                            ? "bg-primary-subtle text-primary fw-medium"
-                            : "text-body-secondary"
+                          currentPage === "productOverview"
+                          ? "bg-primary-subtle text-primary fw-medium"
+                          : "text-body-secondary"
                           }`}
                         style={{
                           textDecoration: "none",
@@ -511,7 +594,6 @@ export const Sidebar = ({
           {/* --- 3. NGHIỆP VỤ --- */}
           <li className="menu-item mb-2 mt-2">
             <a
-              id="sidebar-nav-tasks"
               className={`menu-link d-flex align-items-center px-2 py-2 rounded-2 ${["nghiepvu", "checklist", "sop", "doisoatdeal"].includes(currentPage) || (typeof currentPage === "string" && currentPage.startsWith("dept-")) ? "text-primary fw-bold" : "text-body-secondary"}`}
               href="#"
               role="button"
@@ -586,7 +668,7 @@ export const Sidebar = ({
                 const roleKey = getUserRoleKey(currentUser);
                 const isSystemAdmin = ["admin", "bangiamdoc"].includes(roleKey);
                 const userDeptIds = currentUser?.departmentIds || (currentUser?.departmentId ? [currentUser.departmentId] : []);
-                
+
                 const visibleDepartments = isSystemAdmin
                   ? departments
                   : departments.filter(d => userDeptIds.includes(d.id));
@@ -611,7 +693,7 @@ export const Sidebar = ({
                   );
                 }
 
-                return visibleDepartments.map((dept, index) => {
+                return visibleDepartments.map((dept) => {
                   const isDeptExpanded = expandedDeptId === dept.id;
                   const isSopActive = currentPage === `dept-sop:${dept.id}`;
                   const isDocsActive = currentPage === `dept-docs:${dept.id}`;
@@ -628,7 +710,7 @@ export const Sidebar = ({
                           setExpandedDeptId(isDeptExpanded ? null : dept.id);
                         }}
                       >
-                        <span className="text-truncate" style={{ maxWidth: "80%" }}>📁 {dept.name}</span>
+                        <span className="text-truncate" style={{ maxWidth: "80%" }}>{dept.name}</span>
                         <svg
                           width="12"
                           height="12"
@@ -644,7 +726,7 @@ export const Sidebar = ({
                           <polyline points="6 9 12 15 18 9"></polyline>
                         </svg>
                       </a>
-                      
+
                       <ul
                         className="list-unstyled mb-0 mt-1 pl-3"
                         style={{
@@ -683,7 +765,6 @@ export const Sidebar = ({
                         </li>
                         <li className="mb-1" style={{ listStyleType: "none" }}>
                           <a
-                            id={index === 0 ? "sidebar-nav-jd" : undefined}
                             className={`menu-link d-block py-1 rounded-2 ${isJdsActive ? "text-primary fw-bold" : "text-body-secondary"}`}
                             style={{ textDecoration: "none", fontSize: "12px" }}
                             href="#"
@@ -713,7 +794,7 @@ export const Sidebar = ({
                       onNavigate?.("doisoatdeal");
                     }}
                   >
-                    📊 Đối soát Deal
+                    Đối soát Deal
                   </a>
                 </li>
               )}
@@ -723,7 +804,6 @@ export const Sidebar = ({
           {/* --- 4. HỖ TRỢ --- */}
           <li className="menu-item mb-2">
             <a
-              id="sidebar-nav-support"
               className={`menu-link d-flex align-items-center px-2 py-2 rounded-2 ${["hotro", "leadForm"].includes(currentPage) ? "text-primary fw-bold" : "text-body-secondary"}`}
               href="#"
               role="button"
@@ -824,7 +904,6 @@ export const Sidebar = ({
           {/* --- 5. TIN TỨC & SỰ KIỆN --- */}
           <li className="menu-item mb-2">
             <a
-              id="sidebar-nav-news"
               className={`menu-link d-flex align-items-center px-2 py-2 rounded-2 ${isNewsPage ? "text-primary fw-bold" : "text-body-secondary"}`}
               href="#"
               style={{ textDecoration: "none" }}
@@ -942,7 +1021,6 @@ export const Sidebar = ({
           {/* --- 7. TÀI LIỆU & BIỂU MẪU --- */}
           <li className="menu-item mb-2">
             <a
-              id="sidebar-nav-notifications"
               className={`menu-link d-flex align-items-center px-2 py-2 rounded-2 ${currentPage === "notifications" ? "text-primary fw-bold" : "text-body-secondary"}`}
               href="#"
               style={{ textDecoration: "none" }}
@@ -980,7 +1058,6 @@ export const Sidebar = ({
 
           <li className="menu-item mb-2">
             <a
-              id="sidebar-nav-documents"
               className={`menu-link d-flex align-items-center px-2 py-2 rounded-2 ${["documents", "documentSearch"].includes(currentPage) ? "text-primary fw-bold" : "text-body-secondary"}`}
               href="#"
               role="button"
@@ -1074,7 +1151,6 @@ export const Sidebar = ({
           {canViewAIManagement(currentUser) && (
             <li className="menu-item mb-2">
               <a
-                id="sidebar-nav-ai"
                 className={`menu-link d-flex align-items-center px-2 py-2 rounded-2 ${["aiConfig", "aiPending", "aiHistory"].includes(currentPage) ? "text-primary fw-bold" : "text-body-secondary"}`}
                 href="#"
                 role="button"
@@ -1191,7 +1267,6 @@ export const Sidebar = ({
 
           <li className="menu-item mb-2 border-top pt-3 mt-3">
             <a
-              id="sidebar-nav-users"
               className={`menu-link d-flex align-items-center px-2 py-2 rounded-2 ${currentPage === "users" ? "text-primary fw-bold" : "text-body-secondary"}`}
               href="#"
               style={{ textDecoration: "none" }}
@@ -1233,7 +1308,6 @@ export const Sidebar = ({
             <>
               <li className="menu-item mb-2">
                 <a
-                  id="sidebar-nav-departments"
                   className={`menu-link d-flex align-items-center px-2 py-2 rounded-2 ${currentPage === "departments" ? "text-primary fw-bold" : "text-body-secondary"}`}
                   href="#"
                   style={{ textDecoration: "none" }}
@@ -1272,7 +1346,6 @@ export const Sidebar = ({
 
               <li className="menu-item mb-2">
                 <a
-                  id="sidebar-nav-auditlogs"
                   className={`menu-link d-flex align-items-center px-2 py-2 rounded-2 ${currentPage === "auditLogs" ? "text-primary fw-bold" : "text-body-secondary"}`}
                   href="#"
                   style={{ textDecoration: "none" }}
