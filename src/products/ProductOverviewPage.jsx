@@ -727,7 +727,7 @@ function MegaMenuFilter({ categories, selectedCategoryName, selectedCountry, sel
           placeholder="Tìm danh mục..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full h-9 pl-8 pr-3 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500"
+          className="w-full h-9 pl-8 pr-3 bg-slate-50 app-dark:!bg-[#1e1e1e] border border-slate-200 app-dark:!border-slate-700 rounded-lg text-sm text-slate-700 app-dark:!text-slate-200 placeholder-slate-400 app-dark:!placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500"
         />
         <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -737,8 +737,8 @@ function MegaMenuFilter({ categories, selectedCategoryName, selectedCountry, sel
       <button
         onClick={handleReset}
         className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all ${selectedCategoryName === "Tất cả" && selectedCountry === "Tất cả" && selectedRegion === "Tất cả"
-          ? "bg-cyan-50 text-cyan-700 font-semibold"
-          : "hover:bg-slate-50 text-slate-600"
+          ? "bg-cyan-50 app-dark:!bg-cyan-955/35 text-cyan-700 app-dark:!text-cyan-300 font-semibold"
+          : "hover:bg-slate-50 app-dark:hover:!bg-white/5 text-slate-600 app-dark:!text-slate-300"
           }`}
       >
         📂 Tất cả danh mục
@@ -751,13 +751,13 @@ function MegaMenuFilter({ categories, selectedCategoryName, selectedCountry, sel
           <button
             key={cat.id}
             onClick={() => handleSelectCategory(cat.name)}
-            className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all flex items-center justify-between ${isActive ? "bg-cyan-50 text-cyan-700 font-semibold" : "hover:bg-slate-50 text-slate-600"
+            className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all flex items-center justify-between ${isActive ? "bg-cyan-50 app-dark:!bg-cyan-955/35 text-cyan-700 app-dark:!text-cyan-300 font-semibold" : "hover:bg-slate-50 app-dark:hover:!bg-white/5 text-slate-600 app-dark:!text-slate-300"
               }`}
           >
             <span>{cat.name}</span>
             <div className="flex items-center gap-2">
               {count > 0 && (
-                <span className="text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
+                <span className="text-[10px] text-slate-400 app-dark:!text-slate-500 bg-slate-100 app-dark:!bg-slate-800 px-1.5 py-0.5 rounded">
                   {count}
                 </span>
               )}
@@ -773,25 +773,25 @@ function MegaMenuFilter({ categories, selectedCategoryName, selectedCountry, sel
 
   const renderRegionList = () => {
     if (!selectedCat) return (
-      <div className="p-4 text-center text-slate-400 text-sm">
+      <div className="p-4 text-center text-slate-400 app-dark:!text-slate-500 text-sm">
         ← Chọn danh mục để xem khu vực
       </div>
     );
 
     if (regionsForCat.length === 0) return (
-      <div className="p-4 text-center text-slate-400 text-sm">
+      <div className="p-4 text-center text-slate-400 app-dark:!text-slate-500 text-sm">
         Chưa có khu vực
       </div>
     );
 
     return (
       <div className="p-2">
-        <div className="px-3 py-1.5 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+        <div className="px-3 py-1.5 text-xs font-semibold text-slate-400 app-dark:!text-slate-500 uppercase tracking-wider">
           Khu vực
         </div>
         <button
           onClick={() => handleSelectRegion("Tất cả khu vực")}
-          className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all ${selectedRegionItem === "Tất cả khu vực" ? "bg-cyan-50 text-cyan-700 font-semibold" : "hover:bg-slate-50 text-slate-600"
+          className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all ${selectedRegionItem === "Tất cả khu vực" ? "bg-cyan-50 app-dark:!bg-cyan-955/35 text-cyan-700 app-dark:!text-cyan-300 font-semibold" : "hover:bg-slate-50 app-dark:hover:!bg-white/5 text-slate-600 app-dark:!text-slate-300"
             }`}
         >
           🌏 Tất cả khu vực
@@ -800,7 +800,7 @@ function MegaMenuFilter({ categories, selectedCategoryName, selectedCountry, sel
           <button
             key={region}
             onClick={() => handleSelectRegion(region)}
-            className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all ${selectedRegionItem === region ? "bg-cyan-50 text-cyan-700 font-semibold" : "hover:bg-slate-50 text-slate-600"
+            className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all ${selectedRegionItem === region ? "bg-cyan-50 app-dark:!bg-cyan-955/35 text-cyan-700 app-dark:!text-cyan-300 font-semibold" : "hover:bg-slate-50 app-dark:hover:!bg-white/5 text-slate-600 app-dark:!text-slate-300"
               }`}
           >
             {region}
@@ -812,13 +812,13 @@ function MegaMenuFilter({ categories, selectedCategoryName, selectedCountry, sel
 
   const renderCountryList = () => {
     if (!selectedCat || !selectedRegionItem) return (
-      <div className="p-4 text-center text-slate-400 text-sm">
+      <div className="p-4 text-center text-slate-400 app-dark:!text-slate-500 text-sm">
         {!selectedCat ? "← Chọn danh mục" : "← Chọn khu vực để xem quốc gia"}
       </div>
     );
 
     if (countriesForSelection.length === 0) return (
-      <div className="p-4 text-center text-slate-400 text-sm">
+      <div className="p-4 text-center text-slate-400 app-dark:!text-slate-500 text-sm">
         {selectedRegionItem === "Tất cả khu vực"
           ? "Chọn khu vực cụ thể để xem quốc gia"
           : "Chưa có quốc gia"}
@@ -827,12 +827,12 @@ function MegaMenuFilter({ categories, selectedCategoryName, selectedCountry, sel
 
     return (
       <div className="p-2">
-        <div className="px-3 py-1.5 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+        <div className="px-3 py-1.5 text-xs font-semibold text-slate-400 app-dark:!text-slate-500 uppercase tracking-wider">
           Quốc gia
         </div>
         <button
           onClick={() => handleSelectCountry("Tất cả quốc gia")}
-          className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all ${selectedCountryItem === "Tất cả quốc gia" ? "bg-cyan-50 text-cyan-700 font-semibold" : "hover:bg-slate-50 text-slate-600"
+          className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all ${selectedCountryItem === "Tất cả quốc gia" ? "bg-cyan-50 app-dark:!bg-cyan-955/35 text-cyan-700 app-dark:!text-cyan-300 font-semibold" : "hover:bg-slate-50 app-dark:hover:!bg-white/5 text-slate-600 app-dark:!text-slate-300"
             }`}
         >
           🌍 Tất cả quốc gia
@@ -841,7 +841,7 @@ function MegaMenuFilter({ categories, selectedCategoryName, selectedCountry, sel
           <button
             key={country}
             onClick={() => handleSelectCountry(country)}
-            className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all ${selectedCountryItem === country ? "bg-cyan-50 text-cyan-700 font-semibold" : "hover:bg-slate-50 text-slate-600"
+            className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all ${selectedCountryItem === country ? "bg-cyan-50 app-dark:!bg-cyan-955/35 text-cyan-700 app-dark:!text-cyan-300 font-semibold" : "hover:bg-slate-50 app-dark:hover:!bg-white/5 text-slate-600 app-dark:!text-slate-300"
               }`}
           >
             {resolveCountryName(country)}
@@ -853,7 +853,7 @@ function MegaMenuFilter({ categories, selectedCategoryName, selectedCountry, sel
 
   const renderProgramList = () => {
     if (!selectedCat || !selectedRegionItem || !selectedCountryItem) return (
-      <div className="p-4 text-center text-slate-400 text-sm">
+      <div className="p-4 text-center text-slate-400 app-dark:!text-slate-500 text-sm">
         {!selectedCat ? "← Chọn danh mục" :
           !selectedRegionItem ? "← Chọn khu vực" :
             "← Chọn quốc gia để xem chương trình"}
@@ -861,7 +861,7 @@ function MegaMenuFilter({ categories, selectedCategoryName, selectedCountry, sel
     );
 
     if (programsForSelection.length === 0) return (
-      <div className="p-4 text-center text-slate-400 text-sm">
+      <div className="p-4 text-center text-slate-400 app-dark:!text-slate-500 text-sm">
         {selectedCountryItem === "Tất cả quốc gia"
           ? "Chọn quốc gia cụ thể để xem chương trình"
           : "Chưa có chương trình"}
@@ -870,17 +870,17 @@ function MegaMenuFilter({ categories, selectedCategoryName, selectedCountry, sel
 
     return (
       <div className="p-2">
-        <div className="px-3 py-1.5 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+        <div className="px-3 py-1.5 text-xs font-semibold text-slate-400 app-dark:!text-slate-500 uppercase tracking-wider">
           Chương trình
         </div>
         {programsForSelection.slice(0, 10).map(prog => (
           <button
             key={prog.id}
             onClick={() => handleApplyFilter(selectedCat, selectedRegionItem, selectedCountryItem)}
-            className="w-full text-left px-3 py-2 rounded-lg text-sm hover:bg-cyan-50 transition-all border-b border-slate-50 last:border-0"
+            className="w-full text-left px-3 py-2 rounded-lg text-sm hover:bg-cyan-50 app-dark:hover:!bg-cyan-955/20 transition-all border-b border-slate-50 app-dark:!border-slate-800 last:border-0"
           >
-            <div className="font-medium text-slate-700">{prog.name}</div>
-            <div className="text-[10px] text-slate-400 mt-0.5">
+            <div className="font-medium text-slate-700 app-dark:!text-slate-300">{prog.name}</div>
+            <div className="text-[10px] text-slate-400 app-dark:!text-slate-500 mt-0.5">
               {prog.region} · {resolveCountryName(prog.country)}
             </div>
           </button>
@@ -888,7 +888,7 @@ function MegaMenuFilter({ categories, selectedCategoryName, selectedCountry, sel
         {programsForSelection.length > 10 && (
           <button
             onClick={() => handleApplyFilter(selectedCat, selectedRegionItem, selectedCountryItem)}
-            className="w-full text-center px-3 py-2 text-sm text-cyan-700 font-semibold hover:bg-cyan-50 rounded-lg transition-all mt-1"
+            className="w-full text-center px-3 py-2 text-sm text-cyan-700 app-dark:!text-cyan-400 font-semibold hover:bg-cyan-50 app-dark:hover:!bg-cyan-955/20 rounded-lg transition-all mt-1"
           >
             Xem tất cả {programsForSelection.length} chương trình →
           </button>
@@ -903,18 +903,18 @@ function MegaMenuFilter({ categories, selectedCategoryName, selectedCountry, sel
         type="button"
         onClick={() => setIsOpen(!isOpen)}
         className={`
-          w-full h-11 px-4 rounded-2xl border bg-white shadow-sm transition-all
+          w-full h-11 px-4 rounded-2xl border bg-white app-dark:!bg-[#1e1e1e] shadow-sm transition-all
           flex items-center justify-between
           ${isOpen
             ? "border-cyan-400 ring-2 ring-cyan-500/20"
-            : "border-slate-200 hover:border-cyan-300"}
+            : "border-slate-200 app-dark:!border-slate-700 hover:border-cyan-300"}
         `}
       >
-        <span className={`truncate text-sm ${hasSelection ? "font-semibold text-slate-800" : "text-slate-500"}`}>
+        <span className={`truncate text-sm ${hasSelection ? "font-semibold text-slate-800 app-dark:!text-slate-100" : "text-slate-500"}`}>
           {displayLabel}
         </span>
         <svg
-          className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
+          className={`w-4 h-4 text-slate-400 app-dark:!text-slate-500 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -924,24 +924,24 @@ function MegaMenuFilter({ categories, selectedCategoryName, selectedCountry, sel
       </button>
 
       {isOpen && (
-        <div className="absolute left-0 top-full mt-2 z-[9999] bg-white rounded-2xl border border-slate-200 shadow-[0_20px_60px_rgba(0,0,0,0.12)] overflow-hidden" style={{width: "min(860px, calc(100vw - 280px))"}}>
+        <div className="absolute left-0 top-full mt-2 z-[9999] bg-white app-dark:!bg-[#252525] rounded-2xl border border-slate-200 app-dark:!border-slate-700 shadow-[0_20px_60px_rgba(0,0,0,0.12)] overflow-hidden" style={{width: "min(860px, calc(100vw - 280px))"}}>
           <div className="flex flex-row max-h-[500px]">
-            <div className="flex-1 min-w-0 border-r border-slate-100 overflow-y-auto">
+            <div className="flex-1 min-w-0 border-r border-slate-100 app-dark:!border-slate-700 overflow-y-auto">
               {renderCategoryList()}
             </div>
-            <div className="flex-1 min-w-0 border-r border-slate-100 bg-slate-50/30 overflow-y-auto">
+            <div className="flex-1 min-w-0 border-r border-slate-100 app-dark:!border-slate-700 bg-slate-50/30 app-dark:!bg-white/3 overflow-y-auto">
               {renderRegionList()}
             </div>
-            <div className="flex-1 min-w-0 border-r border-slate-100 bg-slate-50/20 overflow-y-auto">
+            <div className="flex-1 min-w-0 border-r border-slate-100 app-dark:!border-slate-700 bg-slate-50/20 app-dark:!bg-white/2 overflow-y-auto">
               {renderCountryList()}
             </div>
-            <div className="flex-1 min-w-0 bg-white overflow-y-auto">
+            <div className="flex-1 min-w-0 bg-white app-dark:!bg-transparent overflow-y-auto">
               {renderProgramList()}
             </div>
           </div>
 
           {selectedCat && selectedRegionItem && selectedCountryItem && programsForSelection.length > 0 && (
-            <div className="border-t border-slate-100 p-3 bg-slate-50">
+            <div className="border-t border-slate-100 app-dark:!border-slate-700 p-3 bg-slate-50 app-dark:!bg-slate-900">
               <button
                 onClick={() => handleApplyFilter(selectedCat, selectedRegionItem, selectedCountryItem)}
                 className="w-full bg-cyan-900 hover:bg-cyan-950 text-white text-sm font-semibold py-2 rounded-xl transition-colors"
@@ -1002,7 +1002,7 @@ function ProductOverviewPageInner({ currentUser }) {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategoryName, setSelectedCategoryName] = useState(() => pendingSidebarCategory?.name || "Tất cả");
-  const [selectedCountry, setSelectedCountry] = useState("Tất cả");
+  const [selectedCountry, setSelectedCountry] = useState(() => pendingSidebarCategory?.country || "Tất cả");
   const [selectedRegion, setSelectedRegion] = useState("Tất cả");
   const [selectedStatus, setSelectedStatus] = useState("all");
   // eslint-disable-next-line no-unused-vars
@@ -1167,6 +1167,7 @@ function ProductOverviewPageInner({ currentUser }) {
       setViewMode("overview");
       setSelectedProduct(null);
       setSelectedCategoryName(detail.name || "Tất cả");
+      setSelectedCountry(detail.country || "Tất cả");
       // eslint-disable-next-line no-unused-vars
       setSelectedVisaType(null);
       if (detail.id) {
@@ -1177,6 +1178,18 @@ function ProductOverviewPageInner({ currentUser }) {
     window.addEventListener(SIDEBAR_CATEGORY_EVENT, handleSidebarCategorySelect);
     return () => window.removeEventListener(SIDEBAR_CATEGORY_EVENT, handleSidebarCategorySelect);
   }, []);
+
+  // Đồng bộ ngược từ Page sang Sidebar khi chọn bộ lọc trên trang
+  useEffect(() => {
+    const cat = categories.find(c => c && c.name === selectedCategoryName);
+    const detail = {
+      id: cat?.id || null,
+      name: selectedCategoryName,
+      country: selectedCountry,
+      fromSidebar: false
+    };
+    window.dispatchEvent(new CustomEvent(SIDEBAR_CATEGORY_EVENT, { detail }));
+  }, [selectedCategoryName, selectedCountry, categories]);
 
   // Lắng nghe khi Sidebar chọn sản phẩm con cụ thể (trong lúc trang này đã mount sẵn)
   useEffect(() => {
@@ -2488,7 +2501,7 @@ function ProductOverviewPageInner({ currentUser }) {
                       return (
                         <div key={cat.id} className="mb-6 relative z-0">
                           {/* Header */}
-                          <div className="bg-gradient-to-b from-[#f0f7ff] to-[#f8fafc] rounded-t-[20px] rounded-b-[12px] border border-blue-100 p-4 md:p-5 flex flex-col md:flex-row justify-between mb-4 shadow-sm relative">
+                          <div className="bg-gradient-to-b from-[#f0f7ff] to-[#f8fafc] app-dark:!bg-none app-dark:!bg-[#111827] rounded-t-[20px] rounded-b-[12px] border border-blue-100 app-dark:!border-[#334155] p-4 md:p-5 flex flex-col md:flex-row justify-between mb-4 shadow-sm relative">
                             <div className="absolute top-0 right-0 bottom-0 w-1/3 md:w-2/5 bg-gradient-to-l from-blue-100/15 to-transparent pointer-events-none overflow-hidden rounded-t-[20px] rounded-b-[12px]">
                               <img 
                                 src="https://images.unsplash.com/photo-1544644181-1484b3fdfc62?auto=format&fit=crop&w=600&q=80" 
@@ -2505,10 +2518,10 @@ function ProductOverviewPageInner({ currentUser }) {
                                   </div>
                                   <div className="min-w-0">
                                     <div className="flex items-center gap-2 flex-wrap mb-0.5">
-                                      <h3 className="text-xl md:text-2xl font-extrabold text-slate-800 m-0 leading-none tracking-tight">Visa</h3>
-                                      <span className="bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full text-[10px] font-bold">4 SP</span>
+                                      <h3 className="text-xl md:text-2xl font-extrabold text-slate-800 app-dark:!text-slate-100 m-0 leading-none tracking-tight">Visa</h3>
+                                      <span className="bg-blue-100 app-dark:!bg-blue-955/40 text-blue-600 app-dark:!text-blue-400 px-2 py-0.5 rounded-full text-[10px] font-bold">4 SP</span>
                                     </div>
-                                    <p className="text-slate-500 text-xs md:text-sm m-0 line-clamp-1">Quản lý các danh mục visa và hồ sơ liên quan</p>
+                                    <p className="text-slate-500 app-dark:!text-slate-400 text-xs md:text-sm m-0 line-clamp-1">Quản lý các danh mục visa và hồ sơ liên quan</p>
                                   </div>
                                 </div>
                                 <div className="flex items-center gap-1.5 flex-shrink-0 flex-wrap">
@@ -2516,13 +2529,13 @@ function ProductOverviewPageInner({ currentUser }) {
                                     <>
                                       <button 
                                         onClick={() => handleEditCategory(cat)} 
-                                        className="bg-white border border-slate-200 text-[#ea580c] hover:bg-orange-50 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold flex items-center gap-1 shadow-sm transition-colors"
+                                        className="bg-white app-dark:!bg-slate-800 border border-slate-200 app-dark:!border-slate-700 text-[#ea580c] app-dark:!text-orange-400 hover:bg-orange-50 app-dark:hover:!bg-slate-700 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold flex items-center gap-1 shadow-sm transition-colors"
                                       >
                                         <i className="fa fa-pen text-[10px]"></i> Sửa
                                       </button>
                                       <button 
                                         onClick={() => handleToggleCategoryStatus(cat.id, cat.status)} 
-                                        className="bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold flex items-center gap-1 shadow-sm transition-colors"
+                                        className="bg-white app-dark:!bg-slate-800 border border-slate-200 app-dark:!border-slate-700 text-slate-600 app-dark:!text-slate-300 hover:bg-slate-50 app-dark:hover:!bg-slate-700 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold flex items-center gap-1 shadow-sm transition-colors"
                                       >
                                         {cat.status === "inactive" || cat.status === "hidden" ? <><i className="fa fa-eye text-[10px]"></i> Hiện</> : <><i className="fa fa-eye-slash text-[10px]"></i> Ẩn</>}
                                       </button>
@@ -2533,22 +2546,22 @@ function ProductOverviewPageInner({ currentUser }) {
 
                               {/* Stats */}
                               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                                <div className="bg-white rounded-xl p-2.5 flex items-center gap-2 shadow-sm border border-slate-100/50">
-                                  <div className="w-8 h-8 rounded-lg bg-[#f0fdf4] text-[#16a34a] flex items-center justify-center text-sm flex-shrink-0">
+                                <div className="bg-white app-dark:!bg-slate-900 rounded-xl p-2.5 flex items-center gap-2 shadow-sm border border-slate-100/50 app-dark:!border-[#334155]">
+                                  <div className="w-8 h-8 rounded-lg bg-[#f0fdf4] app-dark:!bg-[#16a34a]/15 text-[#16a34a] app-dark:!text-[#16a34a] flex items-center justify-center text-sm flex-shrink-0">
                                     <i className="fa fa-folder-open"></i>
                                   </div>
                                   <div>
-                                    <div className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5">Danh mục</div>
-                                    <div className="text-lg font-bold text-slate-800 leading-none">4</div>
+                                    <div className="text-[9px] font-semibold text-slate-400 app-dark:!text-slate-500 uppercase tracking-wider mb-0.5">Danh mục</div>
+                                    <div className="text-lg font-bold text-slate-800 app-dark:!text-slate-100 leading-none">4</div>
                                   </div>
                                 </div>
-                                <div className="bg-white rounded-xl p-2.5 flex items-center gap-2 shadow-sm border border-slate-100/50">
-                                  <div className="w-8 h-8 rounded-lg bg-[#eff6ff] text-[#2563eb] flex items-center justify-center text-sm flex-shrink-0">
+                                <div className="bg-white app-dark:!bg-slate-900 rounded-xl p-2.5 flex items-center gap-2 shadow-sm border border-slate-100/50 app-dark:!border-[#334155]">
+                                  <div className="w-8 h-8 rounded-lg bg-[#eff6ff] app-dark:!bg-[#2563eb]/15 text-[#2563eb] app-dark:!text-[#2563eb] flex items-center justify-center text-sm flex-shrink-0">
                                     <i className="fa fa-file-lines"></i>
                                   </div>
                                   <div>
-                                    <div className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5">Hồ sơ</div>
-                                    <div className="text-lg font-bold text-slate-800 leading-none">32</div>
+                                    <div className="text-[9px] font-semibold text-slate-400 app-dark:!text-slate-500 uppercase tracking-wider mb-0.5">Hồ sơ</div>
+                                    <div className="text-lg font-bold text-slate-800 app-dark:!text-slate-100 leading-none">32</div>
                                   </div>
                                 </div>
                               </div>
@@ -2556,9 +2569,9 @@ function ProductOverviewPageInner({ currentUser }) {
                           </div>
 
                           {/* Content - HIỂN THỊ VISA_TYPES */}
-                          <div className="bg-white rounded-[20px] border border-slate-100 p-4 shadow-sm relative z-0">
+                          <div className="bg-white app-dark:!bg-[#111827] rounded-[20px] border border-slate-100 app-dark:!border-[#334155] p-4 shadow-sm relative z-0">
                             <div className="flex items-center justify-between mb-3">
-                              <h4 className="font-bold text-slate-800 text-sm">Danh sách sản phẩm</h4>
+                              <h4 className="font-bold text-slate-800 app-dark:!text-slate-100 text-sm">Danh sách sản phẩm</h4>
                               <div className="flex bg-slate-50 border border-slate-200 rounded-lg p-0.5">
                                 <button className="w-6 h-6 rounded-md bg-blue-50 text-blue-600 flex items-center justify-center shadow-sm text-xs">
                                   <i className="fa fa-grid-2"></i>
@@ -2576,61 +2589,61 @@ function ProductOverviewPageInner({ currentUser }) {
                                     <div 
                                       key={type.id} 
                                       onClick={() => setSelectedVisaType(type.id)} 
-                                      className={`relative flex flex-col border border-slate-100/50 rounded-[16px] overflow-hidden cursor-pointer hover:shadow-lg hover:-translate-y-1 transition-all duration-300 ${type.gradient}`}
+                                      className={`relative flex flex-col border border-slate-100/50 app-dark:!border-[#334155] rounded-[16px] overflow-hidden cursor-pointer hover:shadow-lg hover:-translate-y-1 transition-all duration-300 ${type.gradient} app-dark:!bg-none app-dark:!bg-[#1e293b]/50`}
                                     >
                                       <div className="px-3 pt-4 pb-3 flex flex-col items-center text-center flex-1">
-                                        <div className={`w-[48px] h-[48px] rounded-full bg-white flex items-center justify-center shadow-[0_8px_24px_-8px_rgba(0,0,0,0.15)] mb-3 ${type.color}`}>
+                                        <div className={`w-[48px] h-[48px] rounded-full bg-white app-dark:!bg-slate-800 flex items-center justify-center shadow-[0_8px_24px_-8px_rgba(0,0,0,0.15)] mb-3 ${type.color}`}>
                                           <i className={`fa ${type.icon} text-xl`}></i>
                                         </div>
                                         <h5 className={`text-sm font-bold mb-1 ${type.color}`}>{type.name}</h5>
-                                        <p className="text-slate-500 text-[11px] leading-relaxed mb-2 line-clamp-2">{type.desc}</p>
+                                        <p className="text-slate-500 app-dark:!text-slate-400 text-[11px] leading-relaxed mb-2 line-clamp-2">{type.desc}</p>
 
-                                        <div className="w-full border-t border-dashed border-slate-200/80 my-1.5"></div>
+                                        <div className="w-full border-t border-dashed border-slate-200/80 app-dark:!border-slate-700/80 my-1.5"></div>
 
                                         <div className="w-full flex justify-between px-0.5">
                                           <div className="flex items-center gap-1.5">
-                                            <div className={`w-[18px] h-[18px] rounded-full bg-white flex items-center justify-center shadow-sm ${type.color}`}>
+                                            <div className={`w-[18px] h-[18px] rounded-full bg-white app-dark:!bg-slate-800 flex items-center justify-center shadow-sm ${type.color}`}>
                                               <i className="fa fa-user text-[8px]"></i>
                                             </div>
                                             <div className="text-left">
-                                              <div className="text-xs font-extrabold text-slate-800 leading-none mb-0.5">{type.docsCount}</div>
-                                              <div className="text-[8px] text-slate-400">Hồ sơ</div>
+                                              <div className="text-xs font-extrabold text-slate-800 app-dark:!text-slate-150 leading-none mb-0.5">{type.docsCount}</div>
+                                              <div className="text-[8px] text-slate-400 app-dark:!text-slate-500">Hồ sơ</div>
                                             </div>
                                           </div>
                                           <div className="flex items-center gap-1.5">
-                                            <div className={`w-[18px] h-[18px] rounded-full bg-white flex items-center justify-center shadow-sm ${type.color}`}>
+                                            <div className={`w-[18px] h-[18px] rounded-full bg-white app-dark:!bg-slate-800 flex items-center justify-center shadow-sm ${type.color}`}>
                                               <i className="fa fa-file-lines text-[8px]"></i>
                                             </div>
                                             <div className="text-left">
-                                              <div className="text-xs font-extrabold text-slate-800 leading-none mb-0.5">{type.filesCount}</div>
-                                              <div className="text-[8px] text-slate-400">Tài liệu</div>
+                                              <div className="text-xs font-extrabold text-slate-800 app-dark:!text-slate-150 leading-none mb-0.5">{type.filesCount}</div>
+                                              <div className="text-[8px] text-slate-400 app-dark:!text-slate-500">Tài liệu</div>
                                             </div>
                                           </div>
                                         </div>
                                       </div>
                                       <div className="px-2.5 pb-2.5">
-                                        <button className={`w-full py-1.5 rounded-xl flex items-center justify-center transition-colors shadow-sm text-xs ${type.btnBg}`}>
+                                        <button className={`w-full py-1.5 rounded-xl flex items-center justify-center transition-colors shadow-sm text-xs ${type.btnBg} app-dark:!bg-[#0D919C]/25 app-dark:!text-[#0D919C]`}>
                                           <i className="fa fa-arrow-right"></i>
                                         </button>
                                       </div>
                                     </div>
                                   ))}
                                 </div>
-                                <div className="mt-3 bg-[#f8fafc] border border-[#f1f5f9] rounded-xl px-3 py-2 flex items-center gap-2">
+                                <div className="mt-3 bg-[#f8fafc] app-dark:!bg-[#1e1e1e] border border-[#f1f5f9] app-dark:!border-slate-850 rounded-xl px-3 py-2 flex items-center gap-2">
                                   <i className="fa fa-circle-info text-blue-500 text-sm"></i>
-                                  <span className="text-[11px] text-slate-500 font-medium">Click vào danh mục để xem chi tiết và quản lý hồ sơ, tài liệu.</span>
+                                  <span className="text-[11px] text-slate-500 app-dark:!text-slate-400 font-medium">Click vào danh mục để xem chi tiết và quản lý hồ sơ, tài liệu.</span>
                                 </div>
                               </>
                             ) : (
-                              <div className="flex flex-col gap-3 bg-white p-3 rounded-2xl border border-slate-100 shadow-sm">
-                                <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-lg border border-slate-200">
+                              <div className="flex flex-col gap-3 bg-white app-dark:!bg-[#111827] p-3 rounded-2xl border border-slate-100 app-dark:!border-[#334155] shadow-sm">
+                                <div className="flex items-center gap-2 bg-slate-50 app-dark:!bg-slate-900 p-2 rounded-lg border border-slate-200 app-dark:!border-slate-800">
                                   <button 
                                     onClick={() => setSelectedVisaType(null)} 
-                                    className="text-slate-600 hover:text-cyan-700 bg-white border border-slate-200 px-2.5 py-1 rounded-lg text-[10px] font-semibold shadow-sm transition-colors flex items-center gap-1"
+                                    className="text-slate-600 app-dark:!text-slate-300 hover:text-cyan-700 app-dark:hover:!text-cyan-400 bg-white app-dark:!bg-slate-850 border border-slate-200 app-dark:!border-slate-700 px-2.5 py-1 rounded-lg text-[10px] font-semibold shadow-sm transition-colors flex items-center gap-1"
                                   >
                                     <i className="fa fa-arrow-left text-[8px]"></i> Trở lại
                                   </button>
-                                  <span className="font-bold text-slate-800 text-xs">
+                                  <span className="font-bold text-slate-800 app-dark:!text-slate-100 text-xs">
                                     Đang hiển thị: {VISA_TYPES.find(t => t.id === selectedVisaType)?.name}
                                   </span>
                                 </div>
@@ -2649,7 +2662,7 @@ function ProductOverviewPageInner({ currentUser }) {
 
                     return (
                       <div key={cat.id} className="mb-6 relative z-0">
-                        <div className="bg-gradient-to-b from-[#f0f7ff] to-[#f8fafc] rounded-t-[20px] rounded-b-[12px] border border-blue-100 p-4 md:p-5 flex flex-col md:flex-row justify-between mb-4 shadow-sm relative">
+                        <div className="bg-gradient-to-b from-[#f0f7ff] to-[#f8fafc] app-dark:!bg-none app-dark:!bg-[#111827] rounded-t-[20px] rounded-b-[12px] border border-blue-100 app-dark:!border-[#334155] p-4 md:p-5 flex flex-col md:flex-row justify-between mb-4 shadow-sm relative">
                           <div className="absolute top-0 right-0 bottom-0 w-1/3 md:w-2/5 bg-gradient-to-l from-blue-100/15 to-transparent pointer-events-none overflow-hidden rounded-t-[20px] rounded-b-[12px]">
                             <img
                               src={cat.coverImageUrl || defaultCoverImage}
@@ -2666,10 +2679,10 @@ function ProductOverviewPageInner({ currentUser }) {
                                 </div>
                                 <div className="min-w-0">
                                   <div className="flex items-center gap-2 flex-wrap mb-0.5">
-                                    <h3 className="text-xl md:text-2xl font-extrabold text-slate-800 m-0 leading-none tracking-tight">{cat.name}</h3>
+                                    <h3 className="text-xl md:text-2xl font-extrabold text-slate-800 app-dark:!text-slate-100 m-0 leading-none tracking-tight">{cat.name}</h3>
                                   </div>
                                   {cat.description && (
-                                    <p className="text-slate-500 text-xs md:text-sm m-0 max-w-xl leading-relaxed line-clamp-2">{cat.description}</p>
+                                    <p className="text-slate-500 app-dark:!text-slate-400 text-xs md:text-sm m-0 max-w-xl leading-relaxed line-clamp-2">{cat.description}</p>
                                   )}
                                 </div>
                               </div>
@@ -2679,14 +2692,14 @@ function ProductOverviewPageInner({ currentUser }) {
                                   <button
                                     type="button"
                                     onClick={() => handleEditCategory(cat)}
-                                    className="bg-white border border-slate-200 text-[#ea580c] hover:bg-orange-50 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold flex items-center gap-1 shadow-sm transition-colors"
+                                    className="bg-white app-dark:!bg-slate-800 border border-slate-200 app-dark:!border-slate-700 text-[#ea580c] app-dark:!text-orange-400 hover:bg-orange-50 app-dark:hover:!bg-slate-700 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold flex items-center gap-1 shadow-sm transition-colors"
                                   >
                                     <i className="fa fa-pen text-[10px]"></i> Sửa
                                   </button>
                                   <button
                                     type="button"
                                     onClick={() => handleToggleCategoryStatus(cat.id, cat.status)}
-                                    className="bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold flex items-center gap-1 shadow-sm transition-colors"
+                                    className="bg-white app-dark:!bg-slate-800 border border-slate-200 app-dark:!border-slate-700 text-slate-600 app-dark:!text-slate-300 hover:bg-slate-50 app-dark:hover:!bg-slate-700 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold flex items-center gap-1 shadow-sm transition-colors"
                                   >
                                     {cat.status === "inactive" || cat.status === "hidden" ? (
                                       <><i className="fa fa-eye text-[10px]"></i> Hiện</>
@@ -2699,22 +2712,22 @@ function ProductOverviewPageInner({ currentUser }) {
                             </div>
 
                             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                              <div className="bg-white rounded-xl p-2.5 flex items-center gap-2 shadow-sm border border-slate-100/50">
-                                <div className="w-8 h-8 rounded-lg bg-[#f0fdf4] text-[#16a34a] flex items-center justify-center text-sm flex-shrink-0">
+                              <div className="bg-white app-dark:!bg-slate-900 rounded-xl p-2.5 flex items-center gap-2 shadow-sm border border-slate-100/50 app-dark:!border-[#334155]">
+                                <div className="w-8 h-8 rounded-lg bg-[#f0fdf4] app-dark:!bg-[#16a34a]/15 text-[#16a34a] app-dark:!text-[#16a34a] flex items-center justify-center text-sm flex-shrink-0">
                                   <i className="fa fa-box-open"></i>
                                 </div>
                                 <div>
-                                  <div className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5">Sản phẩm</div>
-                                  <div className="text-lg font-bold text-slate-800 leading-none">{displayPrograms.length}</div>
+                                  <div className="text-[9px] font-semibold text-slate-400 app-dark:!text-slate-500 uppercase tracking-wider mb-0.5">Sản phẩm</div>
+                                  <div className="text-lg font-bold text-slate-800 app-dark:!text-slate-100 leading-none">{displayPrograms.length}</div>
                                 </div>
                               </div>
-                              <div className="bg-white rounded-xl p-2.5 flex items-center gap-2 shadow-sm border border-slate-100/50">
-                                <div className="w-8 h-8 rounded-lg bg-[#eff6ff] text-[#2563eb] flex items-center justify-center text-sm flex-shrink-0">
+                              <div className="bg-white app-dark:!bg-slate-900 rounded-xl p-2.5 flex items-center gap-2 shadow-sm border border-slate-100/50 app-dark:!border-[#334155]">
+                                <div className="w-8 h-8 rounded-lg bg-[#eff6ff] app-dark:!bg-[#2563eb]/15 text-[#2563eb] app-dark:!text-[#2563eb] flex items-center justify-center text-sm flex-shrink-0">
                                   <i className="fa fa-file-lines"></i>
                                 </div>
                                 <div>
-                                  <div className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5">Tài liệu</div>
-                                  <div className="text-lg font-bold text-slate-800 leading-none">{totalCatDocs}</div>
+                                  <div className="text-[9px] font-semibold text-slate-400 app-dark:!text-slate-500 uppercase tracking-wider mb-0.5">Tài liệu</div>
+                                  <div className="text-lg font-bold text-slate-800 app-dark:!text-slate-100 leading-none">{totalCatDocs}</div>
                                 </div>
                               </div>
                             </div>
@@ -2722,7 +2735,7 @@ function ProductOverviewPageInner({ currentUser }) {
                         </div>
 
                         {displayPrograms.length > 0 && (
-                          <div className="bg-white rounded-[20px] border border-slate-100 p-4 shadow-sm relative z-0">
+                          <div className="bg-white app-dark:!bg-[#111827] rounded-[20px] border border-slate-100 app-dark:!border-[#334155] p-4 shadow-sm relative z-0">
                             {renderProductGrid(visiblePrograms)}
                             {renderShowMoreBtn(hasMore, hiddenCount)}
                           </div>

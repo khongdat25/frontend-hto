@@ -110,7 +110,6 @@ export function OnlineApplicationPage({ currentUser, onNavigate }) {
   ];
 
   // States
-  const [step, setStep] = useState(1);
   const [selectedCatId, setSelectedCatId] = useState("duhocnghe");
   const [selectedProgId, setSelectedProgId] = useState("dieuduong");
 
@@ -151,6 +150,32 @@ export function OnlineApplicationPage({ currentUser, onNavigate }) {
   const [validationError, setValidationError] = useState("");
   const [leadCode, setLeadCode] = useState("");
 
+  // CCCD Photo states
+  const [cccdFrontFile, setCccdFrontFile] = useState(null);
+  const [cccdBackFile, setCccdBackFile] = useState(null);
+  const [cccdFrontPreview, setCccdFrontPreview] = useState("");
+  const [cccdBackPreview, setCccdBackPreview] = useState("");
+
+  const [submittedInvalidFields, setSubmittedInvalidFields] = useState([]);
+
+  const getFieldBorderClass = (fieldName) => {
+    if (submittedInvalidFields.includes(fieldName)) {
+      return "border-red-500 focus:ring-red-500 focus:border-red-500 focus:ring-1";
+    }
+    return isDark
+      ? "border-[#334155] focus:ring-[#0D919C] focus:border-[#0D919C]"
+      : "border-[#e2e8f0] focus:ring-[#0D919C] focus:border-[#0D919C]";
+  };
+
+  const getCccdBorderClass = (fieldName) => {
+    if (submittedInvalidFields.includes(fieldName)) {
+      return "border-red-500";
+    }
+    return isDark
+      ? "border-slate-700 hover:border-cyan-500"
+      : "border-slate-200 hover:border-cyan-500";
+  };
+
   // Sync program defaults when category changes
   const activeCategory = CATEGORIES.find(c => c.id === selectedCatId) || CATEGORIES[0];
   const activeProgram = activeCategory.programs.find(p => p.id === selectedProgId) || activeCategory.programs[0];
@@ -167,35 +192,16 @@ export function OnlineApplicationPage({ currentUser, onNavigate }) {
       const nextData = { ...prev, [name]: value };
       try {
         window.localStorage.setItem("last_lead_info", JSON.stringify(nextData));
-      } catch (err) {}
+      } catch (err) { }
       return nextData;
     });
+    // Clear red border on input edit
+    if (submittedInvalidFields.includes(name)) {
+      setSubmittedInvalidFields(prev => prev.filter(f => f !== name));
+    }
   };
-
-
-
-  const handleNextStep = () => {
-    if (step === 1 && !selectedProgId) return;
-    setStep(prev => prev + 1);
-  };
-
-  const handlePrevStep = () => {
-    setStep(prev => prev - 1);
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    // Check if step 2 required fields are filled
-    if (!formData.fullName.trim() || !formData.phone.trim() || !formData.email.trim()) {
-      setValidationError("Vui lòng điền đầy đủ các thông tin bắt buộc (*): Họ và tên, Số điện thoại và Email.");
-      // Scroll to top of the form body
-      const formContainer = document.querySelector("form");
-      if (formContainer) {
-        formContainer.scrollIntoView({ behavior: "smooth", block: "start" });
-      }
-      return;
-    }
 
     // Check authentication headers
     const authHeaders = getAuthHeaders();
@@ -208,7 +214,45 @@ export function OnlineApplicationPage({ currentUser, onNavigate }) {
       }
       return;
     }
-    
+
+    // Validate all required fields
+    const invalidFields = [];
+    if (!formData.fullName.trim()) invalidFields.push("fullName");
+    if (!formData.phone.trim()) invalidFields.push("phone");
+    if (!formData.email.trim()) invalidFields.push("email");
+    if (!formData.dob) invalidFields.push("dob");
+    if (!formData.passport.trim()) invalidFields.push("passport");
+    if (!cccdFrontFile) invalidFields.push("cccdFront");
+    if (!cccdBackFile) invalidFields.push("cccdBack");
+    if (!formData.address.trim()) invalidFields.push("address");
+
+    setSubmittedInvalidFields(invalidFields);
+
+    if (invalidFields.length > 0) {
+      setValidationError("Vui lòng điền đầy đủ và tải lên các thông tin bắt buộc (*).");
+
+      // Find and scroll to the first invalid field
+      const firstInvalidField = invalidFields[0];
+      let elementToFocus = null;
+      if (firstInvalidField === "cccdFront") {
+        elementToFocus = document.getElementById("cccd-front-input-box");
+      } else if (firstInvalidField === "cccdBack") {
+        elementToFocus = document.getElementById("cccd-back-input-box");
+      } else {
+        elementToFocus = document.getElementsByName(firstInvalidField)[0];
+      }
+
+      if (elementToFocus) {
+        elementToFocus.scrollIntoView({ behavior: "smooth", block: "center" });
+        setTimeout(() => {
+          if (elementToFocus.focus) {
+            elementToFocus.focus();
+          }
+        }, 300);
+      }
+      return;
+    }
+
     setValidationError("");
     setIsSubmitting(true);
 
@@ -220,16 +264,17 @@ export function OnlineApplicationPage({ currentUser, onNavigate }) {
     if (formData.notes) noteParts.push(`Ghi chú: ${formData.notes}`);
     const combinedNote = noteParts.join(" | ");
 
-    // Prepare payload
-    const payload = {
-      customerName: formData.fullName.trim(),
-      phone: normalizePhone(formData.phone),
-      email: formData.email.trim(),
-      source: "Nộp hồ sơ online",
-      productInterest: activeProgram?.name || "Nộp hồ sơ online",
-      countryInterest: mapCountryInterest(selectedCatId, selectedProgId),
-      note: combinedNote
-    };
+    // Prepare multipart/form-data payload
+    const payload = new FormData();
+    payload.append("customerName", formData.fullName.trim());
+    payload.append("phone", normalizePhone(formData.phone));
+    payload.append("email", formData.email.trim());
+    payload.append("source", "Nộp hồ sơ online");
+    payload.append("productInterest", activeProgram?.name || "Nộp hồ sơ online");
+    payload.append("countryInterest", mapCountryInterest(selectedCatId, selectedProgId));
+    payload.append("note", combinedNote);
+    payload.append("cccdFront", cccdFrontFile);
+    payload.append("cccdBack", cccdBackFile);
 
     const abortController = new AbortController();
     const requestTimeout = window.setTimeout(() => {
@@ -240,11 +285,10 @@ export function OnlineApplicationPage({ currentUser, onNavigate }) {
       const response = await fetch(`${API_BASE_URL}/leads`, {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
           ...authHeaders
         },
         signal: abortController.signal,
-        body: JSON.stringify(payload)
+        body: payload
       });
 
       const data = await response.json().catch(() => ({}));
@@ -254,7 +298,7 @@ export function OnlineApplicationPage({ currentUser, onNavigate }) {
       }
 
       const createdLead = data?.data || {};
-      
+
       // Store returned lead ID or contact ID, fallback to client-side code if empty
       const successLeadCode = createdLead.bizflyContactId || createdLead._id || `HTO-${Date.now().toString().slice(-6)}`;
       setLeadCode(successLeadCode);
@@ -265,9 +309,9 @@ export function OnlineApplicationPage({ currentUser, onNavigate }) {
       const errorMsg = isTimeout
         ? "Kết nối API quá lâu chưa phản hồi. Vui lòng thử lại sau ít phút."
         : err.message || "Không thể nộp hồ sơ. Vui lòng thử lại sau.";
-      
+
       setValidationError(errorMsg);
-      
+
       // Scroll to error view
       const formContainer = document.querySelector("form");
       if (formContainer) {
@@ -280,7 +324,6 @@ export function OnlineApplicationPage({ currentUser, onNavigate }) {
   };
 
   const handleResetForm = () => {
-    setStep(1);
     setSelectedCatId("duhocnghe");
     setSelectedProgId("dieuduong");
     setFormData({
@@ -295,6 +338,16 @@ export function OnlineApplicationPage({ currentUser, onNavigate }) {
     setValidationError("");
     setLeadCode("");
     setIsSuccess(false);
+
+    // Revoke object URLs to avoid memory leaks
+    if (cccdFrontPreview) URL.revokeObjectURL(cccdFrontPreview);
+    if (cccdBackPreview) URL.revokeObjectURL(cccdBackPreview);
+
+    setCccdFrontFile(null);
+    setCccdBackFile(null);
+    setCccdFrontPreview("");
+    setCccdBackPreview("");
+    setSubmittedInvalidFields([]);
   };
 
   return (
@@ -341,209 +394,303 @@ export function OnlineApplicationPage({ currentUser, onNavigate }) {
       ) : (
         /* FORM BODY */
         <div className={`rounded-2xl border p-4 sm:p-5 md:p-6 flex flex-col justify-between shadow-sm relative ${isDark ? "bg-[#111827] border-[#334155]" : "bg-white border-[#e2e8f0]"}`}>
-            {isSubmitting && (
-              <div className="absolute inset-0 bg-white/70 dark:bg-black/60 backdrop-blur-[2px] rounded-2xl z-20 flex flex-col items-center justify-center">
-                <div className="w-12 h-12 border-4 border-[#0D919C] border-t-transparent rounded-full animate-spin mb-3"></div>
-                <div className="font-bold text-sm tracking-wide text-[#0D919C]">Đang kiểm tra và tải hồ sơ lên hệ thống...</div>
+          {isSubmitting && (
+            <div className="absolute inset-0 bg-white/70 dark:bg-black/60 backdrop-blur-[2px] rounded-2xl z-20 flex flex-col items-center justify-center">
+              <div className="w-12 h-12 border-4 border-[#0D919C] border-t-transparent rounded-full animate-spin mb-3"></div>
+              <div className="font-bold text-sm tracking-wide text-[#0D919C]">Đang kiểm tra và tải hồ sơ lên hệ thống...</div>
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} noValidate className="flex-1 flex flex-col">
+
+            {validationError && (
+              <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-500 rounded-lg text-xs font-semibold flex items-center gap-2 mb-4">
+                <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                {validationError}
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="flex-1 flex flex-col justify-between min-h-[450px]">
-
-              {/* STEP 1: CHỌN CHƯƠNG TRÌNH */}
-              {step === 1 && (
-                <div className="space-y-5 text-left animate-fade-in">
-                  <div>
-                    <h3 className={`text-lg font-bold mb-1 ${isDark ? "text-white" : "text-[#0f172a]"}`}>Bước 1: Chọn Chương trình đăng ký</h3>
-                    <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
-                      Chọn nhóm dịch vụ HTO và chương trình bạn quan tâm để tiến hành đăng ký trực tuyến.
-                    </p>
-                  </div>
-
-                  {/* Category grid selection */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    {CATEGORIES.map(cat => {
-                      const isSelected = selectedCatId === cat.id;
-                      return (
-                        <div
-                          key={cat.id}
-                          onClick={() => setSelectedCatId(cat.id)}
-                          className={`p-3 border rounded-xl cursor-pointer transition-all duration-300 flex flex-col items-center justify-center text-center gap-2 ${isSelected
-                            ? "border-[#0D919C] bg-[#0D919C]/5 shadow-md shadow-[#0D919C]/5 text-[#0D919C] font-semibold scale-[1.02]"
-                            : (isDark ? "border-[#334155] hover:border-slate-600 bg-slate-800/20" : "border-[#e2e8f0] hover:border-slate-300 bg-slate-50/50")
-                            }`}
-                        >
-                          <div className={`p-2 rounded-lg transition-colors ${isSelected ? "bg-[#0D919C] text-white" : (isDark ? "bg-slate-800 text-slate-400" : "bg-slate-100 text-slate-500")}`}>
-                            {cat.icon}
-                          </div>
-                          <span className="text-xs truncate w-full">{cat.name}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {/* Program dropdown list */}
-                  <div className="space-y-2">
-                    <label className={`block text-xs font-bold ${isDark ? "text-[#94a3b8]" : "text-[#64748b]"}`}>Chương trình cụ thể *</label>
-                    <select
-                      value={selectedProgId}
-                      onChange={(e) => setSelectedProgId(e.target.value)}
-                      className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0D919C] focus:border-[#0D919C] text-sm ${isDark ? "border-[#334155] bg-[#1f2937] text-white" : "border-[#e2e8f0] bg-white text-[#1e293b]"}`}
-                    >
-                      {activeCategory.programs.map(p => (
-                        <option key={p.id} value={p.id} className={isDark ? "bg-[#1f2937]" : "bg-white"}>
-                          {p.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-
-                </div>
-              )}
-
-              {/* STEP 2: THÔNG TIN CÁ NHÂN */}
-              {step === 2 && (
-                <div className="space-y-4 text-left animate-fade-in">
-                  <div>
-                    <h3 className={`text-lg font-bold mb-1 ${isDark ? "text-white" : "text-[#0f172a]"}`}>Bước 2: Thông tin cá nhân học viên</h3>
-                    <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
-                      Điền thông tin định danh để HTO tạo hồ sơ mã học viên trong hệ thống quản lý.
-                    </p>
-                  </div>
-
-                  {validationError && (
-                    <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-500 rounded-lg text-xs font-semibold flex items-center gap-2">
-                      <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                      </svg>
-                      {validationError}
-                    </div>
-                  )}
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <label className={`block text-xs font-bold ${isDark ? "text-[#94a3b8]" : "text-[#64748b]"}`}>Họ và tên *</label>
-                      <input
-                        type="text"
-                        name="fullName"
-                        required
-                        value={formData.fullName}
-                        onChange={handleInputChange}
-                        placeholder="Nguyễn Văn A"
-                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0D919C] focus:border-[#0D919C] text-sm ${isDark ? "border-[#334155] bg-[#1f2937] text-white" : "border-[#e2e8f0] bg-white text-[#1e293b]"}`}
-                      />
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className={`block text-xs font-bold ${isDark ? "text-[#94a3b8]" : "text-[#64748b]"}`}>Số điện thoại *</label>
-                      <input
-                        type="tel"
-                        name="phone"
-                        required
-                        value={formData.phone}
-                        onChange={handleInputChange}
-                        placeholder="0987654321"
-                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0D919C] focus:border-[#0D919C] text-sm ${isDark ? "border-[#334155] bg-[#1f2937] text-white" : "border-[#e2e8f0] bg-white text-[#1e293b]"}`}
-                      />
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className={`block text-xs font-bold ${isDark ? "text-[#94a3b8]" : "text-[#64748b]"}`}>Địa chỉ Email *</label>
-                      <input
-                        type="email"
-                        name="email"
-                        required
-                        value={formData.email}
-                        onChange={handleInputChange}
-                        placeholder="nguyenvana@gmail.com"
-                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0D919C] focus:border-[#0D919C] text-sm ${isDark ? "border-[#334155] bg-[#1f2937] text-white" : "border-[#e2e8f0] bg-white text-[#1e293b]"}`}
-                      />
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className={`block text-xs font-bold ${isDark ? "text-[#94a3b8]" : "text-[#64748b]"}`}>Ngày sinh</label>
-                      <input
-                        type="date"
-                        name="dob"
-                        value={formData.dob}
-                        onChange={handleInputChange}
-                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0D919C] focus:border-[#0D919C] text-sm ${isDark ? "border-[#334155] bg-[#1f2937] text-white" : "border-[#e2e8f0] bg-white text-[#1e293b]"}`}
-                      />
-                    </div>
-
-                    <div className="space-y-1 md:col-span-2">
-                      <label className={`block text-xs font-bold ${isDark ? "text-[#94a3b8]" : "text-[#64748b]"}`}>Số CCCD / Hộ chiếu</label>
-                      <input
-                        type="text"
-                        name="passport"
-                        value={formData.passport}
-                        onChange={handleInputChange}
-                        placeholder="Ví dụ: 037012345678"
-                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0D919C] focus:border-[#0D919C] text-sm ${isDark ? "border-[#334155] bg-[#1f2937] text-white" : "border-[#e2e8f0] bg-white text-[#1e293b]"}`}
-                      />
-                    </div>
-
-                    <div className="space-y-1 md:col-span-2">
-                      <label className={`block text-xs font-bold ${isDark ? "text-[#94a3b8]" : "text-[#64748b]"}`}>Địa chỉ thường trú</label>
-                      <input
-                        type="text"
-                        name="address"
-                        value={formData.address}
-                        onChange={handleInputChange}
-                        placeholder="Số nhà, Tên đường, Quận/Huyện, Tỉnh/Thành phố"
-                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0D919C] focus:border-[#0D919C] text-sm ${isDark ? "border-[#334155] bg-[#1f2937] text-white" : "border-[#e2e8f0] bg-white text-[#1e293b]"}`}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className={`block text-xs font-bold ${isDark ? "text-[#94a3b8]" : "text-[#64748b]"}`}>Ghi chú từ học viên</label>
-                    <textarea
-                      name="notes"
-                      rows="2"
-                      value={formData.notes}
-                      onChange={handleInputChange}
-                      placeholder="Lời nhắn đến chuyên viên xét duyệt..."
-                      className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0D919C] focus:border-[#0D919C] text-sm ${isDark ? "border-[#334155] bg-[#1f2937] text-white" : "border-[#e2e8f0] bg-white text-[#1e293b]"}`}
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* FLOW ACTIONS FOOTER */}
-              <div className="flex gap-2 items-center justify-between border-t border-slate-100 dark:border-[#334155] pt-4 mt-6">
-                {step > 1 ? (
-                  <button
-                    type="button"
-                    onClick={handlePrevStep}
-                    className={`px-5 py-2 text-xs font-bold rounded-lg border hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer ${isDark ? "border-[#334155] text-slate-300" : "border-slate-200 text-slate-700"}`}
-                  >
-                    QUAY LẠI
-                  </button>
-                ) : (
-                  <div></div>
-                )}
-
-                {step < 2 ? (
-                  <button
-                    type="button"
-                    onClick={handleNextStep}
-                    className="px-6 py-2.5 text-xs font-bold text-white bg-[#0D919C] hover:bg-[#0a757e] rounded-lg transition-colors border-0 cursor-pointer"
-                  >
-                    TIẾP TỤC
-                  </button>
-                ) : (
-                  <button
-                    type="submit"
-                    className="px-6 py-2.5 text-xs font-bold text-white bg-[#0D919C] hover:bg-[#0d9a6c] rounded-lg transition-colors border-0 cursor-pointer"
-                  >
-                    GỬI HỒ SƠ ĐĂNG KÝ
-                  </button>
-                )}
+            {/* PHẦN 1: CHỌN CHƯƠNG TRÌNH */}
+            <div className="space-y-5 text-left">
+              <div>
+                <h3 className={`text-lg font-bold mb-1 ${isDark ? "text-white" : "text-[#0f172a]"}`}>Chọn Chương trình đăng ký</h3>
+                <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                  Chọn nhóm dịch vụ HTO và chương trình bạn quan tâm để tiến hành đăng ký trực tuyến.
+                </p>
               </div>
 
-            </form>
+              {/* Category grid selection */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {CATEGORIES.map(cat => {
+                  const isSelected = selectedCatId === cat.id;
+                  return (
+                    <div
+                      key={cat.id}
+                      onClick={() => setSelectedCatId(cat.id)}
+                      className={`p-3 border rounded-xl cursor-pointer transition-all duration-300 flex flex-col items-center justify-center text-center gap-2 ${isSelected
+                        ? "border-[#0D919C] bg-[#0D919C]/5 shadow-md shadow-[#0D919C]/5 text-[#0D919C] font-semibold scale-[1.02]"
+                        : (isDark ? "border-[#334155] hover:border-slate-600 bg-slate-800/20" : "border-[#e2e8f0] hover:border-slate-300 bg-slate-50/50")
+                        }`}
+                    >
+                      <div className={`p-2 rounded-lg transition-colors ${isSelected ? "bg-[#0D919C] text-white" : (isDark ? "bg-slate-800 text-slate-400" : "bg-slate-100 text-slate-500")}`}>
+                        {cat.icon}
+                      </div>
+                      <span className="text-xs truncate w-full">{cat.name}</span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Program dropdown list */}
+              <div className="space-y-2">
+                <label className={`block text-xs font-bold ${isDark ? "text-[#94a3b8]" : "text-[#64748b]"}`}>Chương trình cụ thể *</label>
+                <select
+                  value={selectedProgId}
+                  onChange={(e) => setSelectedProgId(e.target.value)}
+                  className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0D919C] focus:border-[#0D919C] text-sm ${isDark ? "border-[#334155] bg-[#1f2937] text-white" : "border-[#e2e8f0] bg-white text-[#1e293b]"}`}
+                >
+                  {activeCategory.programs.map(p => (
+                    <option key={p.id} value={p.id} className={isDark ? "bg-[#1f2937]" : "bg-white"}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <hr className="my-6 border-slate-100 dark:border-[#334155]" />
+
+            {/* PHẦN 2: THÔNG TIN CÁ NHÂN */}
+            <div className="space-y-4 text-left">
+              <div>
+                <h3 className={`text-lg font-bold mb-1 ${isDark ? "text-white" : "text-[#0f172a]"}`}>Thông tin cá nhân học viên</h3>
+                <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                  Điền thông tin định danh để HTO tạo hồ sơ học viên trong hệ thống quản lý.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className={`block text-xs font-bold ${isDark ? "text-[#94a3b8]" : "text-[#64748b]"}`}>Họ và tên *</label>
+                  <input
+                    type="text"
+                    name="fullName"
+                    required
+                    value={formData.fullName}
+                    onChange={handleInputChange}
+                    placeholder="Nguyễn Văn A"
+                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring text-sm ${isDark ? "bg-[#1f2937] text-white" : "bg-white text-[#1e293b]"} ${getFieldBorderClass("fullName")}`}
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className={`block text-xs font-bold ${isDark ? "text-[#94a3b8]" : "text-[#64748b]"}`}>Số điện thoại *</label>
+                  <input
+                    type="tel"
+                    name="phone"
+                    required
+                    value={formData.phone}
+                    onChange={handleInputChange}
+                    placeholder="0987654321"
+                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring text-sm ${isDark ? "bg-[#1f2937] text-white" : "bg-white text-[#1e293b]"} ${getFieldBorderClass("phone")}`}
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className={`block text-xs font-bold ${isDark ? "text-[#94a3b8]" : "text-[#64748b]"}`}>Địa chỉ Email *</label>
+                  <input
+                    type="email"
+                    name="email"
+                    required
+                    value={formData.email}
+                    onChange={handleInputChange}
+                    placeholder="nguyenvana@gmail.com"
+                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring text-sm ${isDark ? "bg-[#1f2937] text-white" : "bg-white text-[#1e293b]"} ${getFieldBorderClass("email")}`}
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className={`block text-xs font-bold ${isDark ? "text-[#94a3b8]" : "text-[#64748b]"}`}>Ngày sinh *</label>
+                  <input
+                    type="date"
+                    name="dob"
+                    required
+                    value={formData.dob}
+                    onChange={handleInputChange}
+                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring text-sm ${isDark ? "bg-[#1f2937] text-white" : "bg-white text-[#1e293b]"} ${getFieldBorderClass("dob")}`}
+                  />
+                </div>
+
+                <div className="space-y-1 md:col-span-2">
+                  <label className={`block text-xs font-bold ${isDark ? "text-[#94a3b8]" : "text-[#64748b]"}`}>Số CCCD / Hộ chiếu *</label>
+                  <input
+                    type="text"
+                    name="passport"
+                    required
+                    value={formData.passport}
+                    onChange={handleInputChange}
+                    placeholder="Ví dụ: 037012345678"
+                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring text-sm ${isDark ? "bg-[#1f2937] text-white" : "bg-white text-[#1e293b]"} ${getFieldBorderClass("passport")}`}
+                  />
+                </div>
+
+                <div className="space-y-2 md:col-span-2">
+                  <label className={`block text-xs font-bold ${isDark ? "text-[#94a3b8]" : "text-[#64748b]"}`}>Ảnh thẻ CCCD / Hộ chiếu (Mặt trước & Mặt sau) *</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    {/* Mặt trước */}
+                    <div className="flex flex-col gap-1">
+                      <div
+                        className={`relative h-28 border-2 border-dashed rounded-xl flex flex-col items-center justify-center transition-all cursor-pointer overflow-hidden ${isDark ? "bg-slate-800/20" : "bg-slate-50"
+                          } ${getCccdBorderClass("cccdFront")}`}
+                        onClick={() => document.getElementById("cccd-front-input").click()}
+                        id="cccd-front-input-box"
+                      >
+                        {cccdFrontPreview ? (
+                          <>
+                            <img src={cccdFrontPreview} alt="Mặt trước" className="w-full h-full object-cover" />
+                            <div className="absolute inset-0 bg-black/45 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center z-10">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (cccdFrontPreview) URL.revokeObjectURL(cccdFrontPreview);
+                                  setCccdFrontFile(null);
+                                  setCccdFrontPreview("");
+                                }}
+                                className="bg-red-600 hover:bg-red-700 text-white rounded-full p-2 text-xs transition-colors shadow-md border-0 cursor-pointer"
+                              >
+                                <i className="fa fa-trash"></i>
+                              </button>
+                            </div>
+                            <span className="absolute bottom-2 left-2 bg-emerald-500/90 text-white px-2 py-0.5 rounded-md text-[8px] font-bold shadow-sm">
+                              ✓ Đã chọn
+                            </span>
+                          </>
+                        ) : (
+                          <div className="flex flex-col items-center gap-1.5 text-center px-2">
+                            <i className="fa fa-cloud-arrow-up text-slate-400 text-lg"></i>
+                            <div>
+                              <div className={`text-xs font-semibold ${isDark ? "text-slate-300" : "text-slate-600"}`}>Mặt trước CCCD</div>
+                              <div className="text-[9px] text-slate-400">Nhấp để chọn ảnh</div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      <input
+                        type="file"
+                        id="cccd-front-input"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            if (cccdFrontPreview) URL.revokeObjectURL(cccdFrontPreview);
+                            setCccdFrontFile(file);
+                            setCccdFrontPreview(URL.createObjectURL(file));
+                            setSubmittedInvalidFields(prev => prev.filter(f => f !== "cccdFront"));
+                          }
+                        }}
+                      />
+                    </div>
+
+                    {/* Mặt sau */}
+                    <div className="flex flex-col gap-1">
+                      <div
+                        className={`relative h-28 border-2 border-dashed rounded-xl flex flex-col items-center justify-center transition-all cursor-pointer overflow-hidden ${isDark ? "bg-slate-800/20" : "bg-slate-50"
+                          } ${getCccdBorderClass("cccdBack")}`}
+                        onClick={() => document.getElementById("cccd-back-input").click()}
+                        id="cccd-back-input-box"
+                      >
+                        {cccdBackPreview ? (
+                          <>
+                            <img src={cccdBackPreview} alt="Mặt sau" className="w-full h-full object-cover" />
+                            <div className="absolute inset-0 bg-black/45 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center z-10">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (cccdBackPreview) URL.revokeObjectURL(cccdBackPreview);
+                                  setCccdBackFile(null);
+                                  setCccdBackPreview("");
+                                }}
+                                className="bg-red-600 hover:bg-red-700 text-white rounded-full p-2 text-xs transition-colors shadow-md border-0 cursor-pointer"
+                              >
+                                <i className="fa fa-trash"></i>
+                              </button>
+                            </div>
+                            <span className="absolute bottom-2 left-2 bg-emerald-500/90 text-white px-2 py-0.5 rounded-md text-[8px] font-bold shadow-sm">
+                              ✓ Đã chọn
+                            </span>
+                          </>
+                        ) : (
+                          <div className="flex flex-col items-center gap-1.5 text-center px-2">
+                            <i className="fa fa-cloud-arrow-up text-slate-400 text-lg"></i>
+                            <div>
+                              <div className={`text-xs font-semibold ${isDark ? "text-slate-300" : "text-slate-600"}`}>Mặt sau CCCD</div>
+                              <div className="text-[9px] text-slate-400">Nhấp để chọn ảnh</div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      <input
+                        type="file"
+                        id="cccd-back-input"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            if (cccdBackPreview) URL.revokeObjectURL(cccdBackPreview);
+                            setCccdBackFile(file);
+                            setCccdBackPreview(URL.createObjectURL(file));
+                            setSubmittedInvalidFields(prev => prev.filter(f => f !== "cccdBack"));
+                          }
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-1 md:col-span-2">
+                  <label className={`block text-xs font-bold ${isDark ? "text-[#94a3b8]" : "text-[#64748b]"}`}>Địa chỉ thường trú *</label>
+                  <input
+                    type="text"
+                    name="address"
+                    required
+                    value={formData.address}
+                    onChange={handleInputChange}
+                    placeholder="Số nhà, Tên đường, Quận/Huyện, Tỉnh/Thành phố"
+                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring text-sm ${isDark ? "bg-[#1f2937] text-white" : "bg-white text-[#1e293b]"} ${getFieldBorderClass("address")}`}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className={`block text-xs font-bold ${isDark ? "text-[#94a3b8]" : "text-[#64748b]"}`}>Ghi chú từ học viên</label>
+                <textarea
+                  name="notes"
+                  rows="2"
+                  value={formData.notes}
+                  onChange={handleInputChange}
+                  placeholder="Lời nhắn đến chuyên viên xét duyệt..."
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0D919C] focus:border-[#0D919C] text-sm ${isDark ? "border-[#334155] bg-[#1f2937] text-white" : "border-[#e2e8f0] bg-white text-[#1e293b]"}`}
+                />
+              </div>
+            </div>
+
+            {/* FLOW ACTIONS FOOTER */}
+            <div className="flex justify-end border-t border-slate-100 dark:border-[#334155] pt-4 mt-6">
+              <button
+                type="submit"
+                className="w-full sm:w-auto px-8 py-3 text-xs font-bold text-white bg-[#0D919C] hover:bg-[#0d9a6c] rounded-lg transition-colors border-0 cursor-pointer"
+              >
+                GỬI HỒ SƠ ĐĂNG KÝ
+              </button>
+            </div>
+
+          </form>
         </div>
       )}
     </div>
