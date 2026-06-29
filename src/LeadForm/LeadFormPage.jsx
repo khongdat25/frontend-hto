@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef } from "react";
 import { getAuthHeaders } from "../auth/session";
 import { TailwindDropdown } from "../components/ui/TailwindDropdown";
 import { API_BASE_URL } from "../config/api";
@@ -27,7 +27,18 @@ const CONTACT_OPTIONS = ["Zalo/Điện thoại", "Email", "Messenger", "Gặp tr
 
 const normalizePhone = (value) => value.trim().replace(/[\s.-]/g, "");
 
-const buildLeadPayload = (form) => {
+const buildLeadPayload = (form, cccdImages) => {
+  // Lưu ảnh CCCD vào localStorage (không gửi Base64 lên API để tránh payload quá lớn)
+  let cccdRef = "";
+  if (cccdImages && cccdImages.length > 0) {
+    cccdRef = `CCCD_${Date.now()}`;
+    try {
+      localStorage.setItem(cccdRef, JSON.stringify(cccdImages));
+    } catch (storageErr) {
+      console.warn("Không thể lưu ảnh CCCD vào localStorage:", storageErr.message);
+    }
+  }
+
   return {
     customerName: form.customerName.trim(),
     phone: normalizePhone(form.phone),
@@ -38,7 +49,7 @@ const buildLeadPayload = (form) => {
     budgetRange: form.budgetRange.trim(),
     urgency: form.urgency || "Trong 1-3 tháng",
     preferredContact: form.preferredContact || "Zalo/Điện thoại",
-    note: form.note.trim()
+    note: (form.note.trim() + (cccdRef ? `\n\n[Đã đính kèm ${cccdImages.length} ảnh CCCD - Mã tham chiếu: ${cccdRef}]` : "")).trim()
   };
 };
 
@@ -82,6 +93,36 @@ const validateForm = (form) => {
   return errors;
 };
 
+const compressImage = (base64Str, maxWidth = 500, maxHeight = 500, quality = 0.35) => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.src = base64Str;
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      let width = img.width;
+      let height = img.height;
+      if (width > maxWidth || height > maxHeight) {
+        if (width > height) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        } else {
+          width = Math.round((width * maxHeight) / height);
+          height = maxHeight;
+        }
+      }
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, width, height);
+      const compressed = canvas.toDataURL("image/jpeg", quality);
+      resolve(compressed);
+    };
+    img.onerror = () => {
+      resolve(base64Str);
+    };
+  });
+};
+
 export const LeadFormPage = () => {
   const [form, setForm] = useState(() => {
     try {
@@ -103,7 +144,31 @@ export const LeadFormPage = () => {
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
   const [submitResult, setSubmitResult] = useState(null);
-  const payloadPreview = useMemo(() => buildLeadPayload(form), [form]);
+
+  // CCCD States
+  const [cccdImages, setCccdImages] = useState([]);
+
+  // Toast States
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState("");
+  const [toastType, setToastType] = useState("success");
+  const toastTimeoutRef = useRef(null);
+
+  const triggerToast = (message, type = "success") => {
+    setToastMessage(message);
+    setToastType(type);
+    setShowToast(true);
+    if (toastTimeoutRef.current) {
+      clearTimeout(toastTimeoutRef.current);
+    }
+    toastTimeoutRef.current = setTimeout(() => {
+      setShowToast(false);
+    }, 4000);
+  };
+
+  const payloadPreview = useMemo(() => {
+    return buildLeadPayload(form, []);
+  }, [form]);
 
   const completionPercent = useMemo(() => {
     const fields = [
@@ -157,6 +222,13 @@ export const LeadFormPage = () => {
 
     if (Object.keys(nextErrors).length > 0) {
       setErrors(nextErrors);
+      triggerToast("Vui lòng điền đầy đủ các trường bắt buộc!", "danger");
+      return;
+    }
+
+    // Kiểm tra số lượng ảnh CCCD (yêu cầu từ 2 đến 5 ảnh nếu có tải)
+    if (cccdImages.length > 0 && cccdImages.length < 2) {
+      triggerToast("Vui lòng tải lên từ 2 đến 5 ảnh CCCD (ví dụ: mặt trước và mặt sau)!", "danger");
       return;
     }
 
@@ -166,17 +238,19 @@ export const LeadFormPage = () => {
     const authHeaders = getAuthHeaders();
 
     if (!authHeaders.Authorization) {
+      const errorMsg = "Bạn cần đăng nhập hoặc phiên đăng nhập đã hết hạn để gửi lead.";
       setSubmitResult({
         type: "danger",
         mode: "real",
         leadCode: "-",
-        message: "Bạn cần đăng nhập hoặc phiên đăng nhập đã hết hạn để gửi lead."
+        message: errorMsg
       });
+      triggerToast(errorMsg, "danger");
       setSubmitting(false);
       return;
     }
 
-    const payload = buildLeadPayload(form);
+    const payload = buildLeadPayload(form, cccdImages);
 
     const abortController = new AbortController();
     const requestTimeout = window.setTimeout(() => {
@@ -201,29 +275,34 @@ export const LeadFormPage = () => {
       }
 
       const createdLead = data?.data || {};
+      const successMsg = createdLead.bizflyContactId
+        ? data?.message || "Lead đã được gửi thành công vào CRM."
+        : "Lead đã lưu vào hệ thống, nhưng BizFly chưa trả mã contact.";
 
       setSubmitResult({
         type: "success",
         mode: "api",
         leadCode: createdLead.bizflyContactId || createdLead._id || `LEAD-${Date.now()}`,
-        message: createdLead.bizflyContactId
-          ? data?.message || "Lead đã được gửi thành công vào CRM."
-          : "Lead đã lưu vào hệ thống, nhưng BizFly chưa trả mã contact. Vui lòng kiểm tra log đồng bộ hoặc thử lại với đầy đủ email/số điện thoại."
+        message: successMsg
       });
 
+      triggerToast(successMsg, "success");
       setForm(INITIAL_FORM);
+      setCccdImages([]);
       window.localStorage.removeItem("last_lead_info");
     } catch (err) {
       const isTimeout = err.name === "AbortError";
+      const errMsg = isTimeout
+        ? "Kết nối API quá lâu chưa phản hồi. Vui lòng thử lại sau ít phút."
+        : err.message || "Không thể gửi lead. Vui lòng thử lại sau.";
 
       setSubmitResult({
         type: "danger",
         mode: "api",
         leadCode: "-",
-        message: isTimeout
-          ? "Kết nối API quá lâu chưa phản hồi. Vui lòng thử lại sau ít phút."
-          : err.message || "Không thể gửi lead. Vui lòng thử lại sau."
+        message: errMsg
       });
+      triggerToast(errMsg, "danger");
     } finally {
       window.clearTimeout(requestTimeout);
       setSubmitting(false);
@@ -232,6 +311,34 @@ export const LeadFormPage = () => {
 
   return (
     <div className="lead-form-page container-fluid pt-3 pb-4" style={{ maxWidth: "1280px" }}>
+      {/* FLOATING TOAST ALERT */}
+      {showToast && (
+        <div
+          className="position-fixed top-0 start-50 translate-middle-x mt-4 p-3 rounded-3 shadow-lg d-flex align-items-center gap-2 text-white border-0"
+          style={{
+            backgroundColor: toastType === "success" ? "#10b981" : "#ef4444",
+            zIndex: 1090,
+            boxShadow: toastType === "success" ? "0 10px 30px rgba(16, 185, 129, 0.25)" : "0 10px 30px rgba(239, 68, 68, 0.25)",
+            fontSize: "14px",
+            fontWeight: "600",
+            animation: "fadeInUp 0.3s ease-out"
+          }}
+        >
+          {toastType === "success" ? (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+          ) : (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="8" x2="12" y2="12"></line>
+              <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+          )}
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
       <div className="lead-form-hero mb-4">
         <div>
           <span className="lead-form-eyebrow">External lead intake</span>
@@ -341,6 +448,64 @@ export const LeadFormPage = () => {
                 <div className="col-12 col-md-6">
                   <label className="form-label">Kênh liên hệ ưu tiên</label>
                   <TailwindDropdown onChange={(value) => handleChange("preferredContact", value)} options={CONTACT_OPTIONS.map((item) => ({ label: item, value: item }))} placeholder="Chọn kênh liên hệ" value={form.preferredContact} />
+                </div>
+
+                <div className="col-12 col-md-6">
+                  <label className="form-label">Ảnh CCCD khách hàng (Đã chọn: {cccdImages.length}/5)</label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="form-control"
+                    onChange={(e) => {
+                      const files = Array.from(e.target.files || []);
+                      if (files.length === 0) return;
+
+                      if (cccdImages.length + files.length > 5) {
+                        triggerToast("Bạn chỉ được tải lên tối đa 5 ảnh CCCD!", "danger");
+                        e.target.value = "";
+                        return;
+                      }
+
+                      const loadAndCompressPromises = files.map(file => {
+                        return new Promise((resolve) => {
+                          const reader = new FileReader();
+                          reader.onload = async (event) => {
+                            const originalBase64 = event.target.result;
+                            const compressedBase64 = await compressImage(originalBase64);
+                            resolve(compressedBase64);
+                          };
+                          reader.readAsDataURL(file);
+                        });
+                      });
+
+                      Promise.all(loadAndCompressPromises).then(compressedList => {
+                        setCccdImages(prev => [...prev, ...compressedList]);
+                      });
+
+                      e.target.value = "";
+                    }}
+                  />
+                  <div className="text-[10.5px] mt-1 text-muted">
+                    * Nếu tải CCCD, vui lòng đính kèm từ 2 đến 5 ảnh (ví dụ: mặt trước, mặt sau)
+                  </div>
+                  {cccdImages.length > 0 && (
+                    <div className="mt-2 d-flex flex-wrap gap-2">
+                      {cccdImages.map((imgBase64, idx) => (
+                        <div key={idx} className="position-relative d-inline-block" style={{ width: "65px", height: "65px" }}>
+                          <img src={imgBase64} alt={`CCCD ${idx + 1}`} className="img-thumbnail w-100 h-100 object-fit-cover" style={{ padding: "1px" }} />
+                          <button 
+                            type="button" 
+                            className="btn btn-sm btn-danger position-absolute top-0 end-0 m-0.5" 
+                            onClick={() => setCccdImages(prev => prev.filter((_, i) => i !== idx))}
+                            style={{ padding: "0px 4px", fontSize: "9px", lineHeight: "1" }}
+                          >
+                            &times;
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <div className="col-12">

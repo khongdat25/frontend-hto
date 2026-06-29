@@ -12,6 +12,7 @@ import { ResetPasswordPage } from "./login/ResetPasswordPage";
 import { AuthLayout } from "./login/AuthLayout";
 import { UserList } from "./UserList/UserList";
 import { DepartmentsPage } from "./departments/DepartmentsPage";
+import DepartmentGeneralPage from "./departments/DepartmentGeneralPage";
 import { AuditLogPage } from "./auditLogs/AuditLogPage";
 import { ChecklistPage } from "./Checklist/ChecklistPage";
 import { SOPPage } from "./SOP/SOPPage";
@@ -1274,7 +1275,7 @@ function App() {
       >
         {deptRoute ? (
           deptRoute.type === "sop" ? (
-            <DocumentsPage currentUser={user} filterDepartmentId={deptRoute.id} forceCategoryName="Nội dung chung" />
+            <DepartmentGeneralPage currentUser={user} departmentId={deptRoute.id} />
           ) : deptRoute.type === "docs" ? (
             <DocumentsPage currentUser={user} filterDepartmentId={deptRoute.id} />
           ) : (
@@ -1325,7 +1326,7 @@ function App() {
         ) : currentPage === "tintuc" ? (
           <NewsEventsPage currentUser={user} />
         ) : currentPage === "dashboard" ? (
-          <HomePage theme={theme} onNavigate={handleNavigate} />
+          <HomePage theme={theme} onNavigate={handleNavigate} currentUser={user} />
         ) : currentPage === "productOverview" ? (
           <ProductOverviewPage currentUser={user} />
         ) : currentPage === "systemSettings" ? (

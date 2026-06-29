@@ -907,22 +907,70 @@ export const DocumentsPage = ({ currentUser, filterDepartmentId, forceCategoryNa
     let isMounted = true;
     const fetchDepts = async () => {
       try {
-        const headers = { "Content-Type": "application/json", ...getAuthHeaders() };
-        const response = await authFetch(`${API_BASE_URL}/departments?includeHidden=true`, { headers });
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const payload = await response.json().catch(() => null);
-        const list = payload?.data || payload || [];
-        const normalized = list.map(d => ({ id: d._id || d.id, name: d.name })).filter(d => d.id && d.name);
-        if (isMounted && normalized.length > 0) {
+        const canReadDepts = ["admin", "bangiamdoc", "truongbophan", "nhansu", "staff"].includes(currentUser?.role);
+
+        let normalized = [];
+        if (canReadDepts) {
+          const headers = { "Content-Type": "application/json", ...getAuthHeaders() };
+          const response = await authFetch(`${API_BASE_URL}/departments?includeHidden=true`, { headers });
+          if (response.ok) {
+            const payload = await response.json().catch(() => null);
+            const list = payload?.data || payload || [];
+            normalized = list.map(d => ({ id: d._id || d.id, name: d.name })).filter(d => d.id && d.name);
+          } else if (response.status === 403) {
+            normalized = [...initialDepartments];
+          } else {
+            throw new Error(`HTTP ${response.status}`);
+          }
+        } else {
+          normalized = [...initialDepartments];
+        }
+
+        // Bổ sung các phòng ban ẩn / phòng ban của user hiện tại
+        const KNOWN_HIDDEN_DEPTS = {
+          "67cfe24df1ba48e42f9a0d54": "laptop m4",
+          "67cfe255f1ba48e42f9a0d5c": "laptop lenovo",
+          "67cfe25df1ba48e42f9a0d64": "laptop dell",
+          "67cfe263f1ba48e42f9a0d6c": "laptop acer",
+          "67cfe26df1ba48e42f9a0d74": "laptop asus",
+          "67cfe2a8f1ba48e42f9a0d84": "laptop hasee"
+        };
+        
+        const userDeptIds = currentUser?.departmentIds || (currentUser?.departmentId ? [currentUser.departmentId] : []);
+        userDeptIds.forEach(id => {
+          if (id && !normalized.some(d => String(d.id) === String(id))) {
+            const hiddenName = KNOWN_HIDDEN_DEPTS[id] || `Phòng ban ẩn`;
+            normalized.push({ id, name: hiddenName });
+          }
+        });
+
+        if (isMounted) {
           setDepartmentsList(normalized);
         }
       } catch (err) {
         console.warn("[DocumentsPage] Không tải được danh mục phòng ban:", err.message);
+        
+        const userDeptIds = currentUser?.departmentIds || (currentUser?.departmentId ? [currentUser.departmentId] : []);
+        const KNOWN_HIDDEN_DEPTS = {
+          "67cfe24df1ba48e42f9a0d54": "laptop m4",
+          "67cfe255f1ba48e42f9a0d5c": "laptop lenovo",
+          "67cfe25df1ba48e42f9a0d64": "laptop dell",
+          "67cfe263f1ba48e42f9a0d6c": "laptop acer",
+          "67cfe26df1ba48e42f9a0d74": "laptop asus",
+          "67cfe2a8f1ba48e42f9a0d84": "laptop hasee"
+        };
+        const fallback = [...initialDepartments];
+        userDeptIds.forEach(id => {
+          if (id && !fallback.some(d => String(d.id) === String(id))) {
+            fallback.push({ id, name: KNOWN_HIDDEN_DEPTS[id] || `Phòng ban ẩn` });
+          }
+        });
+        if (isMounted) setDepartmentsList(fallback);
       }
     };
     fetchDepts();
     return () => { isMounted = false; };
-  }, []);
+  }, [currentUser]);
 
   useEffect(() => {
     if (filterDepartmentId) {
@@ -1288,7 +1336,11 @@ export const DocumentsPage = ({ currentUser, filterDepartmentId, forceCategoryNa
       setSelectedPermissionDocId(String(importedDocument.id));
       setSelectedDocument(importedDocument);
       setUploadPreview(null);
-      setUploadForm(emptyUploadForm);
+      setUploadForm({
+        ...emptyUploadForm,
+        categoryId: forcedCategoryId || "",
+        departmentId: filterDepartmentId || "",
+      });
       setUploadErrors({});
       setUploadSuccess("Đã tải lên Google Drive và import tài liệu thành công!");
     } catch (error) {
@@ -1665,7 +1717,7 @@ export const DocumentsPage = ({ currentUser, filterDepartmentId, forceCategoryNa
         </span>
       </div>
 
-      <div className={(filterDepartmentId && !isSopMode) ? "d-none" : "row g-3"}>
+      <div className={filterDepartmentId ? "d-none" : "row g-3"}>
         {canManageCategories && (
           <div className="col-xxl-4">
             <div className="card">
@@ -1960,6 +2012,7 @@ export const DocumentsPage = ({ currentUser, filterDepartmentId, forceCategoryNa
                       ]}
                       placeholder="Chọn danh mục"
                       value={uploadForm.categoryId}
+                      disabled={Boolean(forcedCategoryId)}
                     />
                     {uploadErrors.categoryId && (
                       <div className="invalid-feedback">{uploadErrors.categoryId}</div>
@@ -2086,7 +2139,11 @@ export const DocumentsPage = ({ currentUser, filterDepartmentId, forceCategoryNa
                     title="Làm mới"
                     aria-label="Làm mới"
                     onClick={() => {
-                      setUploadForm(emptyUploadForm);
+                      setUploadForm({
+                        ...emptyUploadForm,
+                        categoryId: forcedCategoryId || "",
+                        departmentId: filterDepartmentId || "",
+                      });
                       setUploadErrors({});
                       setUploadSuccess("");
                       setUploadPreview(null);
