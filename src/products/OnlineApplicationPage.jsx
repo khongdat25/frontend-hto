@@ -151,6 +151,76 @@ export function OnlineApplicationPage({ currentUser, onNavigate }) {
   const [validationError, setValidationError] = useState("");
   const [leadCode, setLeadCode] = useState("");
 
+  // CCCD Photo upload states
+  const [cccdFrontFile, setCccdFrontFile] = useState(null);
+  const [cccdBackFile, setCccdBackFile] = useState(null);
+  const [cccdFrontPreview, setCccdFrontPreview] = useState("");
+  const [cccdBackPreview, setCccdBackPreview] = useState("");
+  const [cccdFrontUrl, setCccdFrontUrl] = useState("");
+  const [cccdBackUrl, setCccdBackUrl] = useState("");
+  const [isUploadingFront, setIsUploadingFront] = useState(false);
+  const [isUploadingBack, setIsUploadingBack] = useState(false);
+  const [uploadErrorFront, setUploadErrorFront] = useState("");
+  const [uploadErrorBack, setUploadErrorBack] = useState("");
+
+  const [submittedInvalidFields, setSubmittedInvalidFields] = useState([]);
+
+  const getFieldBorderClass = (fieldName) => {
+    if (submittedInvalidFields.includes(fieldName)) {
+      return "border-red-500 focus:ring-red-500 focus:border-red-500 focus:ring-1";
+    }
+    return isDark 
+      ? "border-[#334155] focus:ring-[#0D919C] focus:border-[#0D919C]" 
+      : "border-[#e2e8f0] focus:ring-[#0D919C] focus:border-[#0D919C]";
+  };
+
+  const getCccdBorderClass = (fieldName) => {
+    if (submittedInvalidFields.includes(fieldName)) {
+      return "border-red-500";
+    }
+    return isDark 
+      ? "border-slate-700 hover:border-cyan-500" 
+      : "border-slate-200 hover:border-cyan-500";
+  };
+
+  // Upload image helper function
+  const uploadImage = async (file, setUrl, setIsUploading, setError) => {
+    setError("");
+    setIsUploading(true);
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/documents/upload`, {
+        method: "POST",
+        headers: {
+          ...getAuthHeaders(),
+        },
+        body: formData,
+      });
+
+      const payload = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(payload?.message || "Không thể tải file lên.");
+      }
+
+      const data = payload?.data ?? payload ?? {};
+      const fileUrl = data.fileUrl || data.url || data.webViewLink || "";
+
+      if (!fileUrl) {
+        throw new Error("Không nhận được đường link phản hồi từ server.");
+      }
+
+      setUrl(fileUrl);
+    } catch (err) {
+      console.error(err);
+      setError(err.message || "Lỗi tải ảnh lên.");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   // Sync program defaults when category changes
   const activeCategory = CATEGORIES.find(c => c.id === selectedCatId) || CATEGORIES[0];
   const activeProgram = activeCategory.programs.find(p => p.id === selectedProgId) || activeCategory.programs[0];
@@ -170,6 +240,10 @@ export function OnlineApplicationPage({ currentUser, onNavigate }) {
       } catch (err) {}
       return nextData;
     });
+    // Clear red border on input edit
+    if (submittedInvalidFields.includes(name)) {
+      setSubmittedInvalidFields(prev => prev.filter(f => f !== name));
+    }
   };
 
 
@@ -186,17 +260,6 @@ export function OnlineApplicationPage({ currentUser, onNavigate }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Check if step 2 required fields are filled
-    if (!formData.fullName.trim() || !formData.phone.trim() || !formData.email.trim()) {
-      setValidationError("Vui lòng điền đầy đủ các thông tin bắt buộc (*): Họ và tên, Số điện thoại và Email.");
-      // Scroll to top of the form body
-      const formContainer = document.querySelector("form");
-      if (formContainer) {
-        formContainer.scrollIntoView({ behavior: "smooth", block: "start" });
-      }
-      return;
-    }
-
     // Check authentication headers
     const authHeaders = getAuthHeaders();
     if (!authHeaders.Authorization) {
@@ -208,7 +271,54 @@ export function OnlineApplicationPage({ currentUser, onNavigate }) {
       }
       return;
     }
+
+    // Validate all required fields
+    const invalidFields = [];
+    if (!formData.fullName.trim()) invalidFields.push("fullName");
+    if (!formData.phone.trim()) invalidFields.push("phone");
+    if (!formData.email.trim()) invalidFields.push("email");
+    if (!formData.dob) invalidFields.push("dob");
+    if (!formData.passport.trim()) invalidFields.push("passport");
+    if (!cccdFrontUrl) invalidFields.push("cccdFront");
+    if (!cccdBackUrl) invalidFields.push("cccdBack");
+    if (!formData.address.trim()) invalidFields.push("address");
+
+    setSubmittedInvalidFields(invalidFields);
+
+    if (invalidFields.length > 0) {
+      setValidationError("Vui lòng điền đầy đủ và tải lên các thông tin bắt buộc (*).");
+      
+      // Find and scroll to the first invalid field
+      const firstInvalidField = invalidFields[0];
+      let elementToFocus = null;
+      if (firstInvalidField === "cccdFront") {
+        elementToFocus = document.getElementById("cccd-front-input-box");
+      } else if (firstInvalidField === "cccdBack") {
+        elementToFocus = document.getElementById("cccd-back-input-box");
+      } else {
+        elementToFocus = document.getElementsByName(firstInvalidField)[0];
+      }
+
+      if (elementToFocus) {
+        elementToFocus.scrollIntoView({ behavior: "smooth", block: "center" });
+        setTimeout(() => {
+          if (elementToFocus.focus) {
+            elementToFocus.focus();
+          }
+        }, 300);
+      }
+      return;
+    }
     
+    if (isUploadingFront || isUploadingBack) {
+      setValidationError("Vui lòng đợi tải ảnh CCCD lên hoàn tất.");
+      const formContainer = document.querySelector("form");
+      if (formContainer) {
+        formContainer.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+      return;
+    }
+
     setValidationError("");
     setIsSubmitting(true);
 
@@ -216,6 +326,8 @@ export function OnlineApplicationPage({ currentUser, onNavigate }) {
     const noteParts = [];
     if (formData.dob) noteParts.push(`Ngày sinh: ${formData.dob}`);
     if (formData.passport) noteParts.push(`CCCD/Hộ chiếu: ${formData.passport}`);
+    if (cccdFrontUrl) noteParts.push(`CCCD Mặt trước: ${cccdFrontUrl}`);
+    if (cccdBackUrl) noteParts.push(`CCCD Mặt sau: ${cccdBackUrl}`);
     if (formData.address) noteParts.push(`Địa chỉ: ${formData.address}`);
     if (formData.notes) noteParts.push(`Ghi chú: ${formData.notes}`);
     const combinedNote = noteParts.join(" | ");
@@ -295,6 +407,20 @@ export function OnlineApplicationPage({ currentUser, onNavigate }) {
     setValidationError("");
     setLeadCode("");
     setIsSuccess(false);
+
+    // Revoke object URLs to avoid memory leaks
+    if (cccdFrontPreview) URL.revokeObjectURL(cccdFrontPreview);
+    if (cccdBackPreview) URL.revokeObjectURL(cccdBackPreview);
+
+    setCccdFrontFile(null);
+    setCccdBackFile(null);
+    setCccdFrontPreview("");
+    setCccdBackPreview("");
+    setCccdFrontUrl("");
+    setCccdBackUrl("");
+    setUploadErrorFront("");
+    setUploadErrorBack("");
+    setSubmittedInvalidFields([]);
   };
 
   return (
@@ -348,7 +474,7 @@ export function OnlineApplicationPage({ currentUser, onNavigate }) {
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="flex-1 flex flex-col justify-between min-h-[450px]">
+            <form onSubmit={handleSubmit} noValidate className="flex-1 flex flex-col justify-between min-h-[450px]">
 
               {/* STEP 1: CHỌN CHƯƠNG TRÌNH */}
               {step === 1 && (
@@ -431,7 +557,7 @@ export function OnlineApplicationPage({ currentUser, onNavigate }) {
                         value={formData.fullName}
                         onChange={handleInputChange}
                         placeholder="Nguyễn Văn A"
-                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0D919C] focus:border-[#0D919C] text-sm ${isDark ? "border-[#334155] bg-[#1f2937] text-white" : "border-[#e2e8f0] bg-white text-[#1e293b]"}`}
+                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring text-sm ${isDark ? "bg-[#1f2937] text-white" : "bg-white text-[#1e293b]"} ${getFieldBorderClass("fullName")}`}
                       />
                     </div>
 
@@ -444,7 +570,7 @@ export function OnlineApplicationPage({ currentUser, onNavigate }) {
                         value={formData.phone}
                         onChange={handleInputChange}
                         placeholder="0987654321"
-                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0D919C] focus:border-[#0D919C] text-sm ${isDark ? "border-[#334155] bg-[#1f2937] text-white" : "border-[#e2e8f0] bg-white text-[#1e293b]"}`}
+                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring text-sm ${isDark ? "bg-[#1f2937] text-white" : "bg-white text-[#1e293b]"} ${getFieldBorderClass("phone")}`}
                       />
                     </div>
 
@@ -457,42 +583,187 @@ export function OnlineApplicationPage({ currentUser, onNavigate }) {
                         value={formData.email}
                         onChange={handleInputChange}
                         placeholder="nguyenvana@gmail.com"
-                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0D919C] focus:border-[#0D919C] text-sm ${isDark ? "border-[#334155] bg-[#1f2937] text-white" : "border-[#e2e8f0] bg-white text-[#1e293b]"}`}
+                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring text-sm ${isDark ? "bg-[#1f2937] text-white" : "bg-white text-[#1e293b]"} ${getFieldBorderClass("email")}`}
                       />
                     </div>
 
                     <div className="space-y-1">
-                      <label className={`block text-xs font-bold ${isDark ? "text-[#94a3b8]" : "text-[#64748b]"}`}>Ngày sinh</label>
+                      <label className={`block text-xs font-bold ${isDark ? "text-[#94a3b8]" : "text-[#64748b]"}`}>Ngày sinh *</label>
                       <input
                         type="date"
                         name="dob"
+                        required
                         value={formData.dob}
                         onChange={handleInputChange}
-                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0D919C] focus:border-[#0D919C] text-sm ${isDark ? "border-[#334155] bg-[#1f2937] text-white" : "border-[#e2e8f0] bg-white text-[#1e293b]"}`}
+                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring text-sm ${isDark ? "bg-[#1f2937] text-white" : "bg-white text-[#1e293b]"} ${getFieldBorderClass("dob")}`}
                       />
                     </div>
 
                     <div className="space-y-1 md:col-span-2">
-                      <label className={`block text-xs font-bold ${isDark ? "text-[#94a3b8]" : "text-[#64748b]"}`}>Số CCCD / Hộ chiếu</label>
+                      <label className={`block text-xs font-bold ${isDark ? "text-[#94a3b8]" : "text-[#64748b]"}`}>Số CCCD / Hộ chiếu *</label>
                       <input
                         type="text"
                         name="passport"
+                        required
                         value={formData.passport}
                         onChange={handleInputChange}
                         placeholder="Ví dụ: 037012345678"
-                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0D919C] focus:border-[#0D919C] text-sm ${isDark ? "border-[#334155] bg-[#1f2937] text-white" : "border-[#e2e8f0] bg-white text-[#1e293b]"}`}
+                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring text-sm ${isDark ? "bg-[#1f2937] text-white" : "bg-white text-[#1e293b]"} ${getFieldBorderClass("passport")}`}
                       />
                     </div>
 
+                    {/* Ảnh CCCD mặt trước & mặt sau */}
                     <div className="space-y-1 md:col-span-2">
-                      <label className={`block text-xs font-bold ${isDark ? "text-[#94a3b8]" : "text-[#64748b]"}`}>Địa chỉ thường trú</label>
+                      <label className={`block text-xs font-bold mb-1.5 ${isDark ? "text-[#94a3b8]" : "text-[#64748b]"}`}>
+                        Ảnh thẻ CCCD / Hộ chiếu (Mặt trước & Mặt sau) *
+                      </label>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full">
+                        {/* Mặt trước */}
+                        <div className="flex flex-col gap-1">
+                          <div 
+                            className={`relative h-28 border-2 border-dashed rounded-xl flex flex-col items-center justify-center transition-all cursor-pointer overflow-hidden ${
+                              isDark ? "bg-slate-800/20" : "bg-slate-50"
+                            } ${getCccdBorderClass("cccdFront")}`}
+                            onClick={() => document.getElementById("cccd-front-input").click()}
+                            id="cccd-front-input-box"
+                          >
+                            {isUploadingFront ? (
+                              <div className="flex flex-col items-center gap-1">
+                                <i className="fa fa-spinner animate-spin text-[#0D919C] text-lg"></i>
+                                <span className="text-[10px] text-slate-400">Đang tải mặt trước...</span>
+                              </div>
+                            ) : cccdFrontPreview ? (
+                              <>
+                                <img src={cccdFrontPreview} alt="Mặt trước" className="w-full h-full object-cover" />
+                                <div className="absolute inset-0 bg-black/45 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center z-10">
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (cccdFrontPreview) URL.revokeObjectURL(cccdFrontPreview);
+                                      setCccdFrontFile(null);
+                                      setCccdFrontPreview("");
+                                      setCccdFrontUrl("");
+                                    }}
+                                    className="bg-red-600 hover:bg-red-700 text-white rounded-full p-2 text-xs transition-colors shadow-md border-0 cursor-pointer"
+                                  >
+                                    <i className="fa fa-trash"></i>
+                                  </button>
+                                </div>
+                                <span className="absolute bottom-2 left-2 bg-emerald-500/90 text-white px-2 py-0.5 rounded-md text-[8px] font-bold shadow-sm">
+                                  ✓ Đã tải lên
+                                </span>
+                              </>
+                            ) : (
+                              <div className="flex flex-col items-center gap-1.5 text-center px-2">
+                                <i className="fa fa-cloud-arrow-up text-slate-400 text-lg"></i>
+                                <div>
+                                  <div className={`text-xs font-semibold ${isDark ? "text-slate-300" : "text-slate-600"}`}>Mặt trước CCCD</div>
+                                  <div className="text-[9px] text-slate-400">Nhấp để chọn ảnh</div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                          <input
+                            type="file"
+                            id="cccd-front-input"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                if (cccdFrontPreview) URL.revokeObjectURL(cccdFrontPreview);
+                                setCccdFrontFile(file);
+                                setCccdFrontPreview(URL.createObjectURL(file));
+                                setSubmittedInvalidFields(prev => prev.filter(f => f !== "cccdFront"));
+                                uploadImage(file, setCccdFrontUrl, setIsUploadingFront, setUploadErrorFront);
+                              }
+                            }}
+                          />
+                          {uploadErrorFront && (
+                            <span className="text-[10px] text-red-500 font-semibold">{uploadErrorFront}</span>
+                          )}
+                        </div>
+
+                        {/* Mặt sau */}
+                        <div className="flex flex-col gap-1">
+                          <div 
+                            className={`relative h-28 border-2 border-dashed rounded-xl flex flex-col items-center justify-center transition-all cursor-pointer overflow-hidden ${
+                              isDark ? "bg-slate-800/20" : "bg-slate-50"
+                            } ${getCccdBorderClass("cccdBack")}`}
+                            onClick={() => document.getElementById("cccd-back-input").click()}
+                            id="cccd-back-input-box"
+                          >
+                            {isUploadingBack ? (
+                              <div className="flex flex-col items-center gap-1">
+                                <i className="fa fa-spinner animate-spin text-[#0D919C] text-lg"></i>
+                                <span className="text-[10px] text-slate-400">Đang tải mặt sau...</span>
+                              </div>
+                            ) : cccdBackPreview ? (
+                              <>
+                                <img src={cccdBackPreview} alt="Mặt sau" className="w-full h-full object-cover" />
+                                <div className="absolute inset-0 bg-black/45 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center z-10">
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (cccdBackPreview) URL.revokeObjectURL(cccdBackPreview);
+                                      setCccdBackFile(null);
+                                      setCccdBackPreview("");
+                                      setCccdBackUrl("");
+                                    }}
+                                    className="bg-red-600 hover:bg-red-700 text-white rounded-full p-2 text-xs transition-colors shadow-md border-0 cursor-pointer"
+                                  >
+                                    <i className="fa fa-trash"></i>
+                                  </button>
+                                </div>
+                                <span className="absolute bottom-2 left-2 bg-emerald-500/90 text-white px-2 py-0.5 rounded-md text-[8px] font-bold shadow-sm">
+                                  ✓ Đã tải lên
+                                </span>
+                              </>
+                            ) : (
+                              <div className="flex flex-col items-center gap-1.5 text-center px-2">
+                                <i className="fa fa-cloud-arrow-up text-slate-400 text-lg"></i>
+                                <div>
+                                  <div className={`text-xs font-semibold ${isDark ? "text-slate-300" : "text-slate-600"}`}>Mặt sau CCCD</div>
+                                  <div className="text-[9px] text-slate-400">Nhấp để chọn ảnh</div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                          <input
+                            type="file"
+                            id="cccd-back-input"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                if (cccdBackPreview) URL.revokeObjectURL(cccdBackPreview);
+                                setCccdBackFile(file);
+                                setCccdBackPreview(URL.createObjectURL(file));
+                                setSubmittedInvalidFields(prev => prev.filter(f => f !== "cccdBack"));
+                                uploadImage(file, setCccdBackUrl, setIsUploadingBack, setUploadErrorBack);
+                              }
+                            }}
+                          />
+                          {uploadErrorBack && (
+                            <span className="text-[10px] text-red-500 font-semibold">{uploadErrorBack}</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1 md:col-span-2">
+                      <label className={`block text-xs font-bold ${isDark ? "text-[#94a3b8]" : "text-[#64748b]"}`}>Địa chỉ thường trú *</label>
                       <input
                         type="text"
                         name="address"
+                        required
                         value={formData.address}
                         onChange={handleInputChange}
                         placeholder="Số nhà, Tên đường, Quận/Huyện, Tỉnh/Thành phố"
-                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0D919C] focus:border-[#0D919C] text-sm ${isDark ? "border-[#334155] bg-[#1f2937] text-white" : "border-[#e2e8f0] bg-white text-[#1e293b]"}`}
+                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring text-sm ${isDark ? "bg-[#1f2937] text-white" : "bg-white text-[#1e293b]"} ${getFieldBorderClass("address")}`}
                       />
                     </div>
                   </div>

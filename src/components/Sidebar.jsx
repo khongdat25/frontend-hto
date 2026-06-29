@@ -9,6 +9,32 @@ const SIDEBAR_CATEGORY_STORAGE_KEY = "hto_selected_product_category";
 // Sự kiện dùng để báo cho ProductOverviewPage (nếu đã mount sẵn) cập nhật ngay khi đổi danh mục
 const SIDEBAR_CATEGORY_EVENT = "hto:select-product-category";
 
+const COUNTRY_CODE_MAP = {
+  AF: "Afghanistan", AL: "Albania", DZ: "Algeria", AR: "Argentina",
+  AU: "Úc", AT: "Áo", BE: "Bỉ", BR: "Brazil", KH: "Campuchia",
+  CA: "Canada", CL: "Chile", CN: "Trung Quốc", CO: "Colombia",
+  HR: "Croatia", CZ: "Cộng hòa Séc", DK: "Đan Mạch", EG: "Ai Cập",
+  FI: "Phần Lan", FR: "Pháp", DE: "Đức", GH: "Ghana", GR: "Hy Lạp",
+  HK: "Hồng Kông", HU: "Hungary", IN: "Ấn Độ", ID: "Indonesia",
+  IR: "Iran", IQ: "Iraq", IE: "Ireland", IL: "Israel", IT: "Ý",
+  JP: "Nhật Bản", JO: "Jordan", KZ: "Kazakhstan", KE: "Kenya",
+  KR: "Hàn Quốc", KW: "Kuwait", LA: "Lào", LB: "Lebanon",
+  MY: "Malaysia", MX: "Mexico", MA: "Morocco", MM: "Myanmar",
+  NL: "Hà Lan", NZ: "New Zealand", NG: "Nigeria", NO: "Na Uy",
+  PK: "Pakistan", PH: "Philippines", PL: "Ba Lan", PT: "Bồ Đào Nha",
+  QA: "Qatar", RO: "Romania", RU: "Nga", SA: "Ả Rập Xê Út",
+  SG: "Singapore", ZA: "Nam Phi", ES: "Tây Ban Nha", LK: "Sri Lanka",
+  SE: "Thụy Điển", CH: "Thụy Sĩ", TW: "Đài Loan", TH: "Thái Lan",
+  TR: "Thổ Nhĩ Kỳ", UA: "Ukraine", AE: "UAE", GB: "Anh Quốc",
+  US: "Mỹ", VN: "Việt Nam", YE: "Yemen",
+};
+
+const resolveCountryName = (value) => {
+  if (!value) return "";
+  const upper = value.trim().toUpperCase();
+  return COUNTRY_CODE_MAP[upper] || value.trim();
+};
+
 const ROLE_ID_MAP = {
   "69fc5af582ef85451120772a": "admin",
   "69fc5af582ef85451120772b": "bangiamdoc",
@@ -171,6 +197,12 @@ export const Sidebar = ({
         const payload = await response.json().catch(() => null);
         const normalized = normalizeApiCategoryList(payload);
 
+        const isActiveProduct = (p) => {
+          if (!p) return false;
+          const status = p.status || (p.isActive === false ? "inactive" : "active");
+          return status === "active";
+        };
+
         // Fetch products for each category to extract unique countries
         const categoriesWithCountries = await Promise.all(
           normalized.map(async (cat) => {
@@ -187,11 +219,19 @@ export const Sidebar = ({
                     ? prodPayload.items
                     : [];
 
-              const countries = [...new Set(
-                productsRaw
-                  .filter(p => p && p.status === "active" && p.country)
-                  .map(p => p.country.trim())
-              )].sort((a, b) => a.localeCompare(b, "vi"));
+              const seen = new Set();
+              const countries = [];
+              productsRaw
+                .filter(p => p && isActiveProduct(p) && p.country)
+                .forEach(p => {
+                  const raw = p.country.trim();
+                  const resolved = resolveCountryName(raw);
+                  if (!seen.has(resolved)) {
+                    seen.add(resolved);
+                    countries.push(raw);
+                  }
+                });
+              countries.sort((a, b) => resolveCountryName(a).localeCompare(resolveCountryName(b), "vi"));
 
               return { ...cat, countries };
             } catch (err) {
@@ -592,25 +632,35 @@ export const Sidebar = ({
                           className="list-unstyled mb-0 mt-1"
                           style={{
                             borderLeft: "1px dashed var(--bs-border-color)",
-                            marginLeft: "24px",
-                            paddingLeft: "12px",
+                            marginLeft: "15px",
+                            paddingLeft: "8px",
                             listStyleType: "none"
                           }}
                         >
                           {category.countries.map((country) => {
                             const isCountrySelected = isCatSelected && selectedCountryName === country;
+                            const resolvedName = resolveCountryName(country);
                             return (
                               <li key={country} className="mb-1" style={{ listStyleType: "none" }}>
                                 <a
-                                  className={`menu-link d-block py-1 rounded-2 ${isCountrySelected ? "text-primary fw-bold" : "text-body-secondary"}`}
-                                  style={{ textDecoration: "none", fontSize: "12px", cursor: "pointer" }}
+                                  className={`menu-link py-1 rounded-2 ${isCountrySelected ? "text-primary fw-bold" : "text-body-secondary"}`}
+                                  style={{
+                                    display: "block",
+                                    textDecoration: "none",
+                                    fontSize: "12px",
+                                    cursor: "pointer",
+                                    whiteSpace: "nowrap",
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis"
+                                  }}
+                                  title={resolvedName}
                                   href="#"
                                   onClick={(e) => {
                                     e.preventDefault();
                                     handleSelectCountry(category.id, country);
                                   }}
                                 >
-                                  • {country}
+                                  • {resolvedName}
                                 </a>
                               </li>
                             );
