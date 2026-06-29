@@ -1002,7 +1002,7 @@ function ProductOverviewPageInner({ currentUser }) {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategoryName, setSelectedCategoryName] = useState(() => pendingSidebarCategory?.name || "Tất cả");
-  const [selectedCountry, setSelectedCountry] = useState("Tất cả");
+  const [selectedCountry, setSelectedCountry] = useState(() => pendingSidebarCategory?.country || "Tất cả");
   const [selectedRegion, setSelectedRegion] = useState("Tất cả");
   const [selectedStatus, setSelectedStatus] = useState("all");
   // eslint-disable-next-line no-unused-vars
@@ -1167,6 +1167,7 @@ function ProductOverviewPageInner({ currentUser }) {
       setViewMode("overview");
       setSelectedProduct(null);
       setSelectedCategoryName(detail.name || "Tất cả");
+      setSelectedCountry(detail.country || "Tất cả");
       // eslint-disable-next-line no-unused-vars
       setSelectedVisaType(null);
       if (detail.id) {
@@ -1177,6 +1178,18 @@ function ProductOverviewPageInner({ currentUser }) {
     window.addEventListener(SIDEBAR_CATEGORY_EVENT, handleSidebarCategorySelect);
     return () => window.removeEventListener(SIDEBAR_CATEGORY_EVENT, handleSidebarCategorySelect);
   }, []);
+
+  // Đồng bộ ngược từ Page sang Sidebar khi chọn bộ lọc trên trang
+  useEffect(() => {
+    const cat = categories.find(c => c && c.name === selectedCategoryName);
+    const detail = {
+      id: cat?.id || null,
+      name: selectedCategoryName,
+      country: selectedCountry,
+      fromSidebar: false
+    };
+    window.dispatchEvent(new CustomEvent(SIDEBAR_CATEGORY_EVENT, { detail }));
+  }, [selectedCategoryName, selectedCountry, categories]);
 
   // Lắng nghe khi Sidebar chọn sản phẩm con cụ thể (trong lúc trang này đã mount sẵn)
   useEffect(() => {

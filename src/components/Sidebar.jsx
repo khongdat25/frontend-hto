@@ -100,6 +100,8 @@ export const Sidebar = ({
   const [productCategories, setProductCategories] = useState([]);
   const [categoriesLoading, setCategoriesLoading] = useState(true);
   const [selectedCategoryId, setSelectedCategoryId] = useState(null);
+  const [selectedCountryName, setSelectedCountryName] = useState(null);
+  const [expandedProductCatId, setExpandedProductCatId] = useState(null);
 
   const isProductPage =
     [
@@ -126,17 +128,33 @@ export const Sidebar = ({
 
       if (detail.id) {
         setSelectedCategoryId(detail.id);
+        setSelectedCountryName(detail.country && detail.country !== "Tất cả" ? detail.country : null);
+        setExpandedProductCatId(detail.id);
       } else {
-        setSelectedCategoryId(null);
+        if (detail.name === "Tất cả") {
+          setSelectedCategoryId(null);
+          setSelectedCountryName(null);
+        } else {
+          // Find category by name
+          const cat = productCategories.find(c => c.name === detail.name);
+          if (cat) {
+            setSelectedCategoryId(cat.id);
+            setSelectedCountryName(detail.country && detail.country !== "Tất cả" ? detail.country : null);
+            setExpandedProductCatId(cat.id);
+          } else {
+            setSelectedCategoryId(null);
+            setSelectedCountryName(null);
+          }
+        }
       }
     };
 
     window.addEventListener(SIDEBAR_CATEGORY_EVENT, handleCategorySelect);
     return () =>
       window.removeEventListener(SIDEBAR_CATEGORY_EVENT, handleCategorySelect);
-  }, []);
+  }, [productCategories]);
 
-  // Fetch danh mục từ API
+  // Fetch danh mục từ API và trích xuất danh sách quốc gia
   useEffect(() => {
     let isMounted = true;
 
@@ -152,7 +170,38 @@ export const Sidebar = ({
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const payload = await response.json().catch(() => null);
         const normalized = normalizeApiCategoryList(payload);
-        if (isMounted) setProductCategories(normalized);
+
+        // Fetch products for each category to extract unique countries
+        const categoriesWithCountries = await Promise.all(
+          normalized.map(async (cat) => {
+            try {
+              const resProducts = await authFetch(`${API_BASE_URL}/products?categoryId=${cat.id}`, { headers });
+              if (!resProducts.ok) return { ...cat, countries: [] };
+              const prodPayload = await resProducts.json().catch(() => null);
+              
+              const productsRaw = Array.isArray(prodPayload)
+                ? prodPayload
+                : Array.isArray(prodPayload?.data)
+                  ? prodPayload.data
+                  : Array.isArray(prodPayload?.items)
+                    ? prodPayload.items
+                    : [];
+
+              const countries = [...new Set(
+                productsRaw
+                  .filter(p => p && p.status === "active" && p.country)
+                  .map(p => p.country.trim())
+              )].sort((a, b) => a.localeCompare(b, "vi"));
+
+              return { ...cat, countries };
+            } catch (err) {
+              console.warn(`[Sidebar] Lỗi tải sản phẩm cho danh mục ${cat.name}:`, err.message);
+              return { ...cat, countries: [] };
+            }
+          })
+        );
+
+        if (isMounted) setProductCategories(categoriesWithCountries);
       } catch (err) {
         console.warn(
           "[Sidebar] Không tải được danh mục sản phẩm:",
@@ -200,15 +249,16 @@ export const Sidebar = ({
 
   // Xử lý click vào danh mục
   const handleToggleCategory = (categoryId) => {
-    // Cập nhật selected để highlight
     setSelectedCategoryId(categoryId);
+    setSelectedCountryName(null);
+    setExpandedProductCatId(expandedProductCatId === categoryId ? null : categoryId); // Toggle expand/collapse when clicking parent category name
 
-    // Gửi sự kiện để ProductOverviewPage lọc theo danh mục
     const category = productCategories.find((c) => c.id === categoryId);
     if (category) {
       const detail = {
         id: category.id,
         name: category.name,
+        country: "Tất cả",
         fromSidebar: true,
       };
       try {
@@ -222,12 +272,37 @@ export const Sidebar = ({
       window.dispatchEvent(new CustomEvent(SIDEBAR_CATEGORY_EVENT, { detail }));
     }
 
-    // Điều hướng sang trang tổng quan sản phẩm
+    onNavigate?.("productOverview");
+  };
+
+  const handleSelectCountry = (categoryId, country) => {
+    setSelectedCategoryId(categoryId);
+    setSelectedCountryName(country);
+
+    const category = productCategories.find((c) => c.id === categoryId);
+    if (category) {
+      const detail = {
+        id: category.id,
+        name: category.name,
+        country: country,
+        fromSidebar: true,
+      };
+      try {
+        sessionStorage.setItem(
+          SIDEBAR_CATEGORY_STORAGE_KEY,
+          JSON.stringify(detail),
+        );
+      } catch {
+        // bỏ qua
+      }
+      window.dispatchEvent(new CustomEvent(SIDEBAR_CATEGORY_EVENT, { detail }));
+    }
+
     onNavigate?.("productOverview");
   };
 
   const handleGoToProductOverview = () => {
-    const detail = { id: null, name: "Tất cả", fromSidebar: true };
+    const detail = { id: null, name: "Tất cả", country: "Tất cả", fromSidebar: true };
     try {
       sessionStorage.setItem(
         SIDEBAR_CATEGORY_STORAGE_KEY,
@@ -238,6 +313,7 @@ export const Sidebar = ({
     }
     window.dispatchEvent(new CustomEvent(SIDEBAR_CATEGORY_EVENT, { detail }));
     setSelectedCategoryId(null);
+    setSelectedCountryName(null);
     onNavigate?.("productOverview");
   };
 
@@ -456,27 +532,91 @@ export const Sidebar = ({
                 </li>
               ) : productCategories.length > 0 ? (
                 productCategories.map((category) => {
+                  const isCatSelected = selectedCategoryId === category.id && currentPage === "productOverview";
+                  const hasCountries = Array.isArray(category.countries) && category.countries.length > 0;
+                  const isExpanded = expandedProductCatId === category.id;
+
                   return (
-                    <li key={category.id} className="menu-item mb-1">
-                      <a
-                        className={`menu-link d-block px-3 py-2 rounded-2 ${selectedCategoryId === category.id &&
-                            currentPage === "productOverview"
-                            ? "bg-primary-subtle text-primary fw-medium"
-                            : "text-body-secondary"
-                          }`}
-                        style={{
-                          textDecoration: "none",
-                          fontSize: "13px",
-                          cursor: "pointer",
-                        }}
-                        href="#"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          handleToggleCategory(category.id);
-                        }}
-                      >
-                        {category.name}
-                      </a>
+                    <li key={category.id} className="menu-item mb-1" style={{ listStyleType: "none" }}>
+                      <div className="d-flex align-items-center justify-content-between rounded-2 hover-bg-light" style={{ transition: "all 0.2s" }}>
+                        <a
+                          className={`menu-link d-block px-3 py-2 rounded-2 flex-grow-1 ${isCatSelected && !selectedCountryName
+                              ? "bg-primary-subtle text-primary fw-medium"
+                              : "text-body-secondary"
+                            }`}
+                          style={{
+                            textDecoration: "none",
+                            fontSize: "13px",
+                            cursor: "pointer",
+                          }}
+                          href="#"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            handleToggleCategory(category.id);
+                          }}
+                        >
+                          {category.name}
+                        </a>
+                        
+                        {hasCountries && (
+                          <span
+                            className="d-flex align-items-center justify-content-center text-body-secondary"
+                            style={{ cursor: "pointer", width: "28px", height: "28px", borderRadius: "4px" }}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setExpandedProductCatId(isExpanded ? null : category.id);
+                            }}
+                          >
+                            <svg
+                              width="12"
+                              height="12"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="3"
+                              style={{
+                                transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)",
+                                transition: "transform 0.2s ease"
+                              }}
+                            >
+                              <polyline points="6 9 12 15 18 9"></polyline>
+                            </svg>
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Danh mục con (Các nước) */}
+                      {hasCountries && isExpanded && (
+                        <ul
+                          className="list-unstyled mb-0 mt-1"
+                          style={{
+                            borderLeft: "1px dashed var(--bs-border-color)",
+                            marginLeft: "24px",
+                            paddingLeft: "12px",
+                            listStyleType: "none"
+                          }}
+                        >
+                          {category.countries.map((country) => {
+                            const isCountrySelected = isCatSelected && selectedCountryName === country;
+                            return (
+                              <li key={country} className="mb-1" style={{ listStyleType: "none" }}>
+                                <a
+                                  className={`menu-link d-block py-1 rounded-2 ${isCountrySelected ? "text-primary fw-bold" : "text-body-secondary"}`}
+                                  style={{ textDecoration: "none", fontSize: "12px", cursor: "pointer" }}
+                                  href="#"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    handleSelectCountry(category.id, country);
+                                  }}
+                                >
+                                  • {country}
+                                </a>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      )}
                     </li>
                   );
                 })
