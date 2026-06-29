@@ -1,8 +1,29 @@
 import React, { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { fetchNewsPosts } from "../newsEvents/newsEventsApi";
+import { getAuthHeaders } from "../auth/session";
+import { API_BASE_URL } from "../config/api";
 
-export const HomePage = ({ theme, onNavigate }) => {
+const fallbackCategories = [
+  { id: "cat-du-hoc", name: "Du học nghề Đức" },
+  { id: "cat-tieng-duc", name: "Khóa học tiếng Đức" },
+  { id: "cat-visa", name: "Dịch vụ làm Visa" },
+  { id: "cat-dinh-cu", name: "Định cư & Việc làm" }
+];
+
+const fallbackProducts = [
+  { id: "prod-dd", name: "Du học nghề Đức ngành Điều dưỡng", categoryId: "cat-du-hoc", country: "Đức" },
+  { id: "prod-nhks", name: "Du học nghề Đức ngành Nhà hàng - Khách sạn", categoryId: "cat-du-hoc", country: "Đức" },
+  { id: "prod-ck", name: "Du học nghề Đức ngành Cơ khí - Điện tử", categoryId: "cat-du-hoc", country: "Đức" },
+  { id: "prod-a1a2", name: "Khóa học tiếng Đức trình độ A1-A2", categoryId: "cat-tieng-duc", country: "Đức" },
+  { id: "prod-b1b2", name: "Khóa học tiếng Đức trình độ B1-B2", categoryId: "cat-tieng-duc", country: "Đức" },
+  { id: "prod-visa-dh", name: "Hồ sơ Visa du học nghề Đức", categoryId: "cat-visa", country: "Đức" },
+  { id: "prod-visa-dl", name: "Hồ sơ Visa du lịch châu Âu (Schengen)", categoryId: "cat-visa", country: "Đức" },
+  { id: "prod-ks", name: "Chương trình kỹ sư/nhân sự chất lượng cao tại Đức", categoryId: "cat-dinh-cu", country: "Đức" },
+  { id: "prod-cd", name: "Chuyển đổi bằng cấp điều dưỡng viên nước ngoài", categoryId: "cat-dinh-cu", country: "Đức" }
+];
+
+export const HomePage = ({ theme, onNavigate, currentUser }) => {
   // Brand colors
   const brandColor = "#0D919C";
   const hoverBrandColor = "#0a757e";
@@ -29,13 +50,74 @@ export const HomePage = ({ theme, onNavigate }) => {
     name: "",
     phone: "",
     email: "",
-    program: "Du học nghề Đức",
+    serviceId: "",
+    productId: "",
     notes: ""
   });
+
+  // Dynamic products & categories state
+  const [categories, setCategories] = useState([]);
+  const [products, setProducts] = useState([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [cccdImages, setCccdImages] = useState([]);
+  const [isProcessingCccd, setIsProcessingCccd] = useState(false);
+
+  const activeCategories = categories.length > 0 ? categories : fallbackCategories;
+  const activeProducts = products.length > 0 ? products : fallbackProducts;
+
+  useEffect(() => {
+    let active = true;
+    const loadOptions = async () => {
+      try {
+        const headers = { "Content-Type": "application/json", ...getAuthHeaders() };
+        
+        // Tải danh mục dịch vụ
+        const catRes = await fetch(`${API_BASE_URL}/product-categories`, { headers });
+        let catList = [];
+        if (catRes.ok) {
+          const payload = await catRes.json().catch(() => null);
+          catList = payload?.data || payload || [];
+        }
+
+        // Tải danh sách sản phẩm
+        const prodRes = await fetch(`${API_BASE_URL}/products`, { headers });
+        let prodList = [];
+        if (prodRes.ok) {
+          const payload = await prodRes.json().catch(() => null);
+          prodList = payload?.data || payload || [];
+        }
+
+        if (active) {
+          const formattedCats = catList.map(c => ({
+            id: c._id || c.id,
+            name: c.name
+          })).filter(c => c.id && c.name);
+
+          const formattedProds = prodList.map(p => ({
+            id: p._id || p.id,
+            name: p.name,
+            categoryId: p.categoryId || p.category?._id || p.category?.id,
+            country: p.country || "Đức"
+          })).filter(p => p.id && p.name);
+
+          setCategories(formattedCats);
+          setProducts(formattedProds);
+        }
+      } catch (err) {
+        console.warn("Lỗi tải thông tin sản phẩm từ API, sử dụng mock:", err.message);
+      }
+    };
+
+    if (getAuthHeaders().Authorization) {
+      loadOptions();
+    }
+    return () => { active = false; };
+  }, []);
 
   // Toast notification
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
+  const [toastType, setToastType] = useState("success");
   const toastTimeoutRef = useRef(null);
 
   const defaultMockEvents = [
@@ -144,16 +226,94 @@ export const HomePage = ({ theme, onNavigate }) => {
     };
   }, []);
 
+  const compressImage = (base64Str, maxWidth = 500, maxHeight = 500, quality = 0.35) => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.src = base64Str;
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        let width = img.width;
+        let height = img.height;
+        if (width > maxWidth || height > maxHeight) {
+          if (width > height) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          } else {
+            width = Math.round((width * maxHeight) / height);
+            height = maxHeight;
+          }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, width, height);
+        const compressed = canvas.toDataURL("image/jpeg", quality);
+        resolve(compressed);
+      };
+      img.onerror = () => {
+        resolve(base64Str);
+      };
+    });
+  };
+
+  const handleCccdUpload = (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    if (cccdImages.length + files.length > 5) {
+      triggerToast("Bạn chỉ được tải lên tối đa 5 ảnh CCCD!", "danger");
+      e.target.value = "";
+      return;
+    }
+
+    setIsProcessingCccd(true);
+    const loadAndCompressPromises = files.map(file => {
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+          const originalBase64 = event.target.result;
+          const compressedBase64 = await compressImage(originalBase64);
+          resolve(compressedBase64);
+        };
+        reader.readAsDataURL(file);
+      });
+    });
+
+    Promise.all(loadAndCompressPromises).then(compressedList => {
+      setCccdImages(prev => [...prev, ...compressedList]);
+      setIsProcessingCccd(false);
+    }).catch(() => setIsProcessingCccd(false));
+
+    e.target.value = "";
+  };
+
+  const handleRemoveCccd = (index) => {
+    setCccdImages(prev => prev.filter((_, idx) => idx !== index));
+  };
+
   const handleOpenConsultModal = (e) => {
     e.preventDefault();
-    setFormData({ name: "", phone: "", email: "", program: "Du học nghề Đức", notes: "" });
+    const defaultServiceId = activeCategories[0]?.id || "";
+    const filteredProds = activeProducts.filter(p => String(p.categoryId) === String(defaultServiceId));
+    const defaultProductId = filteredProds[0]?.id || "";
+
+    setCccdImages([]);
+    setFormData({
+      name: "",
+      phone: "",
+      email: "",
+      serviceId: defaultServiceId,
+      productId: defaultProductId,
+      notes: ""
+    });
     setModalType("consult");
     setShowModal(true);
   };
 
   const handleOpenEventModal = (e, eventTitle) => {
     e.preventDefault();
-    setFormData({ name: "", phone: "", email: "", program: "", notes: "" });
+    setCccdImages([]);
+    setFormData({ name: "", phone: "", email: "", serviceId: "", productId: "", notes: "" });
     setSelectedEvent(eventTitle);
     setModalType("event");
     setShowModal(true);
@@ -164,13 +324,117 @@ export const HomePage = ({ theme, onNavigate }) => {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleFormSubmit = (e) => {
+  const handleCategoryChange = (e) => {
+    const serviceId = e.target.value;
+    const filteredProds = activeProducts.filter(p => String(p.categoryId) === String(serviceId));
+    const firstProductId = filteredProds[0]?.id || "";
+    setFormData(prev => ({
+      ...prev,
+      serviceId,
+      productId: firstProductId
+    }));
+  };
+
+  const handleFormSubmit = async (e) => {
     e.preventDefault();
-    setShowModal(false);
-    if (modalType === "consult") {
-      triggerToast(`Đăng ký tư vấn thành công! HTO sẽ liên hệ lại qua SĐT: ${formData.phone}`);
-    } else {
+    if (modalType === "event") {
+      setShowModal(false);
       triggerToast(`Đăng ký sự kiện thành công! Vé tham dự đã gửi tới email: ${formData.email}`);
+      return;
+    }
+
+    // Gửi Lead lên CRM
+    if (!formData.name.trim() || !formData.phone.trim()) {
+      triggerToast("Vui lòng điền Họ tên và Số điện thoại!", "danger");
+      return;
+    }
+
+    // Chờ xử lý ảnh CCCD hoàn tất trước khi gửi
+    if (isProcessingCccd) {
+      triggerToast("Ảnh CCCD đang được xử lý, vui lòng chờ giây lát...", "danger");
+      return;
+    }
+
+    const selectedProduct = activeProducts.find(p => String(p.id) === String(formData.productId));
+    const productName = selectedProduct ? selectedProduct.name : "Du học nghề Đức";
+    const country = selectedProduct?.country || "Đức";
+
+    setIsSubmitting(true);
+    try {
+      // Hàm chuyển base64 sang Blob file
+      const base64ToBlob = (base64) => {
+        const parts = base64.split(",");
+        const mime = parts[0].match(/:(.*?);/)?.[1] || "image/jpeg";
+        const byteString = atob(parts[1]);
+        const ab = new ArrayBuffer(byteString.length);
+        const ia = new Uint8Array(ab);
+        for (let i = 0; i < byteString.length; i++) ia[i] = byteString.charCodeAt(i);
+        return new Blob([ab], { type: mime });
+      };
+
+      let response;
+      if (cccdImages.length >= 2) {
+        // Gửi multipart/form-data với cccdFront và cccdBack (backend yêu cầu)
+        const fd = new FormData();
+        fd.append("customerName", formData.name.trim());
+        fd.append("phone", formData.phone.trim().replace(/[\s.-]/g, ""));
+        fd.append("email", formData.email.trim());
+        fd.append("source", "Website");
+        fd.append("productInterest", productName);
+        fd.append("countryInterest", country);
+        fd.append("note", `[Đăng ký tư vấn lộ trình] ${formData.notes.trim()}`.trim());
+        fd.append("cccdFront", base64ToBlob(cccdImages[0]), "cccd_front.jpg");
+        fd.append("cccdBack", base64ToBlob(cccdImages[1]), "cccd_back.jpg");
+        // Nếu có thêm ảnh CCCD bổ sung (ảnh thứ 3-5)
+        for (let i = 2; i < cccdImages.length; i++) {
+          fd.append("cccdExtra", base64ToBlob(cccdImages[i]), `cccd_extra_${i}.jpg`);
+        }
+
+        const authHeaders = getAuthHeaders();
+        const headers = { ...authHeaders };
+        console.log("[HomePage] Gửi multipart/form-data với cccdFront + cccdBack");
+        response = await fetch(`${API_BASE_URL}/leads`, {
+          method: "POST",
+          headers,
+          body: fd
+        });
+      } else {
+        // Gửi JSON thuần (không có CCCD hoặc chỉ 1 ảnh)
+        const payload = {
+          customerName: formData.name.trim(),
+          phone: formData.phone.trim().replace(/[\s.-]/g, ""),
+          email: formData.email.trim(),
+          source: "Website",
+          productInterest: productName,
+          countryInterest: country,
+          note: `[Đăng ký tư vấn lộ trình] ${formData.notes.trim()}`.trim()
+        };
+
+        const headers = { "Content-Type": "application/json", ...getAuthHeaders() };
+        console.log("[HomePage] Payload JSON gửi lên API /leads:", JSON.stringify(payload, null, 2));
+        response = await fetch(`${API_BASE_URL}/leads`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify(payload)
+        });
+      }
+
+      const data = await response.json().catch(() => ({}));
+      console.log("[HomePage] Response status:", response.status, "Body:", data);
+      if (response.ok) {
+        setShowModal(false);
+        setCccdImages([]);
+        const contactId = data?.data?.bizflyContactId || data?.data?._id || `LEAD-${Date.now().toString().slice(-6)}`;
+        triggerToast(`Đăng ký tư vấn thành công! Lead đã được gửi lên CRM (Mã: ${contactId}).`);
+      } else {
+        const errorMsg = data?.message || `Lỗi máy chủ (HTTP ${response.status})`;
+        triggerToast(`Gửi thông tin thất bại: ${errorMsg}`, "danger");
+      }
+    } catch (err) {
+      console.error("Lỗi khi gửi lead lên CRM:", err);
+      triggerToast(`Không thể kết nối đến máy chủ: ${err.message}`, "danger");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -347,7 +611,7 @@ export const HomePage = ({ theme, onNavigate }) => {
         }
 
         [data-bs-theme="dark"] .interactive-card:hover {
-          box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3) !important;
+          box-shadow: 0 8px 25px rgba(0, 0, 0, 3) !important;
         }
 
 
@@ -370,22 +634,30 @@ export const HomePage = ({ theme, onNavigate }) => {
         }
       `}</style>
 
-      {/* SUCCESS TOAST ALERT */}
+      {/* TOAST ALERT */}
       {showToast && (
         <div
           className="position-fixed top-0 start-50 translate-middle-x mt-4 p-3 rounded-3 shadow-lg d-flex align-items-center gap-2 text-white border-0"
           style={{
-            backgroundColor: "#10b981",
+            backgroundColor: toastType === "success" ? "#10b981" : "#ef4444",
             zIndex: 1090,
-            boxShadow: "0 10px 30px rgba(16, 185, 129, 0.25)",
+            boxShadow: toastType === "success" ? "0 10px 30px rgba(16, 185, 129, 0.25)" : "0 10px 30px rgba(239, 68, 68, 0.25)",
             fontSize: "14px",
             fontWeight: "600",
             animation: "fadeInUp 0.3s ease-out"
           }}
         >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="20 6 9 17 4 12"></polyline>
-          </svg>
+          {toastType === "success" ? (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+          ) : (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="8" x2="12" y2="12"></line>
+              <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+          )}
           <span>{toastMessage}</span>
         </div>
       )}
@@ -883,20 +1155,78 @@ export const HomePage = ({ theme, onNavigate }) => {
                   </div>
 
                   {modalType === "consult" && (
-                    <div className="mb-3 text-left">
-                      <label className={`block text-xs font-bold mb-1 ${isDark ? "text-[#94a3b8]" : "text-[#64748b]"}`}>Chương trình quan tâm</label>
-                      <select
-                        name="program"
-                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0D919C] focus:border-[#0D919C] text-sm ${isDark ? "border-[#334155] bg-[#1f2937] text-[#f8fafc]" : "border-[#e2e8f0] bg-white text-[#1e293b]"}`}
-                        value={formData.program}
-                        onChange={handleInputChange}
-                      >
-                        <option value="Du học nghề Đức" className={isDark ? "bg-[#1f2937]" : "bg-white"}>Du học nghề Đức (Điều dưỡng, Nhà hàng, Cơ khí...)</option>
-                        <option value="Khóa học tiếng Đức" className={isDark ? "bg-[#1f2937]" : "bg-white"}>Khóa học tiếng Đức (A1, A2, B1, B2)</option>
-                        <option value="Dịch vụ làm Visa" className={isDark ? "bg-[#1f2937]" : "bg-white"}>Dịch vụ làm hồ sơ Visa du học/du lịch</option>
-                        <option value="Định cư & Việc làm" className={isDark ? "bg-[#1f2937]" : "bg-white"}>Chương trình Định cư & Việc làm tại CHLB Đức</option>
-                      </select>
-                    </div>
+                    <>
+                      <div className="mb-3 text-left">
+                        <label className={`block text-xs font-bold mb-1 ${isDark ? "text-[#94a3b8]" : "text-[#64748b]"}`}>Chọn dịch vụ *</label>
+                        <select
+                          name="serviceId"
+                          className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0D919C] focus:border-[#0D919C] text-sm ${isDark ? "border-[#334155] bg-[#1f2937] text-[#f8fafc]" : "border-[#e2e8f0] bg-white text-[#1e293b]"}`}
+                          value={formData.serviceId}
+                          onChange={handleCategoryChange}
+                          required
+                        >
+                          {activeCategories.map(cat => (
+                            <option key={cat.id} value={cat.id} className={isDark ? "bg-[#1f2937]" : "bg-white"}>
+                              {cat.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="mb-3 text-left">
+                        <label className={`block text-xs font-bold mb-1 ${isDark ? "text-[#94a3b8]" : "text-[#64748b]"}`}>Chọn sản phẩm *</label>
+                        <select
+                          name="productId"
+                          className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0D919C] focus:border-[#0D919C] text-sm ${isDark ? "border-[#334155] bg-[#1f2937] text-[#f8fafc]" : "border-[#e2e8f0] bg-white text-[#1e293b]"}`}
+                          value={formData.productId}
+                          onChange={handleInputChange}
+                          required
+                        >
+                          {activeProducts.filter(p => String(p.categoryId) === String(formData.serviceId)).map(prod => (
+                            <option key={prod.id} value={prod.id} className={isDark ? "bg-[#1f2937]" : "bg-white"}>
+                              {prod.name}
+                            </option>
+                          ))}
+                          {activeProducts.filter(p => String(p.categoryId) === String(formData.serviceId)).length === 0 && (
+                            <option value="" className={isDark ? "bg-[#1f2937]" : "bg-white"}>
+                              Chưa có sản phẩm cho dịch vụ này
+                            </option>
+                          )}
+                        </select>
+                      </div>
+                      <div className="mb-3 text-left">
+                        <label className={`block text-xs font-bold mb-1 ${isDark ? "text-[#94a3b8]" : "text-[#64748b]"}`}>
+                          Tải ảnh CCCD khách hàng (Đã chọn: {cccdImages.length}/5)
+                        </label>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          className={`w-full px-3 py-1.5 border rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0D919C] focus:border-[#0D919C] text-sm ${isDark ? "border-[#334155] bg-[#1f2937] text-[#f8fafc]" : "border-[#e2e8f0] bg-white text-[#1e293b]"}`}
+                          onChange={handleCccdUpload}
+                        />
+                        <div className="text-[10px] mt-1" style={{ color: mutedTextColor }}>
+                          * Nếu có tải CCCD, vui lòng tải từ 2 đến 5 ảnh (ví dụ: mặt trước, mặt sau)
+                        </div>
+                        {cccdImages.length > 0 && (
+                          <div className="mt-2 d-flex flex-wrap gap-2">
+                            {cccdImages.map((imgBase64, idx) => (
+                              <div key={idx} className="position-relative d-inline-block" style={{ width: "65px", height: "65px" }}>
+                                <img src={imgBase64} alt={`CCCD ${idx + 1}`} className="img-thumbnail w-100 h-100 object-fit-cover" style={{ padding: "1px" }} />
+                                <button
+                                  type="button"
+                                  className="btn btn-sm btn-danger position-absolute top-0 end-0 m-0.5"
+                                  onClick={() => handleRemoveCccd(idx)}
+                                  style={{ padding: "0px 4px", fontSize: "9px", lineHeight: "1" }}
+                                >
+                                  &times;
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </>
                   )}
 
                   <div className="mb-2 text-left">
@@ -934,14 +1264,16 @@ export const HomePage = ({ theme, onNavigate }) => {
                       type="button"
                       className="text-white text-xs font-semibold px-4 py-2 bg-[#FD6B4C] hover:bg-[#e05638] rounded-lg transition-colors border-0 cursor-pointer"
                       onClick={() => setShowModal(false)}
+                      disabled={isSubmitting}
                     >
                       Hủy
                     </button>
                     <button
                       type="submit"
-                      className="text-white text-xs font-bold px-4 py-2 bg-[#0D919C] hover:bg-[#0a757e] rounded-lg transition-colors border-0 cursor-pointer"
+                      disabled={isSubmitting}
+                      className="text-white text-xs font-bold px-4 py-2 bg-[#0D919C] hover:bg-[#0a757e] rounded-lg transition-colors border-0 cursor-pointer disabled:opacity-50"
                     >
-                      XÁC NHẬN GỬI
+                      {isSubmitting ? "ĐANG GỬI..." : "XÁC NHẬN GỬI"}
                     </button>
                   </div>
                 </div>
