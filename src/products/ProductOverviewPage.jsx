@@ -258,10 +258,12 @@ const parseApiError = async (response) => {
 
 const apiRequest = async (url, options = {}) => {
   const headers = {
-    "Content-Type": "application/json",
     ...getAuthHeaders(),
     ...(options.headers || {})
   };
+  if (!(options.body instanceof FormData)) {
+    headers["Content-Type"] = "application/json";
+  }
   const response = await authFetch(url, { ...options, headers });
   if (!response.ok) {
     const msg = await parseApiError(response);
@@ -1003,7 +1005,7 @@ function ProductOverviewPageInner({ currentUser }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategoryName, setSelectedCategoryName] = useState(() => pendingSidebarCategory?.name || "Tất cả");
   const [selectedCountry, setSelectedCountry] = useState(() => pendingSidebarCategory?.country || "Tất cả");
-  const [selectedRegion, setSelectedRegion] = useState("Tất cả");
+  const [selectedRegion, setSelectedRegion] = useState(() => pendingSidebarCategory?.region || "Tất cả");
   const [selectedStatus, setSelectedStatus] = useState("all");
   // eslint-disable-next-line no-unused-vars
   const [selectedVisaType, setSelectedVisaType] = useState(null);
@@ -1013,6 +1015,28 @@ function ProductOverviewPageInner({ currentUser }) {
   const [editingProduct, setEditingProduct] = useState(null);
   const [editingProductParentCatId, setEditingProductParentCatId] = useState("");
   const [showInterestModal, setShowInterestModal] = useState(false);
+
+  // Dynamic Theme observer for custom modal styling
+  const [isDark, setIsDark] = useState(() => {
+    return document.documentElement.getAttribute("data-bs-theme") === "dark";
+  });
+
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      setIsDark(document.documentElement.getAttribute("data-bs-theme") === "dark");
+    });
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["data-bs-theme"],
+    });
+    return () => observer.disconnect();
+  }, []);
+
+  const [interestCccdFrontFile, setInterestCccdFrontFile] = useState(null);
+  const [interestCccdBackFile, setInterestCccdBackFile] = useState(null);
+  const [interestCccdFrontPreview, setInterestCccdFrontPreview] = useState("");
+  const [interestCccdBackPreview, setInterestCccdBackPreview] = useState("");
+  const [interestInvalidFields, setInterestInvalidFields] = useState([]);
 
   const [activeCategoryTab, setActiveCategoryTab] = useState("info");
   const [activeProductTab, setActiveProductTab] = useState("basic");
@@ -1144,7 +1168,43 @@ function ProductOverviewPageInner({ currentUser }) {
           });
         });
 
-        const result = categoryIds.map(id => catMap[id]).filter(Boolean);
+        // Di chuyển "Dịch vụ Visa Nhật Bản" từ danh mục "Dịch vụ" sang "Visa"
+        const dichVuEntry = Object.values(catMap).find(c => c.name.toLowerCase() === "dịch vụ" || c.name.toLowerCase() === "dich vu");
+        const visaEntry = Object.values(catMap).find(c => c.name.toLowerCase() === "visa");
+
+        if (dichVuEntry && visaEntry) {
+          const visaJapanProds = (dichVuEntry.programs || []).filter(p => {
+            const nameLower = (p.name || "").toLowerCase();
+            const countryLower = (p.country || "").trim().toLowerCase();
+            const isJapan = countryLower === "nhật bản" || countryLower === "jp" || countryLower === "nhật";
+            return nameLower.includes("visa") && isJapan;
+          });
+
+          if (visaJapanProds.length > 0) {
+            // Cập nhật categoryId và categoryName cho các sản phẩm di chuyển
+            visaJapanProds.forEach(p => {
+              p.categoryId = visaEntry.id;
+              p.categoryName = visaEntry.name;
+            });
+
+            // Xóa khỏi Dịch vụ
+            dichVuEntry.programs = (dichVuEntry.programs || []).filter(p => !visaJapanProds.includes(p));
+
+            // Thêm vào Visa
+            visaEntry.programs = [...(visaEntry.programs || []), ...visaJapanProds];
+          }
+        }
+
+        const result = categoryIds
+          .map(id => catMap[id])
+          .filter(cat => {
+            if (!cat) return false;
+            // Ẩn danh mục "Dịch vụ" nếu nó rỗng sau khi chuyển sản phẩm
+            if ((cat.name.toLowerCase() === "dịch vụ" || cat.name.toLowerCase() === "dich vu") && cat.programs.length === 0) {
+              return false;
+            }
+            return true;
+          });
 
         if (result.length > 0) {
           setCategories(result);
@@ -1168,6 +1228,7 @@ function ProductOverviewPageInner({ currentUser }) {
       setSelectedProduct(null);
       setSelectedCategoryName(detail.name || "Tất cả");
       setSelectedCountry(detail.country || "Tất cả");
+      setSelectedRegion(detail.region || "Tất cả");
       // eslint-disable-next-line no-unused-vars
       setSelectedVisaType(null);
       if (detail.id) {
@@ -1186,10 +1247,11 @@ function ProductOverviewPageInner({ currentUser }) {
       id: cat?.id || null,
       name: selectedCategoryName,
       country: selectedCountry,
+      region: selectedRegion,
       fromSidebar: false
     };
     window.dispatchEvent(new CustomEvent(SIDEBAR_CATEGORY_EVENT, { detail }));
-  }, [selectedCategoryName, selectedCountry, categories]);
+  }, [selectedCategoryName, selectedCountry, selectedRegion, categories]);
 
   // Lắng nghe khi Sidebar chọn sản phẩm con cụ thể (trong lúc trang này đã mount sẵn)
   useEffect(() => {
@@ -1375,7 +1437,18 @@ function ProductOverviewPageInner({ currentUser }) {
     toast.info(`Đang tải tài liệu: ${name}`);
   };
 
+  const cleanupInterestCccdPreviews = () => {
+    if (interestCccdFrontPreview) URL.revokeObjectURL(interestCccdFrontPreview);
+    if (interestCccdBackPreview) URL.revokeObjectURL(interestCccdBackPreview);
+    setInterestCccdFrontPreview("");
+    setInterestCccdBackPreview("");
+    setInterestCccdFrontFile(null);
+    setInterestCccdBackFile(null);
+    setInterestInvalidFields([]);
+  };
+
   const handleOpenInterestModal = () => {
+    cleanupInterestCccdPreviews();
     setInterestForm({
       customerName: "",
       phone: "",
@@ -1386,11 +1459,24 @@ function ProductOverviewPageInner({ currentUser }) {
     setShowInterestModal(true);
   };
 
+  const handleCloseInterestModal = () => {
+    cleanupInterestCccdPreviews();
+    setShowInterestModal(false);
+  };
+
   const handleSubmitInterest = async (e) => {
     e.preventDefault();
 
-    if (!interestForm.customerName.trim() || !interestForm.phone.trim()) {
-      toast.error("Vui lòng điền đầy đủ họ tên và số điện thoại.", "Thiếu thông tin");
+    const invalidFields = [];
+    if (!interestForm.customerName.trim()) invalidFields.push("customerName");
+    if (!interestForm.phone.trim()) invalidFields.push("phone");
+    if (!interestCccdFrontFile) invalidFields.push("cccdFront");
+    if (!interestCccdBackFile) invalidFields.push("cccdBack");
+
+    setInterestInvalidFields(invalidFields);
+
+    if (invalidFields.length > 0) {
+      toast.error("Vui lòng điền đầy đủ thông tin bắt buộc và tải lên cả hai mặt của CCCD khách hàng.", "Thiếu thông tin");
       return;
     }
 
@@ -1398,20 +1484,21 @@ function ProductOverviewPageInner({ currentUser }) {
 
     const normalizePhone = (value) => value.trim().replace(/[\s.-]/g, "");
 
-    const payload = {
-      customerName: interestForm.customerName.trim(),
-      phone: normalizePhone(interestForm.phone),
-      email: interestForm.email ? interestForm.email.trim() : "",
-      source: interestForm.sourceChannel || "CTV/Đại lý",
-      productInterest: selectedProduct?.name || "Sản phẩm quan tâm",
-      countryInterest: resolveCountryName(selectedProduct?.country) || "Đức",
-      note: interestForm.note ? interestForm.note.trim() : ""
-    };
+    const payload = new FormData();
+    payload.append("customerName", interestForm.customerName.trim());
+    payload.append("phone", normalizePhone(interestForm.phone));
+    payload.append("email", interestForm.email ? interestForm.email.trim() : "");
+    payload.append("source", interestForm.sourceChannel || "CTV/Đại lý");
+    payload.append("productInterest", selectedProduct?.name || "Sản phẩm quan tâm");
+    payload.append("countryInterest", resolveCountryName(selectedProduct?.country) || "Đức");
+    payload.append("note", interestForm.note ? interestForm.note.trim() : "");
+    payload.append("cccdFront", interestCccdFrontFile);
+    payload.append("cccdBack", interestCccdBackFile);
 
     try {
       const response = await apiRequest(`${API_BASE_URL}/leads`, {
         method: "POST",
-        body: JSON.stringify(payload)
+        body: payload
       });
 
       const successCode = response?.data?.bizflyContactId || response?.bizflyContactId || response?.data?._id || response?._id || `HTO-${Date.now().toString().slice(-6)}`;
@@ -1419,7 +1506,7 @@ function ProductOverviewPageInner({ currentUser }) {
         `Đã đăng ký thành công cho khách hàng ${interestForm.customerName}. Mã liên hệ: ${successCode}`,
         "Gửi liên hệ thành công"
       );
-      setShowInterestModal(false);
+      handleCloseInterestModal();
     } catch (err) {
       toast.error(err.message || "Gửi liên hệ tư vấn thất bại. Vui lòng thử lại sau.", "Lỗi gửi liên hệ");
     } finally {
@@ -4020,7 +4107,7 @@ function ProductOverviewPageInner({ currentUser }) {
                 <h5 className="font-bold text-slate-800 text-base m-0 flex items-center gap-2">
                   <i className="fa fa-envelope-open-text text-red-500"></i> Đăng ký khách hàng quan tâm
                 </h5>
-                <button className="text-slate-400 hover:text-slate-600 bg-slate-100 hover:bg-slate-200 w-8 h-8 rounded-lg flex items-center justify-center transition-colors" onClick={() => setShowInterestModal(false)}>
+                <button className="text-slate-400 hover:text-slate-600 bg-slate-100 hover:bg-slate-200 w-8 h-8 rounded-lg flex items-center justify-center transition-colors" onClick={handleCloseInterestModal}>
                   <i className="fa fa-times"></i>
                 </button>
               </div>
@@ -4041,10 +4128,17 @@ function ProductOverviewPageInner({ currentUser }) {
                     <label className="block font-semibold text-xs text-slate-500 mb-1.5">Họ tên khách hàng <span className="text-red-500">*</span></label>
                     <input
                       type="text"
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-[13.5px] text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-900/10 focus:border-cyan-900 transition-all disabled:opacity-50"
+                      className={`w-full bg-slate-50 border rounded-xl px-4 py-2 text-[13.5px] text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-900/10 focus:border-cyan-900 transition-all disabled:opacity-50 ${
+                        interestInvalidFields.includes("customerName") ? "border-red-500 focus:ring-red-500/10 focus:border-red-500" : "border-slate-200"
+                      }`}
                       placeholder="Ví dụ: Nguyễn Văn A"
                       value={interestForm.customerName}
-                      onChange={(e) => setInterestForm({ ...interestForm, customerName: e.target.value })}
+                      onChange={(e) => {
+                        setInterestForm({ ...interestForm, customerName: e.target.value });
+                        if (interestInvalidFields.includes("customerName")) {
+                          setInterestInvalidFields(prev => prev.filter(f => f !== "customerName"));
+                        }
+                      }}
                       required
                       disabled={isSubmittingInterest}
                     />
@@ -4055,10 +4149,17 @@ function ProductOverviewPageInner({ currentUser }) {
                       <label className="block font-semibold text-xs text-slate-500 mb-1.5">Số điện thoại <span className="text-red-500">*</span></label>
                       <input
                         type="text"
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-[13.5px] text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-900/10 focus:border-cyan-900 transition-all disabled:opacity-50"
+                        className={`w-full bg-slate-50 border rounded-xl px-4 py-2 text-[13.5px] text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-900/10 focus:border-cyan-900 transition-all disabled:opacity-50 ${
+                          interestInvalidFields.includes("phone") ? "border-red-500 focus:ring-red-500/10 focus:border-red-500" : "border-slate-200"
+                        }`}
                         placeholder="Ví dụ: 0987654321"
                         value={interestForm.phone}
-                        onChange={(e) => setInterestForm({ ...interestForm, phone: e.target.value })}
+                        onChange={(e) => {
+                          setInterestForm({ ...interestForm, phone: e.target.value });
+                          if (interestInvalidFields.includes("phone")) {
+                            setInterestInvalidFields(prev => prev.filter(f => f !== "phone"));
+                          }
+                        }}
                         required
                         disabled={isSubmittingInterest}
                       />
@@ -4105,6 +4206,123 @@ function ProductOverviewPageInner({ currentUser }) {
                     </div>
                   </div>
 
+                  <div className="mb-3">
+                    <label className="block font-semibold text-xs text-slate-500 mb-1.5">Ảnh thẻ CCCD / Hộ chiếu khách hàng (Mặt trước & Mặt sau) <span className="text-red-500">*</span></label>
+                    <div className="grid grid-cols-2 gap-3">
+                      {/* Mặt trước */}
+                      <div className="flex flex-col gap-1">
+                        <div
+                          className={`relative h-24 border-2 border-dashed rounded-xl flex flex-col items-center justify-center transition-all cursor-pointer overflow-hidden bg-slate-50 ${
+                            interestInvalidFields.includes("cccdFront") ? "border-red-500" : "border-slate-200 hover:border-cyan-900/45"
+                          }`}
+                          onClick={() => document.getElementById("interest-cccd-front-input").click()}
+                        >
+                          {interestCccdFrontPreview ? (
+                            <>
+                              <img src={interestCccdFrontPreview} alt="Mặt trước" className="w-full h-full object-cover" />
+                              <div className="absolute inset-0 bg-black/45 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center z-10">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (interestCccdFrontPreview) URL.revokeObjectURL(interestCccdFrontPreview);
+                                    setInterestCccdFrontFile(null);
+                                    setInterestCccdFrontPreview("");
+                                  }}
+                                  className="bg-red-600 hover:bg-red-700 text-white rounded-full p-1.5 text-xs transition-colors shadow-md border-0 cursor-pointer flex items-center justify-center w-7 h-7"
+                                >
+                                  <i className="fa fa-trash"></i>
+                                </button>
+                              </div>
+                              <span className="absolute bottom-1.5 left-1.5 bg-emerald-500/90 text-white px-1.5 py-0.5 rounded text-[8px] font-bold shadow-sm">
+                                ✓ Đã chọn
+                              </span>
+                            </>
+                          ) : (
+                            <div className="flex flex-col items-center gap-1 text-center px-2">
+                              <i className="fa fa-cloud-arrow-up text-slate-400 text-base"></i>
+                              <div>
+                                <div className="text-xs font-semibold text-slate-600">Mặt trước CCCD</div>
+                                <div className="text-[9px] text-slate-400">Nhấp để tải lên</div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        <input
+                          type="file"
+                          id="interest-cccd-front-input"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              if (interestCccdFrontPreview) URL.revokeObjectURL(interestCccdFrontPreview);
+                              setInterestCccdFrontFile(file);
+                              setInterestCccdFrontPreview(URL.createObjectURL(file));
+                              setInterestInvalidFields(prev => prev.filter(f => f !== "cccdFront"));
+                            }
+                          }}
+                        />
+                      </div>
+
+                      {/* Mặt sau */}
+                      <div className="flex flex-col gap-1">
+                        <div
+                          className={`relative h-24 border-2 border-dashed rounded-xl flex flex-col items-center justify-center transition-all cursor-pointer overflow-hidden bg-slate-50 ${
+                            interestInvalidFields.includes("cccdBack") ? "border-red-500" : "border-slate-200 hover:border-cyan-900/45"
+                          }`}
+                          onClick={() => document.getElementById("interest-cccd-back-input").click()}
+                        >
+                          {interestCccdBackPreview ? (
+                            <>
+                              <img src={interestCccdBackPreview} alt="Mặt sau" className="w-full h-full object-cover" />
+                              <div className="absolute inset-0 bg-black/45 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center z-10">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (interestCccdBackPreview) URL.revokeObjectURL(interestCccdBackPreview);
+                                    setInterestCccdBackFile(null);
+                                    setInterestCccdBackPreview("");
+                                  }}
+                                  className="bg-red-600 hover:bg-red-700 text-white rounded-full p-1.5 text-xs transition-colors shadow-md border-0 cursor-pointer flex items-center justify-center w-7 h-7"
+                                >
+                                  <i className="fa fa-trash"></i>
+                                </button>
+                              </div>
+                              <span className="absolute bottom-1.5 left-1.5 bg-emerald-500/90 text-white px-1.5 py-0.5 rounded text-[8px] font-bold shadow-sm">
+                                ✓ Đã chọn
+                              </span>
+                            </>
+                          ) : (
+                            <div className="flex flex-col items-center gap-1 text-center px-2">
+                              <i className="fa fa-cloud-arrow-up text-slate-400 text-base"></i>
+                              <div>
+                                <div className="text-xs font-semibold text-slate-600">Mặt sau CCCD</div>
+                                <div className="text-[9px] text-slate-400">Nhấp để tải lên</div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        <input
+                          type="file"
+                          id="interest-cccd-back-input"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              if (interestCccdBackPreview) URL.revokeObjectURL(interestCccdBackPreview);
+                              setInterestCccdBackFile(file);
+                              setInterestCccdBackPreview(URL.createObjectURL(file));
+                              setInterestInvalidFields(prev => prev.filter(f => f !== "cccdBack"));
+                            }
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="mb-2">
                     <label className="block font-semibold text-xs text-slate-500 mb-1.5">Nhu cầu cụ thể / Ghi chú</label>
                     <textarea
@@ -4120,7 +4338,7 @@ function ProductOverviewPageInner({ currentUser }) {
               </form>
 
               <div className="bg-slate-50 p-4 border-t border-slate-100 flex gap-3 justify-end flex-shrink-0">
-                <button type="button" className="bg-transparent hover:bg-slate-150 text-slate-650 border border-slate-250 text-xs font-semibold py-2 px-4 rounded-xl transition-colors disabled:opacity-50" onClick={() => setShowInterestModal(false)} disabled={isSubmittingInterest}>
+                <button type="button" className="bg-transparent hover:bg-slate-150 text-slate-650 border border-slate-250 text-xs font-semibold py-2 px-4 rounded-xl transition-colors disabled:opacity-50" onClick={handleCloseInterestModal} disabled={isSubmittingInterest}>
                   Hủy bỏ
                 </button>
                 <button type="submit" form="interestForm" className="bg-cyan-900 hover:bg-cyan-950 text-white text-xs font-semibold py-2 px-5 rounded-xl transition-colors disabled:opacity-50" disabled={isSubmittingInterest}>

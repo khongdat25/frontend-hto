@@ -70,7 +70,7 @@ export const HomePage = ({ theme, onNavigate, currentUser }) => {
     const loadOptions = async () => {
       try {
         const headers = { "Content-Type": "application/json", ...getAuthHeaders() };
-        
+
         // Tải danh mục dịch vụ
         const catRes = await fetch(`${API_BASE_URL}/product-categories`, { headers });
         let catList = [];
@@ -758,7 +758,7 @@ export const HomePage = ({ theme, onNavigate, currentUser }) => {
       {/* 2. STATS SECTION */}
       <div className="row mb-5 g-3 section-stats animate-entrance">
         {[
-          { value: "10+", label: "NĂM ĐỒNG HÀNH" },
+          { value: "5+", label: "NĂM ĐỒNG HÀNH" },
           { value: "5", label: "NHÓM DỊCH VỤ" },
           { value: "1:1", label: "TƯ VẤN HỒ SƠ" },
           { value: "360", label: "HỖ TRỢ TRỌN GÓI" }
@@ -804,8 +804,8 @@ export const HomePage = ({ theme, onNavigate, currentUser }) => {
               page: "productOverview",
               icon: (
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z"/>
-                  <path d="M6 12v5c0 2 2 3 6 3s6-1 6-3v-5"/>
+                  <path d="M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z" />
+                  <path d="M6 12v5c0 2 2 3 6 3s6-1 6-3v-5" />
                 </svg>
               )
             },
@@ -816,11 +816,11 @@ export const HomePage = ({ theme, onNavigate, currentUser }) => {
               page: "visa",
               icon: (
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/>
-                  <path d="M14 2v4a2 2 0 0 0 2 2h4"/>
-                  <path d="M10 9H8"/>
-                  <path d="M16 13H8"/>
-                  <path d="M16 17H8"/>
+                  <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
+                  <path d="M14 2v4a2 2 0 0 0 2 2h4" />
+                  <path d="M10 9H8" />
+                  <path d="M16 13H8" />
+                  <path d="M16 17H8" />
                 </svg>
               )
             },
@@ -831,12 +831,12 @@ export const HomePage = ({ theme, onNavigate, currentUser }) => {
               page: "daotaongonngu",
               icon: (
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="m5 8 6 6"/>
-                  <path d="m4 14 6-6 2-3h-15"/>
-                  <path d="M2 5h12"/>
-                  <path d="M7 2h1"/>
-                  <path d="m22 22-5-10-5 10"/>
-                  <path d="M14 18h6"/>
+                  <path d="m5 8 6 6" />
+                  <path d="m4 14 6-6 2-3h-15" />
+                  <path d="M2 5h12" />
+                  <path d="M7 2h1" />
+                  <path d="m22 22-5-10-5 10" />
+                  <path d="M14 18h6" />
                 </svg>
               )
             },
@@ -847,14 +847,14 @@ export const HomePage = ({ theme, onNavigate, currentUser }) => {
               page: "dinhcu",
               icon: (
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
-                  <rect width="20" height="14" x="2" y="6" rx="2"/>
+                  <path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+                  <rect width="20" height="14" x="2" y="6" rx="2" />
                 </svg>
               )
             }
           ].map((srv) => (
             <div className="col-12 col-sm-6 col-md-3" key={srv.title}>
-              <div 
+              <div
                 className={`border p-4 h-full flex flex-col justify-between rounded-xl cursor-pointer transition-all duration-300 group ${isDark ? "bg-[#111827] border-[#334155]" : "bg-white border-[#e2e8f0]"}`}
                 onClick={(e) => handleNavigatePage(e, srv.page)}
               >
@@ -862,11 +862,11 @@ export const HomePage = ({ theme, onNavigate, currentUser }) => {
                   <div className="flex items-center justify-center text-white mb-3 w-10 h-10 bg-[#0D919C] rounded-lg transition-transform duration-300 group-hover:scale-110 group-hover:rotate-6">
                     {srv.icon}
                   </div>
-                  
+
                   <h5 className={`font-bold mb-2 text-sm leading-snug ${isDark ? "text-[#f8fafc]" : "text-[#1e293b]"}`}>
                     {srv.title}
                   </h5>
-                  
+
                   <p className="text-xs text-[#64748b] dark:text-[#94a3b8] mb-3 leading-relaxed">
                     {srv.desc}
                   </p>
@@ -879,12 +879,12 @@ export const HomePage = ({ theme, onNavigate, currentUser }) => {
                     </span>
                   </div>
 
-                  <a 
-                    href="#" 
+                  <a
+                    href="#"
                     className={`inline-flex items-center gap-1 font-bold no-underline text-xs ${isDark ? "text-[#f8fafc]" : "text-[#1e293b]"}`}
                     onClick={(e) => handleNavigatePage(e, srv.page)}
                   >
-                    CHI TIẾT 
+                    CHI TIẾT
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                       <line x1="5" y1="12" x2="19" y2="12"></line>
                       <polyline points="12 5 19 12 12 19"></polyline>

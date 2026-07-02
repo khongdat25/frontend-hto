@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { API_BASE_URL } from "../config/api";
 import { authFetch, getAuthHeaders } from "../auth/session";
 
@@ -128,6 +128,10 @@ export const Sidebar = ({
   const [selectedCategoryId, setSelectedCategoryId] = useState(null);
   const [selectedCountryName, setSelectedCountryName] = useState(null);
   const [expandedProductCatId, setExpandedProductCatId] = useState(null);
+  const [selectedRegionName, setSelectedRegionName] = useState(null);
+  const [expandedRegions, setExpandedRegions] = useState({});
+  const [isTuyensinhExpanded, setIsTuyensinhExpanded] = useState(true);
+  const [isServicesExpanded, setIsServicesExpanded] = useState(false);
 
   const isProductPage =
     [
@@ -138,7 +142,7 @@ export const Sidebar = ({
       "nophosoonline",
       "sanpham",
     ].includes(currentPage) ||
-    (currentPage === "productOverview" && selectedCategoryId !== null) ||
+    (currentPage === "productOverview" && (selectedCategoryId !== null || selectedRegionName !== null)) ||
     currentPage.startsWith("product:");
   const isNewsPage = ["tintuc", "newsEventsManage"].includes(currentPage);
   const canManageNews = canManageNewsEvents(currentUser);
@@ -156,10 +160,12 @@ export const Sidebar = ({
         setSelectedCategoryId(detail.id);
         setSelectedCountryName(detail.country && detail.country !== "Tất cả" ? detail.country : null);
         setExpandedProductCatId(detail.id);
+        setSelectedRegionName(detail.region && detail.region !== "Tất cả" ? detail.region : null);
       } else {
         if (detail.name === "Tất cả") {
           setSelectedCategoryId(null);
           setSelectedCountryName(null);
+          setSelectedRegionName(detail.region && detail.region !== "Tất cả" ? detail.region : null);
         } else {
           // Find category by name
           const cat = productCategories.find(c => c.name === detail.name);
@@ -167,18 +173,29 @@ export const Sidebar = ({
             setSelectedCategoryId(cat.id);
             setSelectedCountryName(detail.country && detail.country !== "Tất cả" ? detail.country : null);
             setExpandedProductCatId(cat.id);
+            setSelectedRegionName(detail.region && detail.region !== "Tất cả" ? detail.region : null);
           } else {
             setSelectedCategoryId(null);
             setSelectedCountryName(null);
+            setSelectedRegionName(detail.region && detail.region !== "Tất cả" ? detail.region : null);
           }
         }
+      }
+
+      // Tự động mở rộng nhóm tương ứng
+      const serviceNames = ["visa", "định cư", "dinh cu"];
+      const isService = (detail.name && serviceNames.some(n => detail.name.toLowerCase().includes(n))) || currentPage === "nophosoonline";
+      if (isService) {
+        setIsServicesExpanded(true);
+      } else {
+        setIsTuyensinhExpanded(true);
       }
     };
 
     window.addEventListener(SIDEBAR_CATEGORY_EVENT, handleCategorySelect);
     return () =>
       window.removeEventListener(SIDEBAR_CATEGORY_EVENT, handleCategorySelect);
-  }, [productCategories]);
+  }, [productCategories, currentPage]);
 
   // Fetch danh mục từ API và trích xuất danh sách quốc gia
   useEffect(() => {
@@ -203,12 +220,12 @@ export const Sidebar = ({
           return status === "active";
         };
 
-        // Fetch products for each category to extract unique countries
+        // Fetch products for each category to extract unique countries and raw products list
         const categoriesWithCountries = await Promise.all(
           normalized.map(async (cat) => {
             try {
               const resProducts = await authFetch(`${API_BASE_URL}/products?categoryId=${cat.id}`, { headers });
-              if (!resProducts.ok) return { ...cat, countries: [] };
+              if (!resProducts.ok) return { ...cat, countries: [], products: [] };
               const prodPayload = await resProducts.json().catch(() => null);
               
               const productsRaw = Array.isArray(prodPayload)
@@ -221,8 +238,9 @@ export const Sidebar = ({
 
               const seen = new Set();
               const countries = [];
-              productsRaw
-                .filter(p => p && isActiveProduct(p) && p.country)
+              const activeProds = productsRaw.filter(p => p && isActiveProduct(p));
+              activeProds
+                .filter(p => p.country)
                 .forEach(p => {
                   const raw = p.country.trim();
                   const resolved = resolveCountryName(raw);
@@ -233,21 +251,140 @@ export const Sidebar = ({
                 });
               countries.sort((a, b) => resolveCountryName(a).localeCompare(resolveCountryName(b), "vi"));
 
-              return { ...cat, countries };
+              return { ...cat, countries, products: activeProds };
             } catch (err) {
               console.warn(`[Sidebar] Lỗi tải sản phẩm cho danh mục ${cat.name}:`, err.message);
-              return { ...cat, countries: [] };
+              return { ...cat, countries: [], products: [] };
             }
           })
         );
 
+        // Di chuyển sản phẩm "Dịch vụ Visa" (Nhật Bản) từ danh mục "Dịch vụ" sang danh mục "Visa"
+        const catDichVu = categoriesWithCountries.find(c => c.name.toLowerCase() === "dịch vụ" || c.name.toLowerCase() === "dich vu");
+        const catVisa = categoriesWithCountries.find(c => c.name.toLowerCase() === "visa");
+
+        if (catDichVu && catVisa) {
+          const visaJapanProds = catDichVu.products.filter(p => {
+            const nameLower = (p.name || "").toLowerCase();
+            return nameLower.includes("visa") && resolveCountryName(p.country) === "Nhật Bản";
+          });
+
+          if (visaJapanProds.length > 0) {
+            // Cập nhật categoryId cho các sản phẩm di chuyển
+            visaJapanProds.forEach(p => {
+              p.categoryId = catVisa.id;
+              p.categoryName = catVisa.name;
+            });
+
+            // Xóa khỏi Dịch vụ
+            catDichVu.products = catDichVu.products.filter(p => !visaJapanProds.includes(p));
+            // Cập nhật lại countries của Dịch vụ
+            const seenDichVu = new Set();
+            catDichVu.countries = [];
+            catDichVu.products.forEach(p => {
+              if (p.country && !seenDichVu.has(p.country)) {
+                seenDichVu.add(p.country);
+                catDichVu.countries.push(p.country);
+              }
+            });
+
+            // Thêm vào Visa
+            catVisa.products = [...catVisa.products, ...visaJapanProds];
+            // Cập nhật lại countries của Visa
+            const seenVisa = new Set(catVisa.countries);
+            visaJapanProds.forEach(p => {
+              if (p.country && !seenVisa.has(p.country)) {
+                seenVisa.add(p.country);
+                catVisa.countries.push(p.country);
+              }
+            });
+            // Sắp xếp lại countries của Visa
+            catVisa.countries.sort((a, b) => resolveCountryName(a).localeCompare(resolveCountryName(b), "vi"));
+          }
+        }
+
         if (isMounted) setProductCategories(categoriesWithCountries);
       } catch (err) {
         console.warn(
-          "[Sidebar] Không tải được danh mục sản phẩm:",
+          "[Sidebar] Không tải được danh mục sản phẩm, sử dụng Mock Data dự phòng:",
           err.message,
         );
-        if (isMounted) setProductCategories([]);
+        
+        // Mock fallback to keep development functional
+        const mockCategoriesNormalized = [
+          {
+            id: "cat-1",
+            name: "Du học hè",
+            countries: ["Singapore"],
+            products: [
+              {
+                id: "prog-1-1",
+                name: "Du học hè Singapore",
+                country: "Singapore",
+                region: "Châu Á",
+                status: "active"
+              }
+            ]
+          },
+          {
+            id: "cat-2",
+            name: "Du học nghề",
+            countries: ["Đức"],
+            products: [
+              {
+                id: "prog-voc-1",
+                name: "Du học nghề Đức",
+                country: "Đức",
+                region: "Châu Âu",
+                status: "active"
+              }
+            ]
+          },
+          {
+            id: "cat-3",
+            name: "Visa",
+            countries: ["Úc"],
+            products: [
+              {
+                id: "prog-visa-1",
+                name: "Dịch vụ xin Visa Úc trọn gói",
+                country: "Úc",
+                region: "Châu Đại Dương",
+                status: "active"
+              }
+            ]
+          },
+          {
+            id: "cat-4",
+            name: "Định cư",
+            countries: ["Canada"],
+            products: [
+              {
+                id: "prog-settle-1",
+                name: "Định cư đầu tư Canada",
+                country: "Canada",
+                region: "Châu Mỹ",
+                status: "active"
+              }
+            ]
+          },
+          {
+            id: "cat-5",
+            name: "Đào tạo ngôn ngữ",
+            countries: ["Đức"],
+            products: [
+              {
+                id: "prog-lang-1",
+                name: "Khóa học tiếng Đức B1",
+                country: "Đức",
+                region: "Châu Âu",
+                status: "active"
+              }
+            ]
+          }
+        ];
+
+        if (isMounted) setProductCategories(mockCategoriesNormalized);
       } finally {
         if (isMounted) setCategoriesLoading(false);
       }
@@ -258,6 +395,55 @@ export const Sidebar = ({
       isMounted = false;
     };
   }, []);
+
+  // Phân chia danh mục thành các nhóm cho Tuyển Sinh Du Học và Dịch Vụ
+  const categorizedMenu = useMemo(() => {
+    const trainingKeywords = ["đào tạo ngôn ngữ", "dao tao ngon ngu", "ngôn ngữ", "ngon ngu", "ngoại ngữ", "tiếng"];
+    const continentKeywords = ["châu mỹ", "châu âu", "châu á", "châu đại dương", "chau my", "chau au", "chau a", "chau dai duong"];
+    const vocationalKeywords = ["du học nghề", "du hoc nghe", "nghề", "nghe", "tts quốc tế", "tts quoc te"];
+    const summerKeywords = ["du học hè", "du hoc he", "hè", "he", "trại hè", "trai he"];
+
+    const result = {
+      tuyenSinh: {
+        ttsQuocTe: null, // Danh mục Du học nghề
+        duHocHe: null,   // Danh mục Du học hè
+        continents: []   // Các danh mục châu lục (Châu Mỹ, Châu Âu...)
+      },
+      daoTao: null,      // Danh mục Đào tạo ngôn ngữ
+      dichVu: []         // Các danh mục Dịch vụ (Visa, Định cư...)
+    };
+
+    productCategories.forEach(cat => {
+      const nameLower = cat.name.toLowerCase();
+      
+      // Bỏ qua danh mục Dịch vụ rỗng (vì sản phẩm của nó đã được chuyển sang Visa)
+      if (nameLower === "dịch vụ" || nameLower === "dich vu") {
+        return;
+      }
+
+      if (trainingKeywords.some(n => nameLower.includes(n))) {
+        result.daoTao = cat;
+      } else if (continentKeywords.some(n => nameLower.includes(n))) {
+        result.tuyenSinh.continents.push(cat);
+      } else if (vocationalKeywords.some(n => nameLower.includes(n))) {
+        result.tuyenSinh.ttsQuocTe = cat;
+      } else if (summerKeywords.some(n => nameLower.includes(n))) {
+        result.tuyenSinh.duHocHe = cat;
+      } else {
+        result.dichVu.push(cat);
+      }
+    });
+
+    // Sắp xếp thứ tự các Châu lục
+    const order = ["châu mỹ", "châu âu", "châu á", "châu đại dương"];
+    result.tuyenSinh.continents.sort((a, b) => {
+      const idxA = order.findIndex(o => a.name.toLowerCase().includes(o));
+      const idxB = order.findIndex(o => b.name.toLowerCase().includes(o));
+      return idxA - idxB;
+    });
+
+    return result;
+  }, [productCategories]);
 
   const [departments, setDepartments] = useState([]);
   const [departmentsLoading, setDepartmentsLoading] = useState(true);
@@ -338,6 +524,7 @@ export const Sidebar = ({
   const handleToggleCategory = (categoryId) => {
     setSelectedCategoryId(categoryId);
     setSelectedCountryName(null);
+    setSelectedRegionName(null);
     setExpandedProductCatId(expandedProductCatId === categoryId ? null : categoryId); // Toggle expand/collapse when clicking parent category name
 
     const category = productCategories.find((c) => c.id === categoryId);
@@ -346,6 +533,7 @@ export const Sidebar = ({
         id: category.id,
         name: category.name,
         country: "Tất cả",
+        region: "Tất cả",
         fromSidebar: true,
       };
       try {
@@ -365,6 +553,7 @@ export const Sidebar = ({
   const handleSelectCountry = (categoryId, country) => {
     setSelectedCategoryId(categoryId);
     setSelectedCountryName(country);
+    setSelectedRegionName(null);
 
     const category = productCategories.find((c) => c.id === categoryId);
     if (category) {
@@ -372,6 +561,7 @@ export const Sidebar = ({
         id: category.id,
         name: category.name,
         country: country,
+        region: "Tất cả",
         fromSidebar: true,
       };
       try {
@@ -385,6 +575,55 @@ export const Sidebar = ({
       window.dispatchEvent(new CustomEvent(SIDEBAR_CATEGORY_EVENT, { detail }));
     }
 
+    onNavigate?.("productOverview");
+  };
+
+  const handleSelectRegion = (region) => {
+    setSelectedCategoryId(null);
+    setSelectedCountryName(null);
+    setSelectedRegionName(region);
+    setExpandedRegions(prev => ({ ...prev, [region]: !prev[region] }));
+
+    const detail = {
+      id: null,
+      name: "Tất cả",
+      country: "Tất cả",
+      region: region,
+      fromSidebar: true,
+    };
+    try {
+      sessionStorage.setItem(
+        SIDEBAR_CATEGORY_STORAGE_KEY,
+        JSON.stringify(detail),
+      );
+    } catch {
+      // bỏ qua
+    }
+    window.dispatchEvent(new CustomEvent(SIDEBAR_CATEGORY_EVENT, { detail }));
+    onNavigate?.("productOverview");
+  };
+
+  const handleSelectRegionCountry = (region, country) => {
+    setSelectedCategoryId(null);
+    setSelectedCountryName(country);
+    setSelectedRegionName(region);
+
+    const detail = {
+      id: null,
+      name: "Tất cả",
+      country: country,
+      region: region,
+      fromSidebar: true,
+    };
+    try {
+      sessionStorage.setItem(
+        SIDEBAR_CATEGORY_STORAGE_KEY,
+        JSON.stringify(detail),
+      );
+    } catch {
+      // bỏ qua
+    }
+    window.dispatchEvent(new CustomEvent(SIDEBAR_CATEGORY_EVENT, { detail }));
     onNavigate?.("productOverview");
   };
 
@@ -640,10 +879,9 @@ export const Sidebar = ({
               className="menu-inner list-unstyled mb-0"
               style={{
                 display: openMenu === "sanpham" ? "block" : "none",
-                paddingLeft: "52px",
+                paddingLeft: "28px",
               }}
             >
-              {/* DANH SÁCH DANH MỤC */}
               {categoriesLoading ? (
                 <li className="menu-item mb-1">
                   <span
@@ -653,131 +891,525 @@ export const Sidebar = ({
                     Đang tải danh mục...
                   </span>
                 </li>
-              ) : productCategories.length > 0 ? (
-                productCategories.map((category) => {
-                  const isCatSelected = selectedCategoryId === category.id && currentPage === "productOverview";
-                  const hasCountries = Array.isArray(category.countries) && category.countries.length > 0;
-                  const isExpanded = expandedProductCatId === category.id;
-
-                  return (
-                    <li key={category.id} className="menu-item mb-1" style={{ listStyleType: "none" }}>
-                      <div className="d-flex align-items-center justify-content-between rounded-2 hover-bg-light" style={{ transition: "all 0.2s" }}>
-                        <a
-                          className={`menu-link d-block px-3 py-2 rounded-2 flex-grow-1 ${isCatSelected && !selectedCountryName
-                              ? "bg-primary-subtle text-primary fw-medium"
-                              : "text-body-secondary"
-                            }`}
+              ) : (
+                <>
+                  {/* --- A. TUYỂN SINH DU HỌC (Dropdown Group) --- */}
+                  <li className="menu-item mb-2" style={{ listStyleType: "none" }}>
+                    <div className="d-flex align-items-center justify-content-between rounded-2 hover-bg-light" style={{ transition: "all 0.2s" }}>
+                      <a
+                        className={`menu-link d-block px-3 py-2 rounded-2 flex-grow-1 fw-bold ${
+                          isTuyensinhExpanded ? "text-primary" : "text-body-secondary"
+                        }`}
+                        style={{ textDecoration: "none", fontSize: "13px", cursor: "pointer" }}
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setIsTuyensinhExpanded(!isTuyensinhExpanded);
+                        }}
+                      >
+                        Tuyển Sinh Du Học
+                      </a>
+                      <span
+                        className="d-flex align-items-center justify-content-center text-body-secondary"
+                        style={{ cursor: "pointer", width: "28px", height: "28px" }}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setIsTuyensinhExpanded(!isTuyensinhExpanded);
+                        }}
+                      >
+                        <svg
+                          width="12"
+                          height="12"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="3"
                           style={{
-                            textDecoration: "none",
-                            fontSize: "13px",
-                            cursor: "pointer",
-                          }}
-                          href="#"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            handleToggleCategory(category.id);
+                            transform: isTuyensinhExpanded ? "rotate(180deg)" : "rotate(0deg)",
+                            transition: "transform 0.2s ease"
                           }}
                         >
-                          {category.name}
-                        </a>
-                        
-                        {hasCountries && (
-                          <span
-                            className="d-flex align-items-center justify-content-center text-body-secondary"
-                            style={{ cursor: "pointer", width: "28px", height: "28px", borderRadius: "4px" }}
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              setExpandedProductCatId(isExpanded ? null : category.id);
-                            }}
-                          >
-                            <svg
-                              width="12"
-                              height="12"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="3"
-                              style={{
-                                transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)",
-                                transition: "transform 0.2s ease"
-                              }}
-                            >
-                              <polyline points="6 9 12 15 18 9"></polyline>
-                            </svg>
-                          </span>
-                        )}
-                      </div>
+                          <polyline points="6 9 12 15 18 9"></polyline>
+                        </svg>
+                      </span>
+                    </div>
 
-                      {/* Danh mục con (Các nước) */}
-                      {hasCountries && isExpanded && (
-                        <ul
-                          className="list-unstyled mb-0 mt-1"
-                          style={{
-                            borderLeft: "1px dashed var(--bs-border-color)",
-                            marginLeft: "15px",
-                            paddingLeft: "8px",
-                            listStyleType: "none"
-                          }}
-                        >
-                          {category.countries.map((country) => {
-                            const isCountrySelected = isCatSelected && selectedCountryName === country;
-                            const resolvedName = resolveCountryName(country);
-                            return (
-                              <li key={country} className="mb-1" style={{ listStyleType: "none" }}>
+                    {isTuyensinhExpanded && (
+                      <ul
+                        className="list-unstyled mb-0 mt-1"
+                        style={{
+                          borderLeft: "1px dashed var(--bs-border-color)",
+                          marginLeft: "15px",
+                          paddingLeft: "8px",
+                          listStyleType: "none"
+                        }}
+                      >
+                        {/* 1. TTS Quốc Tế (Du học nghề) */}
+                        {categorizedMenu.tuyenSinh.ttsQuocTe && (() => {
+                          const cat = categorizedMenu.tuyenSinh.ttsQuocTe;
+                          const isCatSelected = selectedCategoryId === cat.id && currentPage === "productOverview";
+                          const hasCountries = Array.isArray(cat.countries) && cat.countries.length > 0;
+                          const isExpanded = expandedProductCatId === cat.id;
+
+                          return (
+                            <li className="menu-item mb-1" style={{ listStyleType: "none" }}>
+                              <div className="d-flex align-items-center justify-content-between rounded-2 hover-bg-light">
                                 <a
-                                  className={`menu-link py-1 rounded-2 ${isCountrySelected ? "text-primary fw-bold" : "text-body-secondary"}`}
-                                  style={{
-                                    display: "block",
-                                    textDecoration: "none",
-                                    fontSize: "12px",
-                                    cursor: "pointer",
-                                    whiteSpace: "nowrap",
-                                    overflow: "hidden",
-                                    textOverflow: "ellipsis"
-                                  }}
-                                  title={resolvedName}
+                                  className={`menu-link d-block px-3 py-1.5 rounded-2 flex-grow-1 ${
+                                    isCatSelected && !selectedCountryName ? "bg-primary-subtle text-primary fw-medium" : "text-body-secondary"
+                                  }`}
+                                  style={{ textDecoration: "none", fontSize: "13px", cursor: "pointer" }}
                                   href="#"
                                   onClick={(e) => {
                                     e.preventDefault();
-                                    handleSelectCountry(category.id, country);
+                                    handleToggleCategory(cat.id);
                                   }}
                                 >
-                                  • {resolvedName}
+                                  TTS Quốc Tế
                                 </a>
-                              </li>
-                            );
-                          })}
-                        </ul>
-                      )}
-                    </li>
-                  );
-                })
-              ) : (
-                <li className="menu-item mb-1">
-                  <span
-                    className="d-block px-3 py-2 text-body-secondary"
-                    style={{ fontSize: "13px" }}
-                  >
-                    Chưa có danh mục
-                  </span>
-                </li>
-              )}
+                                {hasCountries && (
+                                  <span
+                                    className="d-flex align-items-center justify-content-center text-body-secondary"
+                                    style={{ cursor: "pointer", width: "24px", height: "24px" }}
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      setExpandedProductCatId(isExpanded ? null : cat.id);
+                                    }}
+                                  >
+                                    <svg
+                                      width="10"
+                                      height="10"
+                                      viewBox="0 0 24 24"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      strokeWidth="3"
+                                      style={{
+                                        transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)",
+                                        transition: "transform 0.2s ease"
+                                      }}
+                                    >
+                                      <polyline points="6 9 12 15 18 9"></polyline>
+                                    </svg>
+                                  </span>
+                                )}
+                              </div>
+                              {hasCountries && isExpanded && (
+                                <ul className="list-unstyled mb-0 mt-1" style={{ borderLeft: "1px dotted var(--bs-border-color)", marginLeft: "12px", paddingLeft: "8px" }}>
+                                  {cat.countries.map(country => {
+                                    const isCountrySelected = isCatSelected && selectedCountryName === country;
+                                    const resolvedName = resolveCountryName(country);
+                                    return (
+                                      <li key={country} className="mb-0.5">
+                                        <a
+                                          className={`menu-link py-1 rounded-2 d-block ${isCountrySelected ? "text-primary fw-bold" : "text-body-secondary"}`}
+                                          style={{ textDecoration: "none", fontSize: "12px", cursor: "pointer" }}
+                                          href="#"
+                                          onClick={(e) => {
+                                            e.preventDefault();
+                                            handleSelectCountry(cat.id, country);
+                                          }}
+                                        >
+                                          • {resolvedName}
+                                        </a>
+                                      </li>
+                                    );
+                                  })}
+                                </ul>
+                              )}
+                            </li>
+                          );
+                        })()}
 
-              {/* NỘP HỒ SƠ ONLINE */}
-              <li className="menu-item mb-1">
-                <a
-                  className={`menu-link d-block px-3 py-2 rounded-2 ${currentPage === "nophosoonline" ? "bg-primary-subtle text-primary fw-medium" : "text-body-secondary"}`}
-                  style={{ textDecoration: "none", fontSize: "13px" }}
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    onNavigate?.("nophosoonline");
-                  }}
-                >
-                  Nộp hồ sơ online
-                </a>
-              </li>
+                        {/* 2. Du Học Hè */}
+                        {categorizedMenu.tuyenSinh.duHocHe && (() => {
+                          const cat = categorizedMenu.tuyenSinh.duHocHe;
+                          const isCatSelected = selectedCategoryId === cat.id && currentPage === "productOverview";
+                          const hasCountries = Array.isArray(cat.countries) && cat.countries.length > 0;
+                          const isExpanded = expandedProductCatId === cat.id;
+
+                          return (
+                            <li className="menu-item mb-1" style={{ listStyleType: "none" }}>
+                              <div className="d-flex align-items-center justify-content-between rounded-2 hover-bg-light">
+                                <a
+                                  className={`menu-link d-block px-3 py-1.5 rounded-2 flex-grow-1 ${
+                                    isCatSelected && !selectedCountryName ? "bg-primary-subtle text-primary fw-medium" : "text-body-secondary"
+                                  }`}
+                                  style={{ textDecoration: "none", fontSize: "13px", cursor: "pointer" }}
+                                  href="#"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    handleToggleCategory(cat.id);
+                                  }}
+                                >
+                                  Du Học Hè
+                                </a>
+                                {hasCountries && (
+                                  <span
+                                    className="d-flex align-items-center justify-content-center text-body-secondary"
+                                    style={{ cursor: "pointer", width: "24px", height: "24px" }}
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      setExpandedProductCatId(isExpanded ? null : cat.id);
+                                    }}
+                                  >
+                                    <svg
+                                      width="10"
+                                      height="10"
+                                      viewBox="0 0 24 24"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      strokeWidth="3"
+                                      style={{
+                                        transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)",
+                                        transition: "transform 0.2s ease"
+                                      }}
+                                    >
+                                      <polyline points="6 9 12 15 18 9"></polyline>
+                                    </svg>
+                                  </span>
+                                )}
+                              </div>
+                              {hasCountries && isExpanded && (
+                                <ul className="list-unstyled mb-0 mt-1" style={{ borderLeft: "1px dotted var(--bs-border-color)", marginLeft: "12px", paddingLeft: "8px" }}>
+                                  {cat.countries.map(country => {
+                                    const isCountrySelected = isCatSelected && selectedCountryName === country;
+                                    const resolvedName = resolveCountryName(country);
+                                    return (
+                                      <li key={country} className="mb-0.5">
+                                        <a
+                                          className={`menu-link py-1 rounded-2 d-block ${isCountrySelected ? "text-primary fw-bold" : "text-body-secondary"}`}
+                                          style={{ textDecoration: "none", fontSize: "12px", cursor: "pointer" }}
+                                          href="#"
+                                          onClick={(e) => {
+                                            e.preventDefault();
+                                            handleSelectCountry(cat.id, country);
+                                          }}
+                                        >
+                                          • {resolvedName}
+                                        </a>
+                                      </li>
+                                    );
+                                  })}
+                                </ul>
+                              )}
+                            </li>
+                          );
+                        })()}
+
+                        {/* 3. Các Châu Lục (Châu Mỹ, Châu Âu, Châu Á, Châu Đại Dương) */}
+                        {categorizedMenu.tuyenSinh.continents.filter(cat => Array.isArray(cat.countries) && cat.countries.length > 0).map(cat => {
+                          const isCatSelected = selectedCategoryId === cat.id && currentPage === "productOverview";
+                          const hasCountries = Array.isArray(cat.countries) && cat.countries.length > 0;
+                          const isExpanded = expandedProductCatId === cat.id;
+
+                          return (
+                            <li key={cat.id} className="menu-item mb-1" style={{ listStyleType: "none" }}>
+                              <div className="d-flex align-items-center justify-content-between rounded-2 hover-bg-light">
+                                <a
+                                  className={`menu-link d-block px-3 py-1.5 rounded-2 flex-grow-1 ${
+                                    isCatSelected && !selectedCountryName ? "bg-primary-subtle text-primary fw-medium" : "text-body-secondary"
+                                  }`}
+                                  style={{ textDecoration: "none", fontSize: "13px", cursor: "pointer" }}
+                                  href="#"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    handleToggleCategory(cat.id);
+                                  }}
+                                >
+                                  {cat.name}
+                                </a>
+                                {hasCountries && (
+                                  <span
+                                    className="d-flex align-items-center justify-content-center text-body-secondary"
+                                    style={{ cursor: "pointer", width: "24px", height: "24px" }}
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      setExpandedProductCatId(isExpanded ? null : cat.id);
+                                    }}
+                                  >
+                                    <svg
+                                      width="10"
+                                      height="10"
+                                      viewBox="0 0 24 24"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      strokeWidth="3"
+                                      style={{
+                                        transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)",
+                                        transition: "transform 0.2s ease"
+                                      }}
+                                    >
+                                      <polyline points="6 9 12 15 18 9"></polyline>
+                                    </svg>
+                                  </span>
+                                )}
+                              </div>
+                              {hasCountries && isExpanded && (
+                                <ul className="list-unstyled mb-0 mt-1" style={{ borderLeft: "1px dotted var(--bs-border-color)", marginLeft: "12px", paddingLeft: "8px" }}>
+                                  {cat.countries.map(country => {
+                                    const isCountrySelected = isCatSelected && selectedCountryName === country;
+                                    const resolvedName = resolveCountryName(country);
+                                    return (
+                                      <li key={country} className="mb-0.5">
+                                        <a
+                                          className={`menu-link py-1 rounded-2 d-block ${isCountrySelected ? "text-primary fw-bold" : "text-body-secondary"}`}
+                                          style={{ textDecoration: "none", fontSize: "12px", cursor: "pointer" }}
+                                          href="#"
+                                          onClick={(e) => {
+                                            e.preventDefault();
+                                            handleSelectCountry(cat.id, country);
+                                          }}
+                                        >
+                                          • {resolvedName}
+                                        </a>
+                                      </li>
+                                    );
+                                  })}
+                                </ul>
+                              )}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </li>
+
+                  {/* --- B. ĐÀO TẠO NGÔN NGỮ (Single Dropdown/Link if exists) --- */}
+                  {categorizedMenu.daoTao && (() => {
+                    const cat = categorizedMenu.daoTao;
+                    const isCatSelected = selectedCategoryId === cat.id && currentPage === "productOverview";
+                    const hasCountries = Array.isArray(cat.countries) && cat.countries.length > 0;
+                    const isExpanded = expandedProductCatId === cat.id;
+
+                    return (
+                      <li className="menu-item mb-2" style={{ listStyleType: "none" }}>
+                        <div className="d-flex align-items-center justify-content-between rounded-2 hover-bg-light" style={{ transition: "all 0.2s" }}>
+                          <a
+                            className={`menu-link d-block px-3 py-2 rounded-2 flex-grow-1 fw-bold ${
+                              isCatSelected && !selectedCountryName ? "text-primary" : "text-body-secondary"
+                            }`}
+                            style={{ textDecoration: "none", fontSize: "13px", cursor: "pointer" }}
+                            href="#"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              handleToggleCategory(cat.id);
+                            }}
+                          >
+                            Đào tạo ngôn ngữ
+                          </a>
+                          {hasCountries && (
+                            <span
+                              className="d-flex align-items-center justify-content-center text-body-secondary"
+                              style={{ cursor: "pointer", width: "28px", height: "28px" }}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setExpandedProductCatId(isExpanded ? null : cat.id);
+                              }}
+                            >
+                              <svg
+                                width="12"
+                                height="12"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="3"
+                                style={{
+                                  transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)",
+                                  transition: "transform 0.2s ease"
+                                }}
+                              >
+                                <polyline points="6 9 12 15 18 9"></polyline>
+                              </svg>
+                            </span>
+                          )}
+                        </div>
+                        {hasCountries && isExpanded && (
+                          <ul
+                            className="list-unstyled mb-0 mt-1"
+                            style={{
+                              borderLeft: "1px dashed var(--bs-border-color)",
+                              marginLeft: "15px",
+                              paddingLeft: "8px",
+                              listStyleType: "none"
+                            }}
+                          >
+                            {cat.countries.map(country => {
+                              const isCountrySelected = isCatSelected && selectedCountryName === country;
+                              const resolvedName = resolveCountryName(country);
+                              return (
+                                <li key={country} className="mb-1">
+                                  <a
+                                    className={`menu-link py-1 rounded-2 d-block ${isCountrySelected ? "text-primary fw-bold" : "text-body-secondary"}`}
+                                    style={{ textDecoration: "none", fontSize: "12px", cursor: "pointer" }}
+                                    href="#"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      handleSelectCountry(cat.id, country);
+                                    }}
+                                  >
+                                    • {resolvedName}
+                                  </a>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        )}
+                      </li>
+                    );
+                  })()}
+
+                  {/* --- C. DỊCH VỤ (Dropdown Group) --- */}
+                  <li className="menu-item mb-2" style={{ listStyleType: "none" }}>
+                    <div className="d-flex align-items-center justify-content-between rounded-2 hover-bg-light" style={{ transition: "all 0.2s" }}>
+                      <a
+                        className={`menu-link d-block px-3 py-2 rounded-2 flex-grow-1 fw-bold ${
+                          isServicesExpanded ? "text-primary" : "text-body-secondary"
+                        }`}
+                        style={{ textDecoration: "none", fontSize: "13px", cursor: "pointer" }}
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setIsServicesExpanded(!isServicesExpanded);
+                        }}
+                      >
+                        Dịch vụ
+                      </a>
+                      <span
+                        className="d-flex align-items-center justify-content-center text-body-secondary"
+                        style={{ cursor: "pointer", width: "28px", height: "28px" }}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setIsServicesExpanded(!isServicesExpanded);
+                        }}
+                      >
+                        <svg
+                          width="12"
+                          height="12"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="3"
+                          style={{
+                            transform: isServicesExpanded ? "rotate(180deg)" : "rotate(0deg)",
+                            transition: "transform 0.2s ease"
+                          }}
+                        >
+                          <polyline points="6 9 12 15 18 9"></polyline>
+                        </svg>
+                      </span>
+                    </div>
+
+                    {isServicesExpanded && (
+                      <ul
+                        className="list-unstyled mb-0 mt-1"
+                        style={{
+                          borderLeft: "1px dashed var(--bs-border-color)",
+                          marginLeft: "15px",
+                          paddingLeft: "8px",
+                          listStyleType: "none"
+                        }}
+                      >
+                        {/* 1. Visa, Định cư... */}
+                        {categorizedMenu.dichVu.filter(cat => Array.isArray(cat.products) && cat.products.length > 0).map(cat => {
+                          const isCatSelected = selectedCategoryId === cat.id && currentPage === "productOverview";
+                          const hasCountries = Array.isArray(cat.countries) && cat.countries.length > 0;
+                          const isExpanded = expandedProductCatId === cat.id;
+
+                          return (
+                            <li key={cat.id} className="menu-item mb-1" style={{ listStyleType: "none" }}>
+                              <div className="d-flex align-items-center justify-content-between rounded-2 hover-bg-light">
+                                <a
+                                  className={`menu-link d-block px-3 py-1.5 rounded-2 flex-grow-1 ${
+                                    isCatSelected && !selectedCountryName ? "bg-primary-subtle text-primary fw-medium" : "text-body-secondary"
+                                  }`}
+                                  style={{ textDecoration: "none", fontSize: "13px", cursor: "pointer" }}
+                                  href="#"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    handleToggleCategory(cat.id);
+                                  }}
+                                >
+                                  {cat.name}
+                                </a>
+                                {hasCountries && (
+                                  <span
+                                    className="d-flex align-items-center justify-content-center text-body-secondary"
+                                    style={{ cursor: "pointer", width: "24px", height: "24px" }}
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      setExpandedProductCatId(isExpanded ? null : cat.id);
+                                    }}
+                                  >
+                                    <svg
+                                      width="10"
+                                      height="10"
+                                      viewBox="0 0 24 24"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      strokeWidth="3"
+                                      style={{
+                                        transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)",
+                                        transition: "transform 0.2s ease"
+                                      }}
+                                    >
+                                      <polyline points="6 9 12 15 18 9"></polyline>
+                                    </svg>
+                                  </span>
+                                )}
+                              </div>
+                              {hasCountries && isExpanded && (
+                                <ul className="list-unstyled mb-0 mt-1" style={{ borderLeft: "1px dotted var(--bs-border-color)", marginLeft: "12px", paddingLeft: "8px" }}>
+                                  {cat.countries.map(country => {
+                                    const isCountrySelected = isCatSelected && selectedCountryName === country;
+                                    const resolvedName = resolveCountryName(country);
+                                    return (
+                                      <li key={country} className="mb-0.5">
+                                        <a
+                                          className={`menu-link py-1 rounded-2 d-block ${isCountrySelected ? "text-primary fw-bold" : "text-body-secondary"}`}
+                                          style={{ textDecoration: "none", fontSize: "12px", cursor: "pointer" }}
+                                          href="#"
+                                          onClick={(e) => {
+                                            e.preventDefault();
+                                            handleSelectCountry(cat.id, country);
+                                          }}
+                                        >
+                                          • {resolvedName}
+                                        </a>
+                                      </li>
+                                    );
+                                  })}
+                                </ul>
+                              )}
+                            </li>
+                          );
+                        })}
+
+                        {/* 2. Nộp hồ sơ online */}
+                        <li className="menu-item mb-1" style={{ listStyleType: "none" }}>
+                          <a
+                            className={`menu-link d-block px-3 py-1.5 rounded-2 ${
+                              currentPage === "nophosoonline" ? "bg-primary-subtle text-primary fw-medium" : "text-body-secondary"
+                            }`}
+                            style={{ textDecoration: "none", fontSize: "13px" }}
+                            href="#"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              onNavigate?.("nophosoonline");
+                            }}
+                          >
+                            Nộp hồ sơ online
+                          </a>
+                        </li>
+                      </ul>
+                    )}
+                  </li>
+                </>
+              )}
             </ul>
           </li>
 
