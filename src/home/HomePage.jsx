@@ -758,7 +758,7 @@ export const HomePage = ({ theme, onNavigate, currentUser }) => {
       {/* 2. STATS SECTION */}
       <div className="row mb-5 g-3 section-stats animate-entrance">
         {[
-          { value: "10+", label: "NĂM ĐỒNG HÀNH" },
+          { value: "5+", label: "NĂM ĐỒNG HÀNH" },
           { value: "5", label: "NHÓM DỊCH VỤ" },
           { value: "1:1", label: "TƯ VẤN HỒ SƠ" },
           { value: "360", label: "HỖ TRỢ TRỌN GÓI" }

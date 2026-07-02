@@ -1319,7 +1319,7 @@ function App() {
         ) : currentPage === "nghiepvu" ? (
           <JobDescriptionsPage currentUser={user} />
         ) : currentPage === "doisoatdeal" ? (
-          <AccountingPlaceholderPage />
+          <AccountingPlaceholderPage currentUser={user} />
         ) : currentPage === "dashboardStats" ? (
           <DashboardPage currentUser={user} />
         ) : currentPage === "newsEventsManage" ? (

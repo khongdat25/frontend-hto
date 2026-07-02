@@ -1,4 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { API_BASE_URL } from "../config/api";
+import { authFetch, getAuthHeaders } from "../auth/session";
+import { useToast } from "../products/ToastContext";
 
 const dependencySteps = [
   {
@@ -15,188 +18,281 @@ const dependencySteps = [
   },
 ];
 
-const MOCK_DEALS = [
-  {
-    id: "DEAL-2026-001",
-    title: "Hợp đồng tư vấn đào tạo nhân sự - Công ty TechVibe",
-    customer: {
-      name: "Nguyễn Văn Hải",
-      phone: "0901 234 567",
-      email: "hai.nguyen@techvibe.vn",
-      company: "Công ty Cổ phần Công nghệ TechVibe",
-      address: "Tòa nhà Viettel, Quận 10, TP. Hồ Chí Minh",
-    },
-    value: 120000000,
-    commissionRate: 10,
-    expectedCommission: 12000000,
-    status: "reconciled",
-    statusLabel: "Đã đối soát",
-    statusColor: "bg-success-subtle text-success border-success-subtle",
-    owner: "Lê Minh Tuấn (Sales Manager)",
-    createdAt: "2026-05-10T08:30:00Z",
-    notes: "Đã khớp với tài khoản Vietcombank, chứng từ thanh toán và hóa đơn đầy đủ.",
-    timeline: [
-      { status: "Tạo deal", time: "10/05/2026 08:30", done: true },
-      { status: "Ký hợp đồng", time: "12/05/2026 14:00", done: true },
-      { status: "Xác nhận thu tiền", time: "14/05/2026 09:15", done: true },
-      { status: "Đối soát hoàn tất", time: "15/05/2026 10:00", done: true },
-    ],
-  },
-  {
-    id: "DEAL-2026-002",
-    title: "Gói giải pháp chuyển đổi số doanh nghiệp ERP",
-    customer: {
-      name: "Trần Thị Kim Oanh",
-      phone: "0987 654 321",
-      email: "oanh.ttk@greenlogistics.com",
-      company: "Công ty TNHH Logistics Xanh",
-      address: "Khu công nghiệp Sóng Thần, Dĩ An, Bình Dương",
-    },
-    value: 350000000,
-    commissionRate: 12,
-    expectedCommission: 42000000,
-    status: "pending_reconcile",
-    statusLabel: "Chờ đối soát",
-    statusColor: "bg-warning-subtle text-warning border-warning-subtle",
-    owner: "Phạm Thanh Thảo (Senior Consultant)",
-    createdAt: "2026-06-01T09:00:00Z",
-    notes: "Khách đã chuyển khoản 50% cọc. Chờ kế toán xác nhận số dư tài khoản ngân hàng.",
-    timeline: [
-      { status: "Tạo deal", time: "01/06/2026 09:00", done: true },
-      { status: "Ký hợp đồng", time: "03/06/2026 16:30", done: true },
-      { status: "Xác nhận thu tiền", time: "Chờ xác nhận", done: false },
-      { status: "Đối soát hoàn tất", time: "", done: false },
-    ],
-  },
-  {
-    id: "DEAL-2026-003",
-    title: "Tuyển dụng Headhunt vị trí CTO & Marketing Director",
-    customer: {
-      name: "Hoàng Đức Trung",
-      phone: "0912 345 678",
-      email: "trung.hd@alphacapital.vn",
-      company: "Quỹ đầu tư Alpha Capital",
-      address: "Tòa nhà Keangnam, Cầu Giấy, Hà Nội",
-    },
-    value: 85000000,
-    commissionRate: 15,
-    expectedCommission: 12750000,
-    status: "processing",
-    statusLabel: "Đang xử lý",
-    statusColor: "bg-info-subtle text-info border-info-subtle",
-    owner: "Nguyễn Hoàng Nam (HR Specialist)",
-    createdAt: "2026-06-12T14:20:00Z",
-    notes: "Đang gửi hồ sơ ứng viên vòng 2. Dự kiến chốt và thu tiền trong tháng 6.",
-    timeline: [
-      { status: "Tạo deal", time: "12/06/2026 14:20", done: true },
-      { status: "Ký hợp đồng", time: "Chờ ký kết", done: false },
-      { status: "Xác nhận thu tiền", time: "", done: false },
-      { status: "Đối soát hoàn tất", time: "", done: false },
-    ],
-  },
-  {
-    id: "DEAL-2026-004",
-    title: "Cung cấp nhân sự IT Outsource (3 Java Devs)",
-    customer: {
-      name: "David Nguyen",
-      phone: "0933 888 999",
-      email: "david.nguyen@viasolutions.com.vn",
-      company: "Công ty Cổ phần Giải pháp ViaSolutions",
-      address: "Tòa nhà Etown, Tân Bình, TP. Hồ Chí Minh",
-    },
-    value: 180000000,
-    commissionRate: 8,
-    expectedCommission: 14400000,
-    status: "reconciled",
-    statusLabel: "Đã đối soát",
-    statusColor: "bg-success-subtle text-success border-success-subtle",
-    owner: "Lê Minh Tuấn (Sales Manager)",
-    createdAt: "2026-05-18T10:15:00Z",
-    notes: "Khách hàng thanh toán đúng hạn kỳ 1. Đã đối soát khớp hoàn toàn.",
-    timeline: [
-      { status: "Tạo deal", time: "18/05/2026 10:15", done: true },
-      { status: "Ký hợp đồng", time: "20/05/2026 11:00", done: true },
-      { status: "Xác nhận thu tiền", time: "24/05/2026 14:45", done: true },
-      { status: "Đối soát hoàn tất", time: "25/05/2026 15:30", done: true },
-    ],
-  },
-  {
-    id: "DEAL-2026-005",
-    title: "Tư vấn setup hệ thống bảo mật & Cloud AWS",
-    customer: {
-      name: "Phùng Hoài Nam",
-      phone: "0977 111 222",
-      email: "nam.ph@securecyber.com",
-      company: "Công ty Cổ phần An ninh mạng SecureCyber",
-      address: "Tòa nhà Lotte, Ba Đình, Hà Nội",
-    },
-    value: 95000000,
-    commissionRate: 10,
-    expectedCommission: 9500000,
-    status: "failed",
-    statusLabel: "Hủy bỏ",
-    statusColor: "bg-danger-subtle text-danger border-danger-subtle",
-    owner: "Phạm Thanh Thảo (Senior Consultant)",
-    createdAt: "2026-05-02T09:00:00Z",
-    notes: "Khách hàng hủy dự án do thay đổi ngân sách hoạt động năm 2026. Không tiến hành đối soát.",
-    timeline: [
-      { status: "Tạo deal", time: "02/05/2026 09:00", done: true },
-      { status: "Ký hợp đồng", time: "Hủy bỏ", done: false },
-      { status: "Xác nhận thu tiền", time: "", done: false },
-      { status: "Đối soát hoàn tất", time: "", done: false },
-    ],
-  },
-];
+const ROLE_ID_MAP = {
+  "69fc5af582ef85451120772a": "admin",
+  "69fc5af582ef85451120772b": "bangiamdoc",
+  "69fc5af582ef85451120772c": "truongbophan",
+  "69fc5af582ef85451120772d": "nhansu",
+  "69fc5af582ef85451120772e": "daily",
+  "69fc5af682ef85451120772f": "congtacvien",
+  "69fc5af782ef854511207730": "user",
+};
 
-export function AccountingPlaceholderPage() {
+const normalizeRoleKey = (roleValue) => {
+  return String(roleValue || "")
+    .trim()
+    .toLowerCase()
+    .replace(/đ/g, "d")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]/g, "");
+};
+
+const getUserRoleKey = (user) => {
+  const roleFromObject = user?.role?.name || user?.roleName || user?.role || user?.role_key || "";
+  const roleFromId = ROLE_ID_MAP[user?.roleId];
+  return normalizeRoleKey(roleFromObject || roleFromId || "user");
+};
+
+const getStatusProps = (status) => {
+  switch (status) {
+    case "pending":
+      return {
+        label: "Chờ đối soát",
+        color: "bg-warning-subtle text-warning border-warning-subtle",
+      };
+    case "approved":
+      return {
+        label: "Đã đối soát",
+        color: "bg-success-subtle text-success border-success-subtle",
+      };
+    case "paid":
+      return {
+        label: "Đã thanh toán",
+        color: "bg-primary-subtle text-primary border-primary-subtle",
+      };
+    case "cancelled":
+      return {
+        label: "Hủy bỏ",
+        color: "bg-danger-subtle text-danger border-danger-subtle",
+      };
+    default:
+      return {
+        label: status || "Không rõ",
+        color: "bg-secondary-subtle text-secondary border-secondary-subtle",
+      };
+  }
+};
+
+export function AccountingPlaceholderPage({ currentUser }) {
+  const toast = useToast();
+  
+  const [commissions, setCommissions] = useState([]);
+  const [allCommissionsForMetrics, setAllCommissionsForMetrics] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  
   const [selectedDeal, setSelectedDeal] = useState(null);
   const [dealPage, setDealPage] = useState(1);
+  const [dealPageCount, setDealPageCount] = useState(1);
+  const [totalDeals, setTotalDeals] = useState(0);
+  
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [actionLoading, setActionLoading] = useState(false);
+  const [stats, setStats] = useState(null);
 
-  const DEAL_PAGE_SIZE = 20;
+  const DEAL_PAGE_SIZE = 10;
 
-  // Calculate stats based on mock data
-  const totalExpectedCommission = MOCK_DEALS
-    .filter((d) => d.status !== "failed")
-    .reduce((sum, d) => sum + d.expectedCommission, 0);
+  const userRole = useMemo(() => getUserRoleKey(currentUser), [currentUser]);
+  const isAdmin = useMemo(() => ["admin", "bangiamdoc", "truongbophan"].includes(userRole), [userRole]);
 
-  const totalRecordedRevenue = MOCK_DEALS
-    .filter((d) => d.status === "reconciled")
-    .reduce((sum, d) => sum + d.value, 0);
+  // Fetch list of commissions
+  const fetchCommissions = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const endpoint = isAdmin ? "/commissions/admin" : "/commissions/my";
+      const params = new URLSearchParams({
+        page: dealPage,
+        limit: DEAL_PAGE_SIZE,
+      });
+      if (statusFilter) params.append("status", statusFilter);
+      if (searchTerm) params.append("search", searchTerm);
 
-  const eligibleDealsCount = MOCK_DEALS.filter((d) => d.status !== "failed").length;
-  const reconciledCount = MOCK_DEALS.filter((d) => d.status === "reconciled").length;
+      const response = await authFetch(`${API_BASE_URL}${endpoint}?${params.toString()}`, {
+        headers: getAuthHeaders(),
+      });
+      const json = await response.json().catch(() => null);
+      if (!response.ok || !json?.success) {
+        throw new Error(json?.message || "Không thể tải danh sách đối soát.");
+      }
 
-  const dealPageCount = Math.max(
-    1,
-    Math.ceil(MOCK_DEALS.length / DEAL_PAGE_SIZE),
-  );
-  const safeDealPage = Math.min(dealPage, dealPageCount);
-  const paginatedDeals = MOCK_DEALS.slice(
-    (safeDealPage - 1) * DEAL_PAGE_SIZE,
-    safeDealPage * DEAL_PAGE_SIZE,
-  );
+      setCommissions(json.data?.items || []);
+      setTotalDeals(json.data?.pagination?.total || 0);
+      setDealPageCount(json.data?.pagination?.pages || 1);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Đã xảy ra lỗi khi tải danh sách hoa hồng.");
+    } finally {
+      setLoading(false);
+    }
+  }, [isAdmin, dealPage, statusFilter, searchTerm]);
 
-  const metrics = [
+  // Fetch metrics data
+  const fetchMetricsData = useCallback(async () => {
+    try {
+      if (isAdmin) {
+        const response = await authFetch(`${API_BASE_URL}/commissions/admin?limit=1000`, {
+          headers: getAuthHeaders(),
+        });
+        const json = await response.json().catch(() => null);
+        if (json?.success) {
+          setAllCommissionsForMetrics(json.data?.items || []);
+        }
+      } else {
+        // CTV Stats
+        const responseStats = await authFetch(`${API_BASE_URL}/commissions/stats`, {
+          headers: getAuthHeaders(),
+        });
+        const jsonStats = await responseStats.json().catch(() => null);
+        if (jsonStats?.success) {
+          setStats(jsonStats.data);
+        }
+
+        // CTV personal list
+        const responseMy = await authFetch(`${API_BASE_URL}/commissions/my?limit=1000`, {
+          headers: getAuthHeaders(),
+        });
+        const jsonMy = await responseMy.json().catch(() => null);
+        if (jsonMy?.success) {
+          setAllCommissionsForMetrics(jsonMy.data?.items || []);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch metrics:", err);
+    }
+  }, [isAdmin]);
+
+  useEffect(() => {
+    fetchCommissions();
+  }, [fetchCommissions]);
+
+  useEffect(() => {
+    fetchMetricsData();
+  }, [fetchMetricsData]);
+
+  // Calculate Metrics from allCommissionsForMetrics
+  const { totalExpectedCommission, totalRecordedRevenue, eligibleDealsCount, reconciledCount } = useMemo(() => {
+    const list = allCommissionsForMetrics || [];
+    
+    const expected = list
+      .filter((d) => d.status !== "cancelled")
+      .reduce((sum, d) => sum + (d.commissionAmount || 0), 0);
+
+    const revenue = list
+      .filter((d) => d.status === "approved" || d.status === "paid")
+      .reduce((sum, d) => sum + (d.productPrice || 0), 0);
+
+    const eligible = list.filter((d) => d.status !== "cancelled").length;
+    const reconciled = list.filter((d) => d.status === "approved" || d.status === "paid").length;
+
+    return {
+      totalExpectedCommission: expected,
+      totalRecordedRevenue: revenue,
+      eligibleDealsCount: eligible,
+      reconciledCount: reconciled,
+    };
+  }, [allCommissionsForMetrics]);
+
+  const metrics = useMemo(() => [
     { label: "Hoa hồng dự kiến", value: totalExpectedCommission.toLocaleString("vi-VN") + " VND", accent: "#4F86F7" },
     { label: "Doanh thu đã ghi nhận", value: totalRecordedRevenue.toLocaleString("vi-VN") + " VND", accent: "#50B8B0" },
     { label: "Hồ sơ đủ điều kiện", value: `${eligibleDealsCount} hồ sơ`, accent: "#A162F7" },
     { label: "Đối soát kế toán", value: `Đã đối soát ${reconciledCount}/${eligibleDealsCount}`, accent: "#F79F57" },
-  ];
+  ], [totalExpectedCommission, totalRecordedRevenue, eligibleDealsCount, reconciledCount]);
+
+  // Handle status updates (Admin only)
+  const handleUpdateStatus = async (commissionId, newStatus) => {
+    if (actionLoading) return;
+    setActionLoading(true);
+    try {
+      const response = await authFetch(`${API_BASE_URL}/commissions/admin/${commissionId}/status`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...getAuthHeaders(),
+        },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      const json = await response.json().catch(() => null);
+      if (!response.ok || !json?.success) {
+        throw new Error(json?.message || "Cập nhật trạng thái thất bại.");
+      }
+
+      const updatedItem = json.data;
+      const mappedUpdatedItem = {
+        id: updatedItem._id || updatedItem.id,
+        leadId: updatedItem.leadId,
+        customerPhone: selectedDeal?.customerPhone || '',
+        customerEmail: selectedDeal?.customerEmail || '',
+        note: selectedDeal?.note || '',
+        collaborator: selectedDeal?.collaborator,
+        customerName: updatedItem.customerName,
+        productInterest: updatedItem.productInterest,
+        productPrice: updatedItem.productPrice,
+        collaboratorRank: updatedItem.collaboratorRank,
+        commissionRate: updatedItem.commissionRate,
+        commissionAmount: updatedItem.commissionAmount,
+        status: updatedItem.status,
+        createdAt: updatedItem.createdAt,
+        updatedAt: updatedItem.updatedAt
+      };
+
+      toast.success(`Cập nhật trạng thái đối soát thành công sang: ${getStatusProps(newStatus).label}`, "Thành công");
+
+      // Update state
+      setCommissions((prev) => prev.map((item) => item.id === commissionId ? mappedUpdatedItem : item));
+      setAllCommissionsForMetrics((prev) => prev.map((item) => (item.id === commissionId || item._id === commissionId) ? { ...item, status: newStatus } : item));
+      setSelectedDeal(mappedUpdatedItem);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Đã xảy ra lỗi khi cập nhật trạng thái.", "Lỗi");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Construct dynamic timeline based on status
+  const selectedDealTimeline = useMemo(() => {
+    if (!selectedDeal) return [];
+    const createdStr = new Date(selectedDeal.createdAt).toLocaleString("vi-VN", { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' });
+    const updatedStr = new Date(selectedDeal.updatedAt).toLocaleString("vi-VN", { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' });
+
+    if (selectedDeal.status === "cancelled") {
+      return [
+        { status: "Tạo deal", time: createdStr, done: true },
+        { status: "Giao dịch bị hủy", time: updatedStr, done: true },
+      ];
+    }
+
+    return [
+      { status: "Tạo deal", time: createdStr, done: true },
+      { status: "Ký hợp đồng", time: createdStr, done: true },
+      { 
+        status: "Xác nhận thu tiền", 
+        time: (selectedDeal.status === "approved" || selectedDeal.status === "paid") ? updatedStr : "Chờ xác nhận", 
+        done: (selectedDeal.status === "approved" || selectedDeal.status === "paid") 
+      },
+      { 
+        status: selectedDeal.status === "paid" ? "Đã thanh toán" : "Đối soát hoàn tất", 
+        time: selectedDeal.status === "paid" ? updatedStr : (selectedDeal.status === "approved" ? updatedStr : ""), 
+        done: (selectedDeal.status === "approved" || selectedDeal.status === "paid") 
+      },
+    ];
+  }, [selectedDeal]);
 
   return (
     <div className="container-fluid pt-3 pb-4" style={{ maxWidth: "1600px" }}>
       <div className="d-flex flex-column flex-xl-row justify-content-between align-items-xl-center gap-3 mb-3">
         <div>
-
           <h4 className="fw-bold text-body-emphasis mb-1">Đối soát & Quản lý Deal</h4>
         </div>
 
         <div className="d-flex flex-wrap gap-2">
-          <button id="nghiepvu-sync-crm-btn" className="btn btn-sm btn-outline-primary d-inline-flex align-items-center" type="button" onClick={() => alert("Đang đồng bộ dữ liệu với hệ thống CRM...")}>
+          <button id="nghiepvu-sync-crm-btn" className="btn btn-sm btn-outline-primary d-inline-flex align-items-center" type="button" onClick={() => toast.info("Đang đồng bộ dữ liệu với hệ thống CRM...", "Đồng bộ CRM")}>
             <RefreshCwIcon />
             Đồng bộ CRM
           </button>
-          <button className="btn btn-sm btn-primary d-inline-flex align-items-center" type="button" onClick={() => alert("Đang tải cấu hình thiết lập đối soát...")}>
+          <button className="btn btn-sm btn-primary d-inline-flex align-items-center" type="button" onClick={() => toast.info("Đang tải cấu hình thiết lập đối soát...", "Cấu hình")}>
             <SettingsIcon />
             Thiết lập kế toán
           </button>
@@ -236,17 +332,45 @@ export function AccountingPlaceholderPage() {
         {/* Deal List Column */}
         <div className="col-12 col-xl-8">
           <section id="nghiepvu-empty-state" className="card border-0 h-100" style={{ borderRadius: "8px", boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
-            <div className="card-header bg-transparent border-bottom py-3 px-3 d-flex justify-content-between align-items-center">
-              <h6 className="fw-bold text-body-emphasis mb-0">Danh sách Deal cần đối soát (Dữ liệu mẫu)</h6>
-              <span className="badge bg-primary-subtle text-primary px-2 py-1">{MOCK_DEALS.length} Deal</span>
+            <div className="card-header bg-transparent border-bottom py-3 px-3 d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2">
+              <h6 className="fw-bold text-body-emphasis mb-0">Danh sách Deal cần đối soát</h6>
+              <div className="d-flex flex-wrap align-items-center gap-2">
+                <input
+                  type="text"
+                  placeholder="Tìm kiếm khách hàng/sản phẩm..."
+                  className="form-control form-control-sm bg-body border-1"
+                  style={{ width: "200px", fontSize: "12px" }}
+                  value={searchTerm}
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value);
+                    setDealPage(1);
+                  }}
+                />
+                <select
+                  className="form-select form-select-sm bg-body border-1"
+                  style={{ width: "130px", fontSize: "12px" }}
+                  value={statusFilter}
+                  onChange={(e) => {
+                    setStatusFilter(e.target.value);
+                    setDealPage(1);
+                  }}
+                >
+                  <option value="">Tất cả trạng thái</option>
+                  <option value="pending">Chờ đối soát</option>
+                  <option value="approved">Đã đối soát</option>
+                  <option value="paid">Đã thanh toán</option>
+                  <option value="cancelled">Hủy bỏ</option>
+                </select>
+                <span className="badge bg-primary-subtle text-primary px-2 py-1">{totalDeals} Deal</span>
+              </div>
             </div>
             <div className="card-body p-0">
               <div className="table-responsive">
                 <table className="table table-hover align-middle mb-0" style={{ fontSize: "13px" }}>
                   <thead className="table-light">
                     <tr>
-                      <th className="ps-3 py-3 text-body-secondary fw-semibold text-nowrap" style={{ width: "160px" }}>Mã Deal / Dự án</th>
-                      <th className="py-3 text-body-secondary fw-semibold text-nowrap" style={{ width: "140px" }}>Khách hàng</th>
+                      <th className="ps-3 py-3 text-body-secondary fw-semibold text-nowrap" style={{ width: "180px" }}>Mã Deal / Dự án</th>
+                      <th className="py-3 text-body-secondary fw-semibold text-nowrap" style={{ width: "160px" }}>Khách hàng</th>
                       <th className="py-3 text-body-secondary fw-semibold text-nowrap">Giá trị hợp đồng</th>
                       <th className="py-3 text-body-secondary fw-semibold text-nowrap">Hoa hồng dự kiến</th>
                       <th className="py-3 text-body-secondary fw-semibold text-nowrap">Trạng thái</th>
@@ -254,67 +378,95 @@ export function AccountingPlaceholderPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {paginatedDeals.map((deal) => (
-                      <tr key={deal.id} style={{ cursor: "pointer" }} onClick={() => setSelectedDeal(deal)}>
-                        <td className="ps-3 py-3 text-nowrap" style={{ maxWidth: "160px" }}>
-                          <div className="fw-bold text-body-emphasis">{deal.id}</div>
-                          <div className="text-body-secondary small text-truncate mt-1" style={{ maxWidth: "140px" }} title={deal.title}>
-                            {deal.title}
+                    {loading ? (
+                      <tr>
+                        <td colSpan="6" className="text-center py-5">
+                          <div className="spinner-border spinner-border-sm text-primary" role="status">
+                            <span className="visually-hidden">Loading...</span>
                           </div>
-                        </td>
-                        <td className="py-3 text-nowrap" style={{ maxWidth: "140px" }}>
-                          <div className="fw-semibold text-body-emphasis">{deal.customer.name}</div>
-                          <div className="text-body-secondary small mt-0.5 text-truncate" style={{ maxWidth: "120px" }} title={deal.customer.company}>
-                            {deal.customer.company}
-                          </div>
-                        </td>
-                        <td className="py-3 fw-medium text-body-emphasis text-nowrap">
-                          {deal.value.toLocaleString("vi-VN")} VND
-                        </td>
-                        <td className="py-3 text-nowrap">
-                          <div className="fw-semibold text-success">
-                            {deal.expectedCommission.toLocaleString("vi-VN")} VND
-                          </div>
-                          <div className="small text-body-secondary">({deal.commissionRate}%)</div>
-                        </td>
-                        <td className="py-3 text-nowrap">
-                          <span className={`badge border px-2 py-1.5 ${deal.statusColor}`}>
-                            {deal.statusLabel}
-                          </span>
-                        </td>
-                        <td className="pe-3 py-3 text-end">
-                          <button
-                            className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center"
-                            style={{ width: "32px", height: "32px", padding: 0 }}
-                            type="button"
-                            title="Xem chi tiết Deal"
-                            aria-label="Xem chi tiết Deal"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedDeal(deal);
-                            }}
-                          >
-                            <EyeIcon />
-                          </button>
                         </td>
                       </tr>
-                    ))}
+                    ) : error ? (
+                      <tr>
+                        <td colSpan="6" className="text-center py-4 text-danger">{error}</td>
+                      </tr>
+                    ) : commissions.length === 0 ? (
+                      <tr>
+                        <td colSpan="6" className="text-center py-5 text-body-secondary">
+                          Không tìm thấy bản ghi đối soát nào.
+                        </td>
+                      </tr>
+                    ) : (
+                      commissions.map((deal) => {
+                        const statusProps = getStatusProps(deal.status);
+                        return (
+                          <tr key={deal.id} style={{ cursor: "pointer" }} onClick={() => setSelectedDeal(deal)}>
+                            <td className="ps-3 py-3 text-nowrap" style={{ maxWidth: "180px" }}>
+                              <div className="fw-bold text-body-emphasis" style={{ fontSize: "12px" }} title={deal.id}>
+                                #{deal.id.slice(-8).toUpperCase()}
+                              </div>
+                              <div className="text-body-secondary small text-truncate mt-1" style={{ maxWidth: "160px" }} title={deal.productInterest}>
+                                {deal.productInterest}
+                              </div>
+                            </td>
+                            <td className="py-3 text-nowrap" style={{ maxWidth: "160px" }}>
+                              <div className="fw-semibold text-body-emphasis">{deal.customerName}</div>
+                              {isAdmin && deal.collaborator && (
+                                <div className="text-body-secondary small mt-0.5 text-truncate" style={{ maxWidth: "140px" }} title={deal.collaborator.fullName}>
+                                  CTV: {deal.collaborator.fullName}
+                                </div>
+                              )}
+                            </td>
+                            <td className="py-3 fw-medium text-body-emphasis text-nowrap">
+                              {deal.productPrice.toLocaleString("vi-VN")} VND
+                            </td>
+                            <td className="py-3 text-nowrap">
+                              <div className="fw-semibold text-success">
+                                {deal.commissionAmount.toLocaleString("vi-VN")} VND
+                              </div>
+                              <div className="small text-body-secondary">({(deal.commissionRate * 100).toFixed(0)}%)</div>
+                            </td>
+                            <td className="py-3 text-nowrap">
+                              <span className={`badge border px-2 py-1.5 ${statusProps.color}`}>
+                                {statusProps.label}
+                              </span>
+                            </td>
+                            <td className="pe-3 py-3 text-end">
+                              <button
+                                className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center"
+                                style={{ width: "32px", height: "32px", padding: 0 }}
+                                type="button"
+                                title="Xem chi tiết Deal"
+                                aria-label="Xem chi tiết Deal"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedDeal(deal);
+                                }}
+                              >
+                                <EyeIcon />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
                   </tbody>
                 </table>
               </div>
-              {MOCK_DEALS.length > DEAL_PAGE_SIZE && (
+              
+              {!loading && !error && dealPageCount > 1 && (
                 <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 p-3 border-top">
                   <span className="text-body-secondary" style={{ fontSize: "13px" }}>
-                    Hiển thị {(safeDealPage - 1) * DEAL_PAGE_SIZE + 1}-
-                    {Math.min(safeDealPage * DEAL_PAGE_SIZE, MOCK_DEALS.length)} trong{" "}
-                    {MOCK_DEALS.length} Deal
+                    Hiển thị {(dealPage - 1) * DEAL_PAGE_SIZE + 1}-
+                    {Math.min(dealPage * DEAL_PAGE_SIZE, totalDeals)} trong{" "}
+                    {totalDeals} Deal
                   </span>
                   <div className="btn-group gap-2" role="group" aria-label="Phân trang Deal">
                     <button
                       type="button"
                       className="btn btn-sm btn-outline-secondary"
                       onClick={() => setDealPage((page) => Math.max(1, page - 1))}
-                      disabled={safeDealPage === 1}
+                      disabled={dealPage === 1}
                     >
                       Trước
                     </button>
@@ -323,7 +475,7 @@ export function AccountingPlaceholderPage() {
                         <button
                           key={page}
                           type="button"
-                          className={`btn btn-sm ${page === safeDealPage ? "btn-primary" : "btn-outline-secondary"}`}
+                          className={`btn btn-sm ${page === dealPage ? "btn-primary" : "btn-outline-secondary"}`}
                           onClick={() => setDealPage(page)}
                         >
                           {page}
@@ -333,10 +485,8 @@ export function AccountingPlaceholderPage() {
                     <button
                       type="button"
                       className="btn btn-sm btn-outline-secondary"
-                      onClick={() =>
-                        setDealPage((page) => Math.min(dealPageCount, page + 1))
-                      }
-                      disabled={safeDealPage === dealPageCount}
+                      onClick={() => setDealPage((page) => Math.min(dealPageCount, page + 1))}
+                      disabled={dealPage === dealPageCount}
                     >
                       Sau
                     </button>
@@ -372,8 +522,8 @@ export function AccountingPlaceholderPage() {
                 ))}
               </div>
 
-              <div className="rounded bg-warning-subtle text-warning-emphasis p-3 mt-4" style={{ fontSize: "12px", lineHeight: 1.5 }}>
-                Bảng trên là dữ liệu demo của quy trình đối soát kế toán. Khi kết nối API thật với CRM và phân hệ Kế toán, dữ liệu sẽ tự động đồng bộ thời gian thực.
+              <div className="rounded bg-info-subtle text-info-emphasis p-3 mt-4" style={{ fontSize: "12px", lineHeight: 1.5 }}>
+                Dữ liệu đối soát hoa hồng dựa trên hồ sơ khách hàng đã gửi và được cập nhật trạng thái bởi bộ phận Kế toán / Admin.
               </div>
             </div>
           </section>
@@ -389,9 +539,9 @@ export function AccountingPlaceholderPage() {
           >
             <div className="d-flex flex-shrink-0 justify-content-between align-items-center border-bottom p-4">
               <h5 className="m-0 fw-bold text-body-emphasis d-flex align-items-center gap-2">
-                <span>Chi tiết Deal: {selectedDeal.id}</span>
-                <span className={`badge border font-normal ${selectedDeal.statusColor}`} style={{ fontSize: "12px" }}>
-                  {selectedDeal.statusLabel}
+                <span>Chi tiết Deal: #{selectedDeal.id.slice(-8).toUpperCase()}</span>
+                <span className={`badge border font-normal ${getStatusProps(selectedDeal.status).color}`} style={{ fontSize: "12px" }}>
+                  {getStatusProps(selectedDeal.status).label}
                 </span>
               </h5>
               <button className="btn btn-sm btn-light border" type="button" onClick={() => setSelectedDeal(null)}>
@@ -405,27 +555,27 @@ export function AccountingPlaceholderPage() {
                 <h6 className="fw-bold text-body-emphasis border-bottom pb-2 mb-3">Thông tin Deal</h6>
                 <div className="row g-3">
                   <div className="col-12">
-                    <span className="text-body-secondary small d-block">Tên Deal / Dự án</span>
-                    <span className="fw-semibold text-body-emphasis">{selectedDeal.title}</span>
+                    <span className="text-body-secondary small d-block">Sản phẩm quan tâm</span>
+                    <span className="fw-semibold text-body-emphasis">{selectedDeal.productInterest}</span>
                   </div>
                   <div className="col-6">
                     <span className="text-body-secondary small d-block">Giá trị hợp đồng</span>
                     <span className="fw-bold text-primary" style={{ fontSize: "16px" }}>
-                      {selectedDeal.value.toLocaleString("vi-VN")} VND
+                      {selectedDeal.productPrice.toLocaleString("vi-VN")} VND
                     </span>
                   </div>
                   <div className="col-6">
-                    <span className="text-body-secondary small d-block">Hoa hồng dự kiến ({selectedDeal.commissionRate}%)</span>
+                    <span className="text-body-secondary small d-block">Hoa hồng thực nhận ({(selectedDeal.commissionRate * 100).toFixed(0)}%)</span>
                     <span className="fw-bold text-success" style={{ fontSize: "16px" }}>
-                      {selectedDeal.expectedCommission.toLocaleString("vi-VN")} VND
+                      {selectedDeal.commissionAmount.toLocaleString("vi-VN")} VND
                     </span>
                   </div>
                   <div className="col-6">
-                    <span className="text-body-secondary small d-block">Người phụ trách (Owner)</span>
-                    <span className="text-body-emphasis">{selectedDeal.owner}</span>
+                    <span className="text-body-secondary small d-block">Cấp bậc CTV ghi nhận</span>
+                    <span className="text-body-emphasis">{selectedDeal.collaboratorRank || "—"}</span>
                   </div>
                   <div className="col-6">
-                    <span className="text-body-secondary small d-block">Ngày tạo hồ sơ</span>
+                    <span className="text-body-secondary small d-block">Ngày ghi nhận hoa hồng</span>
                     <span className="text-body-emphasis">{new Date(selectedDeal.createdAt).toLocaleDateString("vi-VN")}</span>
                   </div>
                 </div>
@@ -437,26 +587,39 @@ export function AccountingPlaceholderPage() {
                 <div className="row g-3">
                   <div className="col-6">
                     <span className="text-body-secondary small d-block">Họ và tên</span>
-                    <span className="fw-semibold text-body-emphasis">{selectedDeal.customer.name}</span>
+                    <span className="fw-semibold text-body-emphasis">{selectedDeal.customerName}</span>
                   </div>
                   <div className="col-6">
                     <span className="text-body-secondary small d-block">Số điện thoại</span>
-                    <span className="text-body-emphasis">{selectedDeal.customer.phone}</span>
-                  </div>
-                  <div className="col-6">
-                    <span className="text-body-secondary small d-block">Email</span>
-                    <span className="text-body-emphasis">{selectedDeal.customer.email}</span>
-                  </div>
-                  <div className="col-6">
-                    <span className="text-body-secondary small d-block">Doanh nghiệp</span>
-                    <span className="text-body-emphasis">{selectedDeal.customer.company}</span>
+                    <span className="text-body-emphasis">{selectedDeal.customerPhone || "—"}</span>
                   </div>
                   <div className="col-12">
-                    <span className="text-body-secondary small d-block">Địa chỉ trụ sở</span>
-                    <span className="text-body-emphasis">{selectedDeal.customer.address}</span>
+                    <span className="text-body-secondary small d-block">Email</span>
+                    <span className="text-body-emphasis text-break">{selectedDeal.customerEmail || "—"}</span>
                   </div>
                 </div>
               </div>
+
+              {/* Collaborator Info (Admin only) */}
+              {isAdmin && selectedDeal.collaborator && (
+                <div className="mb-4">
+                  <h6 className="fw-bold text-body-emphasis border-bottom pb-2 mb-3">Thông tin Cộng tác viên giới thiệu</h6>
+                  <div className="row g-3">
+                    <div className="col-6">
+                      <span className="text-body-secondary small d-block">Họ và tên CTV</span>
+                      <span className="fw-semibold text-body-emphasis">{selectedDeal.collaborator.fullName}</span>
+                    </div>
+                    <div className="col-6">
+                      <span className="text-body-secondary small d-block">Số điện thoại CTV</span>
+                      <span className="text-body-emphasis">{selectedDeal.collaborator.phone || "—"}</span>
+                    </div>
+                    <div className="col-12">
+                      <span className="text-body-secondary small d-block">Email CTV</span>
+                      <span className="text-body-emphasis text-break">{selectedDeal.collaborator.email || "—"}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Progress Timeline */}
               <div className="mb-4">
@@ -468,16 +631,16 @@ export function AccountingPlaceholderPage() {
                       className="position-absolute"
                       style={{
                         top: "12px",
-                        left: `${100 / selectedDeal.timeline.length / 2}%`,
-                        right: `${100 / selectedDeal.timeline.length / 2}%`,
+                        left: `${100 / selectedDealTimeline.length / 2}%`,
+                        right: `${100 / selectedDealTimeline.length / 2}%`,
                         height: "2px",
                         backgroundColor: "#e2e8f0",
                         zIndex: 0,
                       }}
                     ></div>
                     <div className="d-flex justify-content-between align-items-start position-relative w-100" style={{ zIndex: 1 }}>
-                      {selectedDeal.timeline.map((step, idx) => (
-                        <div key={idx} className="d-flex flex-column align-items-center text-center flex-fill" style={{ width: `${100 / selectedDeal.timeline.length}%` }}>
+                      {selectedDealTimeline.map((step, idx) => (
+                        <div key={idx} className="d-flex flex-column align-items-center text-center flex-fill" style={{ width: `${100 / selectedDealTimeline.length}%` }}>
                           <div
                             className="rounded-circle d-flex align-items-center justify-content-center mb-2"
                             style={{
@@ -509,19 +672,65 @@ export function AccountingPlaceholderPage() {
               </div>
 
               {/* Remarks/Notes */}
-              {selectedDeal.notes && (
+              {selectedDeal.note && (
                 <div className="bg-body-secondary/30 border rounded p-3">
-                  <div className="fw-semibold small text-body-emphasis mb-1">Ghi chú đối soát:</div>
+                  <div className="fw-semibold small text-body-emphasis mb-1">Ghi chú từ CTV:</div>
                   <p className="text-body-secondary mb-0 small" style={{ lineHeight: 1.5 }}>
-                    {selectedDeal.notes}
+                    {selectedDeal.note}
                   </p>
                 </div>
               )}
             </div>
+            
+            {/* Modal Actions */}
             <div className="d-flex flex-shrink-0 justify-content-end gap-2 border-top p-4">
-              <button type="button" className="btn btn-primary" onClick={() => setSelectedDeal(null)}>
-                Đã hiểu
+              <button type="button" className="btn btn-light border" onClick={() => setSelectedDeal(null)}>
+                Đóng
               </button>
+              
+              {/* Admin decision buttons */}
+              {isAdmin && selectedDeal.status === "pending" && (
+                <>
+                  <button
+                    type="button"
+                    className="btn btn-danger"
+                    disabled={actionLoading}
+                    onClick={() => handleUpdateStatus(selectedDeal.id, "cancelled")}
+                  >
+                    Hủy giao dịch
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-success"
+                    disabled={actionLoading}
+                    onClick={() => handleUpdateStatus(selectedDeal.id, "approved")}
+                  >
+                    Duyệt đối soát
+                  </button>
+                </>
+              )}
+
+              {/* Admin payout button */}
+              {isAdmin && selectedDeal.status === "approved" && (
+                <>
+                  <button
+                    type="button"
+                    className="btn btn-danger"
+                    disabled={actionLoading}
+                    onClick={() => handleUpdateStatus(selectedDeal.id, "cancelled")}
+                  >
+                    Hủy giao dịch
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    disabled={actionLoading}
+                    onClick={() => handleUpdateStatus(selectedDeal.id, "paid")}
+                  >
+                    Xác nhận thanh toán
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>

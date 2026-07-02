@@ -1057,9 +1057,7 @@ export const DocumentsPage = ({ currentUser, filterDepartmentId, forceCategoryNa
       setCategoryError("");
 
       try {
-        const categoryData = canManageCategories
-          ? await getDocumentCategories()
-          : await getReadableDocumentCategories();
+        const categoryData = await getDocumentCategories();
 
         if (isMounted) {
           setCategories(categoryData);
