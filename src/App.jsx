@@ -615,6 +615,7 @@ const normalizeUser = (userData) => {
       userData.permissions,
       userData.role?.permissions,
       userData.roleId?.permissions,
+      userData.grantedPermissions,
     ),
     // Quyền được admin/bangiamdoc cấp thêm (mảng string, ví dụ: ["view_product_details"])
     grantedPermissions: normalizePermissionList(userData.grantedPermissions),
@@ -726,7 +727,7 @@ function App() {
   const [isAiChatOpen, setIsAiChatOpen] = useState(false);
   const [supportInitialTab, setSupportInitialTab] = useState("faq");
   const [user, setUser] = useState(() => getStoredUser());
-  const [isNotificationMenuOpen, setIsNotificationMenuOpen] = useState(false);
+  const [isNotificationMenuOpen] = useState(false);
   const [authMode, setAuthMode] = useState(() => getAuthModeFromLocation()); // 'login', 'register', 'forgot', 'reset-password'
   const [registerLayoutMode, setRegisterLayoutMode] = useState("account");
 
@@ -1164,7 +1165,7 @@ function App() {
     }
   };
 
-  const handleCloseMobileSidebar = () => {
+  const handleCloseMobileSidebar = useCallback(() => {
     const menubar = document.getElementById("menubar");
     if (menubar) {
       menubar.classList.remove("open");
@@ -1173,14 +1174,14 @@ function App() {
       toggler.classList.remove("active");
     });
     document.documentElement.classList.remove("mobile-sidebar-open");
-  };
+  }, []);
 
   const handleToggleTheme = (e) => {
     e?.preventDefault?.();
     setTheme((currentTheme) => (currentTheme === "light" ? "dark" : "light"));
   };
 
-  const handleNavigate = (page, options = {}) => {
+  const handleNavigate = useCallback((page, options = {}) => {
     if (page === "qna") {
       setIsAiChatOpen(true);
       return;
@@ -1196,14 +1197,14 @@ function App() {
 
     // Tự động đóng sidebar trên mobile khi chuyển trang
     handleCloseMobileSidebar();
-  };
+  }, [handleCloseMobileSidebar]);
 
   // Lắng nghe navigate event từ DashboardPage
   useEffect(() => {
     const handler = (e) => handleNavigate(e.detail?.page);
     window.addEventListener("app:navigate", handler);
     return () => window.removeEventListener("app:navigate", handler);
-  }, []);
+  }, [handleNavigate]);
 
   // Đóng sidebar khi click/chạm ra ngoài (trên mobile/tablet)
   useEffect(() => {
@@ -1228,7 +1229,7 @@ function App() {
       document.removeEventListener("click", handleOutsideClick);
       document.removeEventListener("touchstart", handleOutsideClick);
     };
-  }, []);
+  }, [handleCloseMobileSidebar]);
 
   const handleLogin = (userData) => {
     if (!hasStoredSession()) {
@@ -1290,6 +1291,7 @@ function App() {
                 payload.data.permissions,
                 payload.data.role?.permissions,
                 payload.data.roleId?.permissions,
+                payload.data.grantedPermissions,
               ),
               grantedPermissions: normalizePermissionList(payload.data.grantedPermissions),
               departmentId: payload.data.departmentId || null,
@@ -1349,6 +1351,7 @@ function App() {
             payload.data.permissions,
             payload.data.role?.permissions,
             payload.data.roleId?.permissions,
+            payload.data.grantedPermissions,
           ),
           grantedPermissions: normalizePermissionList(payload.data.grantedPermissions),
           departmentId: payload.data.departmentId || null,
