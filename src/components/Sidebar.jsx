@@ -2333,6 +2333,43 @@ export const Sidebar = ({
                   </span>
                 </a>
               </li>
+
+              <li className="menu-item mb-2">
+                <a
+                  className={`menu-link d-flex align-items-center px-2 py-2 rounded-2 ${currentPage === "surveyManagement" ? "text-primary fw-bold" : "text-body-secondary"}`}
+                  href="#"
+                  style={{ textDecoration: "none" }}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    onNavigate?.("surveyManagement");
+                  }}
+                >
+                  <div
+                    className="d-flex align-items-center justify-content-center rounded-3 bg-body-secondary me-3 flex-shrink-0"
+                    style={{ width: "36px", height: "36px" }}
+                  >
+                    <svg
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M9 11l3 3L22 4"></path>
+                      <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+                    </svg>
+                  </div>
+                  <span
+                    className="menu-label"
+                    style={{ flex: 1, fontSize: "14px" }}
+                  >
+                    Quản lý khảo sát
+                  </span>
+                </a>
+              </li>
             </>
           )}
 

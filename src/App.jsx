@@ -35,6 +35,7 @@ import { NewsEventsManagementPage } from "./newsEvents/NewsEventsManagementPage"
 import { AUTH_EVENTS, authFetch, getAuthHeaders } from "./auth/session";
 import { SupportPage } from "./components/SupportPage";
 import { SystemSettingsPage } from "./systemSettings/SystemSettingsPage";
+import { SurveyManagementPage } from "./SurveyManagement/SurveyManagementPage";
 import { API_BASE_URL } from "./config/api";
 import { driver } from "driver.js";
 import "driver.js/dist/driver.css";
@@ -1537,6 +1538,8 @@ function App() {
           <ProductManagementPage currentUser={user} />
         ) : currentPage === "systemSettings" ? (
           <SystemSettingsPage currentUser={user} />
+        ) : currentPage === "surveyManagement" ? (
+          <SurveyManagementPage currentUser={user} />
         ) : currentPage === "nophosoonline" ? (
           <OnlineApplicationPage currentUser={user} onNavigate={handleNavigate} />
         ) : (
