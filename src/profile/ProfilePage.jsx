@@ -4,7 +4,7 @@ import { API_BASE_URL } from "../config/api";
 
 const PROFILE_EXTRAS_KEY = "hto_profile_extras";
 const ADMIN_ROLE_ID = "69fc5af582ef85451120772a";
-const COLLABORATOR_ROLE_ID = "69fc5af682ef85451120772f";
+const COLLABORATOR_ROLE_ID = "69fc5af782ef854511207730";
 
 const ROLE_ID_MAP = {
   "69fc5af582ef85451120772a": "admin",
@@ -12,8 +12,8 @@ const ROLE_ID_MAP = {
   "69fc5af582ef85451120772c": "truongbophan",
   "69fc5af582ef85451120772d": "nhansu",
   "69fc5af582ef85451120772e": "daily",
-  "69fc5af682ef85451120772f": "congtacvien",
-  "69fc5af782ef854511207730": "user",
+  "69fc5af682ef85451120772f": "user",
+  "69fc5af782ef854511207730": "congtacvien",
   "60c72b2f9b1d8b2bad000001": "staff",
 };
 
@@ -138,7 +138,7 @@ const normalizeUserPayload = (payload, fallback = {}) => {
     bannerUrl: data.bannerUrl || profile.bannerUrl || fallback.bannerUrl || "",
     referralCode: data.referralCode || data.referral_code || profile.referralCode || fallback.referralCode || "",
     roleId: data.roleId || fallback.roleId || "",
-    role: data.role || ROLE_ID_MAP[data.roleId] || fallback.role || ROLE_ID_MAP[fallback.roleId] || "user",
+    role: ROLE_ID_MAP[data.roleId] || ROLE_ID_MAP[fallback.roleId] || "user",
     rank: data.rank || fallback.rank || "",
     departmentId: data.departmentId || fallback.departmentId || "",
     status: data.status || fallback.status || "active",
@@ -675,11 +675,23 @@ export const ProfilePage = ({ currentUser, onUserUpdate }) => {
     setFormData((current) => ({ ...current, [field]: value }));
   };
 
+  const handleImageUrlChange = (field, url) => {
+    handleFieldChange(field, url);
+    setRawImageSrc(url);
+    setImageScale(1);
+    setImageOffset({ x: 0, y: 0 });
+    setImgRatio(1);
+  };
+
   const openEditModal = (mode) => {
     setFormData(profile);
     setAddressDraft(parseAddressDraft(profile.address));
     setEditMode(mode);
     setError("");
+    setRawImageSrc(profile[mode === "avatar" ? "avatarUrl" : "bannerUrl"] || "");
+    setImageScale(1);
+    setImageOffset({ x: 0, y: 0 });
+    setImgRatio(1);
   };
 
   const handleAddressChange = (field, value) => {
@@ -703,7 +715,10 @@ export const ProfilePage = ({ currentUser, onUserUpdate }) => {
 
     const reader = new FileReader();
     reader.onload = () => {
-      handleFieldChange(field, String(reader.result || ""));
+      setRawImageSrc(String(reader.result || ""));
+      setImageScale(1);
+      setImageOffset({ x: 0, y: 0 });
+      setImgRatio(1);
       setError("");
     };
     reader.onerror = () => setError("Không thể đọc ảnh từ máy.");
@@ -717,6 +732,8 @@ export const ProfilePage = ({ currentUser, onUserUpdate }) => {
 
   const handleCancelEdit = () => {
     setFormData(profile);
+    setRawImageSrc("");
+    setImgRatio(1);
     setEditMode(null);
     setError("");
   };
@@ -729,40 +746,49 @@ export const ProfilePage = ({ currentUser, onUserUpdate }) => {
     setError("");
     setNotice("");
 
-    const trimmedForm = {
-      ...formData,
-      fullName: formData.fullName.trim(),
-      email: formData.email.trim(),
-      phone: formData.phone.trim(),
-      address: formData.address.trim(),
-      socialLink: formData.socialLink.trim(),
-      avatarUrl: formData.avatarUrl.trim(),
-      bannerUrl: formData.bannerUrl.trim(),
-    };
-
-    if (!canEditProfile) {
-      const mergedProfile = { ...profile, ...trimmedForm };
-      const extras = {
-        fullName: mergedProfile.fullName,
-        phone: mergedProfile.phone,
-        address: mergedProfile.address,
-        socialLink: mergedProfile.socialLink,
-        avatarUrl: mergedProfile.avatarUrl,
-        bannerUrl: mergedProfile.bannerUrl,
-        dealCount: mergedProfile.dealCount,
-      };
-
-      writeProfileExtras(profile.id, extras);
-      setProfile(mergedProfile);
-      setFormData(mergedProfile);
-      setEditMode(null);
-      setNotice("Đã lưu thông tin hiển thị trên frontend.");
-      onUserUpdate?.(mergedProfile);
-      setSaving(false);
-      return;
-    }
+    let finalAvatarUrl = formData.avatarUrl;
+    let finalBannerUrl = formData.bannerUrl;
 
     try {
+      if (editMode === "avatar" && rawImageSrc) {
+        finalAvatarUrl = await cropImage(rawImageSrc, imageScale, imageOffset, true);
+      } else if (editMode === "banner" && rawImageSrc) {
+        finalBannerUrl = await cropImage(rawImageSrc, imageScale, imageOffset, false);
+      }
+
+      const trimmedForm = {
+        ...formData,
+        fullName: formData.fullName.trim(),
+        email: formData.email.trim(),
+        phone: formData.phone.trim(),
+        address: formData.address.trim(),
+        socialLink: formData.socialLink.trim(),
+        avatarUrl: finalAvatarUrl.trim(),
+        bannerUrl: finalBannerUrl.trim(),
+      };
+
+      if (!canEditProfile) {
+        const mergedProfile = { ...profile, ...trimmedForm };
+        const extras = {
+          fullName: mergedProfile.fullName,
+          phone: mergedProfile.phone,
+          address: mergedProfile.address,
+          socialLink: mergedProfile.socialLink,
+          avatarUrl: mergedProfile.avatarUrl,
+          bannerUrl: mergedProfile.bannerUrl,
+          dealCount: mergedProfile.dealCount,
+        };
+
+        writeProfileExtras(profile.id, extras);
+        setProfile(mergedProfile);
+        setFormData(mergedProfile);
+        setEditMode(null);
+        setNotice("Đã lưu thông tin hiển thị trên frontend.");
+        onUserUpdate?.(mergedProfile);
+        setSaving(false);
+        return;
+      }
+
       const payload = await updateUser(profile.id, {
         fullName: trimmedForm.fullName,
         email: trimmedForm.email,
@@ -1191,6 +1217,74 @@ export const ProfilePage = ({ currentUser, onUserUpdate }) => {
         </div>
       </section>
 
+      {/* SECTION DANH SÁCH KHẢO SÁT CTV */}
+      <section className="mt-4 rounded-xl border border-slate-200 bg-white p-4 shadow-[0_10px_28px_rgba(30,64,175,0.07)] app-dark:border-slate-700 app-dark:bg-slate-900">
+        <h2 className="mb-2 text-lg font-black text-slate-950">Chiến dịch khảo sát đang chạy</h2>
+        <p className="mb-4 text-xs text-slate-500">
+          Hãy chia sẻ các đường dẫn khảo sát dưới đây cho khách hàng. Hệ thống sẽ tự động ghi nhận dữ liệu thuộc về tài khoản Cộng tác viên của bạn.
+        </p>
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-left text-sm">
+            <thead className="bg-slate-50 text-xs font-black uppercase text-slate-500 app-dark:bg-slate-950">
+              <tr>
+                <th className="px-4 py-3">Tên chiến dịch khảo sát</th>
+                <th className="px-4 py-3">Link khảo sát giới thiệu của bạn</th>
+                <th className="px-4 py-3 text-right">Hành động</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 app-dark:divide-slate-800">
+              {activeSurveys.length > 0 ? (
+                activeSurveys.map((survey) => {
+                  const refUrl = getSurveyReferralUrl(survey.baseUrl, referralCode);
+                  return (
+                    <tr key={survey.id} className="hover:bg-slate-50/50 app-dark:hover:bg-slate-950/20">
+                      <td className="px-4 py-3 font-semibold text-slate-900 app-dark:text-slate-50">
+                        {survey.title}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-slate-500">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono max-w-[450px] truncate block" title={refUrl}>
+                            {referralLoading ? "Đang tải link giới thiệu..." : refUrl}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="flex justify-end gap-3">
+                          <button
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 app-dark:border-slate-750 app-dark:bg-slate-950 app-dark:text-slate-200"
+                            type="button"
+                            disabled={!refUrl || referralLoading}
+                            onClick={() => copyText(refUrl, `link khảo sát "${survey.title}"`)}
+                          >
+                            <Icon name="copy" className="h-4 w-4" />
+                            Copy Link
+                          </button>
+                          <button
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-50 px-2.5 py-1.5 text-xs font-bold text-indigo-600 hover:bg-indigo-100 app-dark:bg-indigo-950/30 app-dark:text-indigo-400"
+                            type="button"
+                            disabled={!refUrl || referralLoading}
+                            onClick={() => handleDownloadSurveyQr(survey.baseUrl, survey.title)}
+                          >
+                            <Icon name="download" className="h-4 w-4" />
+                            Tải mã QR
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              ) : (
+                <tr>
+                  <td colSpan="3" className="px-4 py-6 text-center text-slate-400">
+                    Hiện tại chưa có chiến dịch khảo sát nào được thiết lập.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)]">
             <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-[0_10px_28px_rgba(30,64,175,0.07)] app-dark:border-slate-700 app-dark:bg-slate-900">
           <div className="mb-3 flex items-center justify-between">
@@ -1295,7 +1389,7 @@ export const ProfilePage = ({ currentUser, onUserUpdate }) => {
             </div>
             {editMode === "avatar" || editMode === "banner" ? (
               <div
-                className="rounded-2xl border border-dashed border-slate-300 bg-white p-4 app-dark:border-slate-700 app-dark:bg-slate-900"
+                className={`rounded-2xl border ${editMode === "banner" ? "border-slate-200 p-4 app-dark:border-slate-750" : "border-dashed border-slate-300 p-4"} bg-white app-dark:bg-slate-900`}
                 onDragOver={(event) => event.preventDefault()}
                 onDrop={(event) => handleImageDrop(event, editMode === "avatar" ? "avatarUrl" : "bannerUrl")}
               >
@@ -1303,37 +1397,129 @@ export const ProfilePage = ({ currentUser, onUserUpdate }) => {
                   const field = editMode === "avatar" ? "avatarUrl" : "bannerUrl";
                   const label = editMode === "avatar" ? "Ảnh đại diện" : "Ảnh banner phụ";
                   const isAvatar = editMode === "avatar";
-                  const previewClass = isAvatar ? "mx-auto h-28 w-28 rounded-full" : "h-32 w-full rounded-2xl";
+                  
+                  // Interactive Preview container classes
+                  const containerClass = isAvatar 
+                    ? "mx-auto w-[260px] h-[260px] rounded-xl border border-slate-200 overflow-hidden relative bg-slate-100 app-dark:bg-slate-800" 
+                    : "w-full h-[150px] sm:h-[180px] rounded-xl border border-slate-200 overflow-hidden relative bg-slate-100 app-dark:bg-slate-800";
+                  
+                  // Compute dynamic wider/taller aspect ratio cover style (like CSS object-fit: cover)
+                  const previewRatio = isAvatar ? 1 : 2.5;
+                  const isImageWiderThanContainer = imgRatio > previewRatio;
+
+                  const imgStyle = {
+                    transform: `translate(calc(-50% + ${imageOffset.x}px), calc(-50% + ${imageOffset.y}px)) scale(${imageScale})`,
+                    position: "absolute",
+                    left: "50%",
+                    top: "50%",
+                    cursor: "move",
+                    userSelect: "none",
+                    pointerEvents: "auto",
+                    maxWidth: "none",
+                    maxHeight: "none",
+                    width: isImageWiderThanContainer ? "auto" : "100%",
+                    height: isImageWiderThanContainer ? "100%" : "auto",
+                  };
+
                   return (
                     <>
                       <div className="space-y-3">
-                        <div className={`grid ${previewClass} place-items-center overflow-hidden bg-slate-100 text-slate-400 app-dark:bg-slate-800`}>
-                          {formData[field] ? (
-                            <img className="h-full w-full object-cover" src={formData[field]} alt={label} />
+                        <div 
+                          id={!isAvatar ? "banner-crop-box" : undefined}
+                          className={containerClass}
+                          onMouseDown={rawImageSrc ? handleMouseDown : undefined}
+                          onMouseMove={rawImageSrc ? handleMouseMove : undefined}
+                          onMouseUp={rawImageSrc ? handleMouseUp : undefined}
+                          onMouseLeave={rawImageSrc ? handleMouseUp : undefined}
+                          onTouchStart={rawImageSrc ? handleTouchStart : undefined}
+                          onTouchMove={rawImageSrc ? handleTouchMove : undefined}
+                          onTouchEnd={rawImageSrc ? handleMouseUp : undefined}
+                        >
+                          {rawImageSrc ? (
+                            <img 
+                              style={imgStyle}
+                              src={rawImageSrc} 
+                              alt={label} 
+                              draggable="false" 
+                              onLoad={(e) => {
+                                const { naturalWidth, naturalHeight } = e.currentTarget;
+                                setImgRatio(naturalWidth / naturalHeight);
+                              }}
+                            />
                           ) : (
-                            <Icon name={editMode === "avatar" ? "user" : "camera"} className="h-8 w-8" />
+                            <div className="absolute inset-0 grid place-items-center text-slate-400">
+                              <Icon name={isAvatar ? "user" : "camera"} className="h-8 w-8" />
+                            </div>
+                          )}
+
+                          {/* Lớp phủ mờ (Mask) cho ảnh đại diện hình tròn kiểu Facebook */}
+                          {isAvatar && rawImageSrc && (
+                            <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+                              <div 
+                                id="avatar-crop-box" 
+                                className="w-[160px] h-[160px] rounded-full border-2 border-indigo-500 shadow-[0_0_0_9999px_rgba(15,23,42,0.65)]" 
+                              />
+                            </div>
                           )}
                         </div>
-                        <p className="text-center text-sm leading-6 text-slate-500">
-                          Nhập URL, chọn ảnh từ máy hoặc kéo thả ảnh vào khung xem trước.
-                        </p>
-                      </div>
-                      
-                      <div className="mt-4 grid grid-cols-1 items-end gap-3 sm:grid-cols-[minmax(0,1fr)_184px]">
-                        <label className="flex-1 grid gap-[7px] text-[13px] font-extrabold text-slate-700 app-dark:text-slate-200">
-                          URL {label.toLowerCase()}
-                          <input className={ui.input} value={formData[field]} onChange={(event) => handleFieldChange(field, event.target.value)} />
-                        </label>
-                        <label className="inline-flex h-[44px] w-full cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-slate-200 px-3 py-2 text-xs font-black text-slate-700 hover:bg-slate-50 app-dark:border-slate-700 app-dark:text-slate-100 app-dark:hover:bg-slate-800">
-                          <Icon name="camera" className="h-4 w-4" />
-                          Chọn ảnh từ máy
-                          <input
-                            className="hidden"
-                            type="file"
-                            accept="image/*"
-                            onChange={(event) => handleImageFile(field, event.target.files?.[0])}
-                          />
-                        </label>
+                        {rawImageSrc ? (
+                          <div className="mt-4">
+                            {/* Facebook-style Zoom Slider with Icons */}
+                            <div className="flex items-center justify-center gap-3 px-6">
+                              {/* Zoom Out Icon */}
+                              <svg className="h-4 w-4 text-slate-400 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM13 10H7" />
+                              </svg>
+                              <input
+                                type="range"
+                                min="1"
+                                max="3"
+                                step="0.01"
+                                value={imageScale}
+                                onChange={(e) => setImageScale(parseFloat(e.target.value))}
+                                className="h-1 w-full max-w-[280px] cursor-pointer appearance-none rounded-lg bg-slate-200 accent-indigo-600 app-dark:bg-slate-700 outline-none"
+                              />
+                              {/* Zoom In Icon */}
+                              <svg className="h-4 w-4 text-slate-400 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m3-3H7" />
+                              </svg>
+                              <span className="text-xs font-bold text-slate-500 w-10 text-right">{Math.round(imageScale * 100)}%</span>
+                            </div>
+                            <p className="mt-2 text-[11px] text-center text-slate-400">
+                              * Nhấp giữ và kéo trực tiếp trên ảnh để chọn vùng hiển thị đẹp nhất.
+                            </p>
+
+                            {/* Clean Upload Button below the zoom control */}
+                            <div className="mt-4 flex justify-center">
+                              <label className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-black text-slate-700 hover:bg-slate-50 cursor-pointer shadow-xs app-dark:border-slate-700 app-dark:bg-slate-950 app-dark:text-slate-100 app-dark:hover:bg-slate-800 transition">
+                                <Icon name="camera" className="h-4 w-4 text-slate-500" />
+                                Chọn ảnh khác từ thiết bị
+                                <input
+                                  className="hidden"
+                                  type="file"
+                                  accept="image/*"
+                                  onChange={(event) => handleImageFile(field, event.target.files?.[0])}
+                                />
+                              </label>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="py-8 flex flex-col items-center justify-center">
+                            <p className="text-center text-sm leading-6 text-slate-500 mb-4">
+                              Chọn ảnh từ thiết bị của bạn để bắt đầu căn chỉnh cắt.
+                            </p>
+                            <label className="inline-flex items-center gap-2 rounded-xl border border-dashed border-slate-350 bg-slate-50 px-6 py-4 text-sm font-black text-indigo-600 hover:bg-indigo-50/50 cursor-pointer shadow-xs app-dark:border-slate-700 app-dark:bg-slate-950 app-dark:text-indigo-400 app-dark:hover:bg-indigo-950/20 transition">
+                              <Icon name="camera" className="h-5 w-5" />
+                              Chọn ảnh từ thiết bị
+                              <input
+                                className="hidden"
+                                type="file"
+                                accept="image/*"
+                                onChange={(event) => handleImageFile(field, event.target.files?.[0])}
+                              />
+                            </label>
+                          </div>
+                        )}
                       </div>
                     </>
                   );
